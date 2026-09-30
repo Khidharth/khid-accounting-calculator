@@ -5094,14 +5094,21 @@ const calculator =
 
     if (!calculator) {
 
-        calculatorTitle.innerHTML =
-            "<h2>Calculator unavailable</h2>";
+    calculatorTitle.innerHTML =
+        "<h2>Calculator unavailable</h2>";
 
-        calculatorForm.innerHTML = "";
+    calculatorForm.innerHTML = `
+        <div style="padding:15px;">
+            <p><strong>Category:</strong> ${category}</p>
+            <p><strong>Type received:</strong> ${type}</p>
+            <p><strong>AP-GP exists:</strong> ${
+                calculators[category]["ap-gp"] ? "YES" : "NO"
+            }</p>
+        </div>
+    `;
 
-        return;
-
-    }
+    return;
+}
 
 
     calculatorTitle.innerHTML =
