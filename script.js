@@ -428,74 +428,383 @@ accounting: {
     title: "Reducing-Balance Depreciation",
 
     fields: [
-        ["cost", "Cost of Asset (₦)", "number"],
+        ["method", "Calculation Method", "select"],
+        ["cost", "Asset Cost (₦)", "number"],
         ["residual", "Scrap / Residual Value (₦)", "number"],
-        ["life", "Useful Life (Years)", "number"]
+        ["life", "Useful Life (Years)", "number"],
+        ["rate", "Depreciation Rate (%)", "number"],
+        ["startDate", "Start Date", "date"],
+        ["endDate", "End Date", "date"],
+        ["openingAccumulated", "Opening Accumulated Depreciation (₦)", "number"]
     ],
 
+    options: {
+
+        method: [
+            ["rate", "Calculate Depreciation Rate"],
+            ["depreciation", "Calculate Depreciation"]
+        ]
+
+    },
+
     formula:
-        "r = 1 − (S ÷ C)^(1 ÷ n)",
+        "Reducing Balance: Depreciation = Opening Carrying Amount × Depreciation Rate",
 
     calculate(v) {
 
-        const cost = getNumber(v, "cost");
-        const residual = getNumber(v, "residual");
-        const life = getNumber(v, "life");
+        const method = v.method;
 
-        if (
-            cost <= 0 ||
-            residual < 0 ||
-            residual >= cost ||
-            life <= 0
-        ) {
+        /* =========================
+           METHOD 1 — CALCULATE RATE
+           ========================= */
 
-            return errorMessage(
-                "Check the cost, residual value and useful life."
+        if (method === "rate") {
+
+            const cost =
+                getNumber(v, "cost");
+
+            const residual =
+                getNumber(v, "residual");
+
+            const life =
+                getNumber(v, "life");
+
+            if (cost <= 0) {
+                throw new Error(
+                    "Asset cost must be greater than zero."
+                );
+            }
+
+            if (residual < 0 || residual >= cost) {
+                throw new Error(
+                    "Residual value must be at least zero and less than asset cost."
+                );
+            }
+
+            if (life <= 0) {
+                throw new Error(
+                    "Useful life must be greater than zero."
+                );
+            }
+
+            /*
+                S = C(1-r)^n
+
+                r = 1 - (S/C)^(1/n)
+            */
+
+            const rate =
+                (1 - Math.pow(
+                    residual / cost,
+                    1 / life
+                )) * 100;
+
+            return resultTemplate(
+
+                "Reducing-Balance Rate Formula",
+
+                `
+                S = C(1 − r)<sup>n</sup><br><br>
+
+                Rearranged:<br>
+
+                r = 1 − (S / C)<sup>1/n</sup><br><br>
+
+                = 1 − (${money(residual)} /
+                ${money(cost)})<sup>1/${number(life)}</sup><br><br>
+
+                Depreciation Rate =
+                <strong>${percent(rate)}</strong>
+                `,
+
+                `
+                <strong>Depreciation Rate:
+                ${percent(rate)}</strong><br><br>
+
+                Asset Cost:
+                ${money(cost)}<br>
+
+                Residual Value:
+                ${money(residual)}<br>
+
+                Useful Life:
+                ${number(life)} years
+                `
             );
 
         }
 
-        const rate =
-            1 -
-            Math.pow(
-                residual / cost,
-                1 / life
+
+        /* =========================
+           METHOD 2 — CALCULATE DEPRECIATION
+           ========================= */
+
+        if (method === "depreciation") {
+
+            const cost =
+                getNumber(v, "cost");
+
+            const rate =
+                getNumber(v, "rate");
+
+            const startDate =
+                v.startDate;
+
+            const endDate =
+                v.endDate;
+
+            const openingAccumulated =
+                v.openingAccumulated === ""
+                    ? 0
+                    : getNumber(
+                        v,
+                        "openingAccumulated"
+                    );
+
+            if (cost <= 0) {
+                throw new Error(
+                    "Asset cost must be greater than zero."
+                );
+            }
+
+            if (rate < 0 || rate > 100) {
+                throw new Error(
+                    "Depreciation rate must be between 0% and 100%."
+                );
+            }
+
+            if (!startDate || !endDate) {
+                throw new Error(
+                    "Please enter both the start date and end date."
+                );
+            }
+
+            const start =
+                new Date(startDate + "T00:00:00");
+
+            const end =
+                new Date(endDate + "T00:00:00");
+
+            if (
+                Number.isNaN(start.getTime()) ||
+                Number.isNaN(end.getTime())
+            ) {
+                throw new Error(
+                    "Please enter valid dates."
+                );
+            }
+
+            if (end <= start) {
+                throw new Error(
+                    "End date must be after the start date."
+                );
+            }
+
+            if (
+                openingAccumulated < 0 ||
+                openingAccumulated > cost
+            ) {
+                throw new Error(
+                    "Opening accumulated depreciation cannot be negative or exceed asset cost."
+                );
+            }
+
+            let periodStart =
+                new Date(start);
+
+            let openingBookValue =
+                cost - openingAccumulated;
+
+            let accumulated =
+                openingAccumulated;
+
+            let totalDepreciation = 0;
+
+            let rows = "";
+
+            let periodNumber = 1;
+
+
+            while (periodStart < end) {
+
+                let periodEnd =
+                    new Date(periodStart);
+
+                periodEnd.setFullYear(
+                    periodEnd.getFullYear() + 1
+                );
+
+                if (periodEnd > end) {
+                    periodEnd = new Date(end);
+                }
+
+                const days =
+                    Math.round(
+                        (
+                            periodEnd -
+                            periodStart
+                        ) / 86400000
+                    );
+
+                const fraction =
+                    days / 365;
+
+                const depreciation =
+                    openingBookValue *
+                    (rate / 100) *
+                    fraction;
+
+                const closingBookValue =
+                    openingBookValue -
+                    depreciation;
+
+                accumulated +=
+                    depreciation;
+
+                totalDepreciation +=
+                    depreciation;
+
+                rows += `
+
+                    <tr>
+
+                        <td style="border:1px solid #999;padding:6px;">
+                            ${periodNumber}
+                        </td>
+
+                        <td style="border:1px solid #999;padding:6px;">
+                            ${rbPeriodLabel(
+                                periodStart,
+                                periodEnd
+                            )}
+                        </td>
+
+                        <td style="border:1px solid #999;padding:6px;">
+                            ${money(openingBookValue)}
+                        </td>
+
+                        <td style="border:1px solid #999;padding:6px;">
+                            ${money(depreciation)}
+                        </td>
+
+                        <td style="border:1px solid #999;padding:6px;">
+                            ${money(accumulated)}
+                        </td>
+
+                        <td style="border:1px solid #999;padding:6px;">
+                            ${money(closingBookValue)}
+                        </td>
+
+                    </tr>
+
+                `;
+
+                openingBookValue =
+                    closingBookValue;
+
+                periodStart =
+                    periodEnd;
+
+                periodNumber++;
+
+                if (periodNumber > 100) {
+                    break;
+                }
+
+            }
+
+
+            const totalDays =
+                Math.round(
+                    (end - start) / 86400000
+                );
+
+            return resultTemplate(
+
+                "Reducing-Balance Depreciation Schedule",
+
+                `
+
+                Asset Cost =
+                ${money(cost)}<br><br>
+
+                Depreciation Rate =
+                ${percent(rate)}<br><br>
+
+                Period =
+                ${rbPeriodLabel(start, end)}<br><br>
+
+                Total Days =
+                ${number(totalDays)} days<br><br>
+
+                Formula:<br>
+
+                Depreciation =
+                Opening Carrying Amount × Rate ×
+                (Days / 365)
+
+                <br><br>
+
+                <table style="width:100%;border-collapse:collapse;">
+
+                    <thead>
+
+                        <tr>
+
+                            <th style="border:1px solid #999;padding:6px;">
+                                Period
+                            </th>
+
+                            <th style="border:1px solid #999;padding:6px;">
+                                Duration
+                            </th>
+
+                            <th style="border:1px solid #999;padding:6px;">
+                                Opening Carrying Amount
+                            </th>
+
+                            <th style="border:1px solid #999;padding:6px;">
+                                Depreciation
+                            </th>
+
+                            <th style="border:1px solid #999;padding:6px;">
+                                Accumulated Depreciation
+                            </th>
+
+                            <th style="border:1px solid #999;padding:6px;">
+                                Closing Carrying Amount
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        ${rows}
+
+                    </tbody>
+
+                </table>
+
+                `,
+
+                `
+                <strong>Total Depreciation:
+                ${money(totalDepreciation)}</strong>
+                `
+
             );
 
-        const percentageRate =
-            rate * 100;
+        }
 
-        return resultTemplate(
-
-            "S = C(1 − r)^n<br><br>" +
-            "r = 1 − (S ÷ C)^(1 ÷ n)",
-
-            `
-            Cost of Asset =
-            ${money(cost)}<br><br>
-
-            Scrap / Residual Value =
-            ${money(residual)}<br><br>
-
-            Useful Life =
-            ${number(life)} years<br><br>
-
-            r =
-            1 −
-            (${money(residual)} ÷ ${money(cost)})^(1 ÷ ${number(life)})
-            <br><br>
-
-            Depreciation Rate =
-            ${percent(percentageRate)}
-            `,
-
-            `Depreciation Rate: ${percent(percentageRate)}`
+        throw new Error(
+            "Please select a calculation method."
         );
 
     }
 
 },
-
 
 "book-value": {
 
@@ -4356,6 +4665,125 @@ function populateCalculators() {
    SHOW SELECTED CALCULATOR
 ========================================================= */
 
+function rbPeriodLabel(start, end) {
+
+    let months =
+        (
+            end.getFullYear() -
+            start.getFullYear()
+        ) * 12 +
+        (
+            end.getMonth() -
+            start.getMonth()
+        );
+
+    if (end.getDate() < start.getDate()) {
+        months--;
+    }
+
+    const years =
+        Math.floor(months / 12);
+
+    const remainingMonths =
+        months % 12;
+
+    const parts = [];
+
+    if (years > 0) {
+
+        parts.push(
+            years +
+            (years === 1 ? " year" : " years")
+        );
+
+    }
+
+    if (remainingMonths > 0) {
+
+        parts.push(
+            remainingMonths +
+            (remainingMonths === 1
+                ? " month"
+                : " months")
+        );
+
+    }
+
+    if (parts.length === 0) {
+
+        const days =
+            Math.round(
+                (end - start) / 86400000
+            );
+
+        return days +
+            (days === 1 ? " day" : " days");
+
+    }
+
+    return parts.join(" ");
+
+}
+
+
+function rbAddField(
+    container,
+    name,
+    label,
+    inputType
+) {
+
+    const group =
+        document.createElement("div");
+
+    group.className =
+        "input-group";
+
+    const labelElement =
+        document.createElement("label");
+
+    labelElement.htmlFor =
+        name;
+
+    labelElement.textContent =
+        label;
+
+    group.appendChild(
+        labelElement
+    );
+
+    const input =
+        document.createElement("input");
+
+    input.type =
+        inputType;
+
+    input.id =
+        name;
+
+    input.name =
+        name;
+
+    input.placeholder =
+        label;
+
+    if (inputType === "number") {
+
+        input.step = "any";
+
+    }
+
+    group.appendChild(
+        input
+    );
+
+    container.appendChild(
+        group
+    );
+
+}
+
+
 function showCalculator(type) {
 
     const category =
@@ -4382,6 +4810,182 @@ function showCalculator(type) {
 
     calculatorForm.innerHTML = "";
 
+   if (
+    category === "accounting" &&
+    type === "reducing-balance"
+) {
+
+    const methodGroup =
+        document.createElement("div");
+
+    methodGroup.className =
+        "input-group";
+
+    const methodLabel =
+        document.createElement("label");
+
+    methodLabel.htmlFor = "method";
+
+    methodLabel.textContent =
+        "Calculation Method";
+
+    methodGroup.appendChild(
+        methodLabel
+    );
+
+    const methodSelect =
+        document.createElement("select");
+
+    methodSelect.id = "method";
+    methodSelect.name = "method";
+
+    const rateOption =
+        document.createElement("option");
+
+    rateOption.value = "rate";
+
+    rateOption.textContent =
+        "Calculate Depreciation Rate";
+
+    methodSelect.appendChild(
+        rateOption
+    );
+
+    const depreciationOption =
+        document.createElement("option");
+
+    depreciationOption.value =
+        "depreciation";
+
+    depreciationOption.textContent =
+        "Calculate Depreciation";
+
+    methodSelect.appendChild(
+        depreciationOption
+    );
+
+    methodGroup.appendChild(
+        methodSelect
+    );
+
+    calculatorForm.appendChild(
+        methodGroup
+    );
+
+
+    const fieldsContainer =
+        document.createElement("div");
+
+    fieldsContainer.id =
+        "reducingBalanceFields";
+
+    calculatorForm.appendChild(
+        fieldsContainer
+    );
+
+
+    function renderFields(method) {
+
+        fieldsContainer.innerHTML = "";
+
+
+        if (method === "rate") {
+
+            rbAddField(
+                fieldsContainer,
+                "cost",
+                "Asset Cost (₦)",
+                "number"
+            );
+
+            rbAddField(
+                fieldsContainer,
+                "residual",
+                "Scrap / Residual Value (₦)",
+                "number"
+            );
+
+            rbAddField(
+                fieldsContainer,
+                "life",
+                "Useful Life (Years)",
+                "number"
+            );
+
+        }
+
+
+        if (method === "depreciation") {
+
+            rbAddField(
+                fieldsContainer,
+                "cost",
+                "Asset Cost (₦)",
+                "number"
+            );
+
+            rbAddField(
+                fieldsContainer,
+                "rate",
+                "Depreciation Rate (%)",
+                "number"
+            );
+
+            rbAddField(
+                fieldsContainer,
+                "startDate",
+                "Start Date",
+                "date"
+            );
+
+            rbAddField(
+                fieldsContainer,
+                "endDate",
+                "End Date",
+                "date"
+            );
+
+            rbAddField(
+                fieldsContainer,
+                "openingAccumulated",
+                "Opening Accumulated Depreciation (₦) — Optional",
+                "number"
+            );
+
+        }
+
+    }
+
+
+    renderFields("rate");
+
+
+    methodSelect.addEventListener(
+        "change",
+        function () {
+
+            renderFields(
+                methodSelect.value
+            );
+
+        }
+    );
+
+
+    result.innerHTML = `
+
+        <h3>Result</h3>
+
+        <p>
+            Enter your values and click
+            <strong>Calculate</strong>.
+        </p>
+
+    `;
+
+    return;
+
+}
 
     calculator.fields.forEach(
         field => {
