@@ -428,41 +428,68 @@ accounting: {
     title: "Reducing-Balance Depreciation",
 
     fields: [
-        ["cost", "Opening Book Value (₦)", "number"],
-        ["rate", "Depreciation Rate (%)", "number"]
+        ["cost", "Cost of Asset (₦)", "number"],
+        ["residual", "Scrap / Residual Value (₦)", "number"],
+        ["life", "Useful Life (Years)", "number"]
     ],
 
     formula:
-        "Depreciation = Opening Book Value × Depreciation Rate",
+        "r = 1 − (S ÷ C)^(1 ÷ n)",
 
     calculate(v) {
 
         const cost = getNumber(v, "cost");
-        const rate = getNumber(v, "rate");
+        const residual = getNumber(v, "residual");
+        const life = getNumber(v, "life");
 
-        const depreciation =
-            cost * rate / 100;
+        if (
+            cost <= 0 ||
+            residual < 0 ||
+            residual >= cost ||
+            life <= 0
+        ) {
 
-        const closing =
-            cost - depreciation;
+            return errorMessage(
+                "Check the cost, residual value and useful life."
+            );
+
+        }
+
+        const rate =
+            1 -
+            Math.pow(
+                residual / cost,
+                1 / life
+            );
+
+        const percentageRate =
+            rate * 100;
 
         return resultTemplate(
 
-            "Depreciation = Opening Book Value × Rate",
+            "S = C(1 − r)^n<br><br>" +
+            "r = 1 − (S ÷ C)^(1 ÷ n)",
 
             `
-            = ${money(cost)}
-              × ${percent(rate)}<br><br>
+            Cost of Asset =
+            ${money(cost)}<br><br>
 
-            Depreciation =
-            ${money(depreciation)}<br><br>
+            Scrap / Residual Value =
+            ${money(residual)}<br><br>
 
-            Closing Book Value =
-            ${money(closing)}
+            Useful Life =
+            ${number(life)} years<br><br>
+
+            r =
+            1 −
+            (${money(residual)} ÷ ${money(cost)})^(1 ÷ ${number(life)})
+            <br><br>
+
+            Depreciation Rate =
+            ${percent(percentageRate)}
             `,
 
-            `Depreciation: ${money(depreciation)}<br>
-             Closing Book Value: ${money(closing)}`
+            `Depreciation Rate: ${percent(percentageRate)}`
         );
 
     }
