@@ -32,3 +32,25 @@ themeToggle.addEventListener("click", function () {
     }
 
 });
+
+const calculatorType = document.getElementById("calculatorType");
+
+calculatorType.addEventListener("change", function () {
+
+    if (calculatorType.value === "simple-interest") {
+        console.log("Simple Interest selected");
+    }
+
+    if (calculatorType.value === "compound-interest") {
+        console.log("Compound Interest selected");
+    }
+
+    if (calculatorType.value === "present-value") {
+        console.log("Present Value selected");
+    }
+
+    if (calculatorType.value === "future-value") {
+        console.log("Future Value selected");
+    }
+
+});
