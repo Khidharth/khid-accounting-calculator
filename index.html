@@ -42,28 +42,59 @@
 </div>
 
         <section>
-    <h2>Simple Interest Calculator</h2>
+    <h2>Accounting & Finance Calculators</h2>
 
-    <label for="principal">Principal (₦)</label>
-    <input type="number" id="principal" placeholder="Enter principal">
+    <div class="calculator-selector">
+        <label for="calculatorType">Select Calculator</label>
 
-    <label for="rate">Interest Rate (%)</label>
-    <input type="number" id="rate" placeholder="Enter rate">
+        <select id="calculatorType">
+            <optgroup label="Finance">
+                <option value="simple-interest">Simple Interest</option>
+                <option value="compound-interest">Compound Interest</option>
+                <option value="present-value">Present Value</option>
+                <option value="future-value">Future Value</option>
+                <option value="loan-amortization">Loan Amortization</option>
+                <option value="sinking-fund">Sinking Fund</option>
+                <option value="annuity">Annuity</option>
+                <option value="payment">Payment / Installment</option>
+            </optgroup>
 
-    <label for="time">Time (Years)</label>
-    <input type="number" id="time" placeholder="Enter time">
+            <optgroup label="Accounting">
+                <option value="straight-line-depreciation">
+                    Straight-Line Depreciation
+                </option>
+                <option value="reducing-balance">
+                    Reducing-Balance Depreciation
+                </option>
+                <option value="book-value">Book Value</option>
+                <option value="gross-profit">Gross Profit</option>
+                <option value="gross-profit-margin">
+                    Gross Profit Margin
+                </option>
+                <option value="net-profit">Net Profit</option>
+                <option value="net-profit-margin">
+                    Net Profit Margin
+                </option>
+                <option value="markup">Markup</option>
+                <option value="break-even">Break-Even Point</option>
+                <option value="vat">VAT</option>
+                <option value="bad-debt">Bad Debt</option>
+                <option value="cogs">COGS</option>
+            </optgroup>
+        </select>
+    </div>
 
-    <button id="calculateInterest">Calculate</button>
+    <div id="calculatorForm"></div>
 
     <div id="result">
-    <p>Result will appear here.</p>
-</div>
+        <p>Result will appear here.</p>
+    </div>
 
-<div id="formula">
-    <h3>Formula Used</h3>
-    <p>I = (P × R × T) / 100</p>
-    <p>A = P + I</p>
-</div>
+    <div id="formula">
+        <h3>Formula Used</h3>
+        <p>Select a calculator to see its formula.</p>
+    </div>
+</section>
 
     </main>
 
