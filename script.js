@@ -10,17 +10,34 @@
 
 const themeToggle = document.getElementById("themeToggle");
 
-themeToggle.addEventListener("click", function () {
+if (themeToggle) {
 
-    document.body.classList.toggle("dark-mode");
+    // Load saved theme
+    const savedTheme = localStorage.getItem("theme");
 
-    if (document.body.classList.contains("dark-mode")) {
+    if (savedTheme === "dark") {
+        document.body.classList.add("dark-mode");
         themeToggle.textContent = "☀️ Light Mode";
-    } else {
-        themeToggle.textContent = "🌙 Dark Mode";
     }
 
-});
+    themeToggle.addEventListener("click", function () {
+
+        document.body.classList.toggle("dark-mode");
+
+        const isDark =
+            document.body.classList.contains("dark-mode");
+
+        if (isDark) {
+            themeToggle.textContent = "☀️ Light Mode";
+            localStorage.setItem("theme", "dark");
+        } else {
+            themeToggle.textContent = "🌙 Dark Mode";
+            localStorage.setItem("theme", "light");
+        }
+
+    });
+
+}
 
 
 /* =========================================================
@@ -3247,49 +3264,33 @@ economics: {
     },
 
 
-    "price-elasticity-supply": {
+    const ped =
+    percentQ / percentP;
 
-        title: "Price Elasticity of Supply",
+const absolutePED =
+    Math.abs(ped);
 
-        fields: [
-            ["q1", "Original Quantity Supplied", "number"],
-            ["q2", "New Quantity Supplied", "number"],
-            ["p1", "Original Price", "number"],
-            ["p2", "New Price", "number"]
-        ],
+return resultTemplate(
+    "PED = %ΔQd ÷ %ΔP",
 
-        formula: "PES = % Change in Quantity Supplied ÷ % Change in Price",
+    `% change in Qd =
+     ${percent(percentQ)}<br><br>
 
-        calculate(v) {
+     % change in Price =
+     ${percent(percentP)}<br><br>
 
-            const percentQ =
-                ((v.q2 - v.q1) / v.q1) * 100;
+     PED =
+     ${percentQ.toFixed(4)} ÷
+     ${percentP.toFixed(4)}
+     = ${number(absolutePED)}`,
 
-            const percentP =
-                ((v.p2 - v.p1) / v.p1) * 100;
+    `PED = ${number(absolutePED)}`,
 
-            const pes =
-                percentQ / percentP;
-
-            return resultTemplate(
-                "PES = %ΔQs ÷ %ΔP",
-
-                `% change in Qs =
-                 ${percent(percentQ)}<br><br>
-
-                 % change in Price =
-                 ${percent(percentP)}<br><br>
-
-                 PES = ${number(pes)}`,
-
-                `PES = ${number(pes)}`,
-
-                interpretPES(pes)
-            );
-
-        }
-
-    },
+    `${interpretPED(absolutePED)}<br><br>
+     <small>
+     <strong>Note:</strong> PED is shown as a positive value because the negative sign reflects the inverse relationship between price and quantity demanded. The absolute value shows the degree of responsiveness.
+     </small>`
+);
 
 
     "income-elasticity": {
