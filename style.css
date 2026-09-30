@@ -127,3 +127,22 @@ body.dark-mode input {
     background-color: white;
     color: #222;
 }
+
+/* Compound Interest Method Dropdown */
+
+#calculatorForm select {
+    width: 100%;
+    padding: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 16px;
+    background-color: white;
+    color: #222;
+    cursor: pointer;
+}
+
+body.dark-mode #calculatorForm select {
+    background-color: #374151;
+    color: white;
+    border-color: #6b7280;
+}
