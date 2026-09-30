@@ -1119,13 +1119,34 @@ function showCalculator(type) {
             }
 
 
-            result.innerHTML = `
+            const calculation = calculator.calculate(values);
 
-                <h3>Result</h3>
+if (type === "compound-interest") {
 
-                ${calculator.calculate(values)}
+    result.innerHTML = `
 
-            `;
+        <h3>Result</h3>
+
+        ${calculation}
+
+    `;
+
+} else {
+
+    result.innerHTML = `
+
+        <h3>Result</h3>
+
+        <p>
+            <strong>Formula:</strong>
+            ${calculator.formula}
+        </p>
+
+        ${calculation}
+
+    `;
+
+}
 
         });
 
