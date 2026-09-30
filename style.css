@@ -84,3 +84,26 @@ footer {
         margin: 6px 0;
     }
 }
+
+body.dark-mode {
+    background-color: #111827;
+    color: #f9fafb;
+}
+
+body.dark-mode section {
+    background-color: #1f2937;
+}
+
+body.dark-mode section h2 {
+    color: #f9fafb;
+}
+
+body.dark-mode footer {
+    background-color: #030712;
+}
+
+body.dark-mode input {
+    background-color: #374151;
+    color: white;
+    border-color: #6b7280;
+}
