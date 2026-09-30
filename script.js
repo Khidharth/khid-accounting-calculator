@@ -1,23 +1,6 @@
-const principal = document.getElementById("principal");
-const rate = document.getElementById("rate");
-const time = document.getElementById("time");
-
-const calculateButton = document.getElementById("calculateInterest");
-const result = document.getElementById("result");
-
-calculateButton.addEventListener("click", function () {
-
-    const P = Number(principal.value);
-    const R = Number(rate.value);
-    const T = Number(time.value);
-
-    const interest = (P * R * T) / 100;
-    const amount = P + interest;
-
-    result.textContent =
-        "Interest: ₦" + interest.toLocaleString() +
-        " | Amount: ₦" + amount.toLocaleString();
-});
+// ================================
+// DARK MODE
+// ================================
 
 const themeToggle = document.getElementById("themeToggle");
 
@@ -33,24 +16,476 @@ themeToggle.addEventListener("click", function () {
 
 });
 
+
+// ================================
+// CALCULATOR SYSTEM
+// ================================
+
 const calculatorType = document.getElementById("calculatorType");
+const calculatorForm = document.getElementById("calculatorForm");
+const result = document.getElementById("result");
+const formula = document.getElementById("formula");
+
+
+// ================================
+// CALCULATOR DEFINITIONS
+// ================================
+
+const calculators = {
+
+    "simple-interest": {
+        title: "Simple Interest",
+        fields: [
+            ["principal", "Principal (₦)", "number"],
+            ["rate", "Interest Rate (%)", "number"],
+            ["time", "Time (Years)", "number"]
+        ],
+        formula: "I = (P × R × T) / 100",
+        calculate: function (v) {
+
+            const interest = (v.principal * v.rate * v.time) / 100;
+            const amount = v.principal + interest;
+
+            return `
+                <h3>Simple Interest</h3>
+                <p>Interest: ₦${interest.toLocaleString()}</p>
+                <p>Total Amount: ₦${amount.toLocaleString()}</p>
+            `;
+        }
+    },
+
+
+    "compound-interest": {
+        title: "Compound Interest",
+        fields: [
+            ["principal", "Principal (₦)", "number"],
+            ["rate", "Interest Rate (%)", "number"],
+            ["time", "Time (Years)", "number"],
+            ["frequency", "Compounds Per Year", "number"]
+        ],
+        formula: "A = P(1 + R/n)^(nt)",
+        calculate: function (v) {
+
+            const amount =
+                v.principal *
+                Math.pow(
+                    1 + (v.rate / 100) / v.frequency,
+                    v.frequency * v.time
+                );
+
+            const interest = amount - v.principal;
+
+            return `
+                <h3>Compound Interest</h3>
+                <p>Interest: ₦${interest.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+                <p>Total Amount: ₦${amount.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+            `;
+        }
+    },
+
+
+    "present-value": {
+        title: "Present Value",
+        fields: [
+            ["futureValue", "Future Value (₦)", "number"],
+            ["rate", "Interest Rate (%)", "number"],
+            ["time", "Time (Years)", "number"]
+        ],
+        formula: "PV = FV / (1 + R)^T",
+        calculate: function (v) {
+
+            const pv =
+                v.futureValue /
+                Math.pow(1 + v.rate / 100, v.time);
+
+            return `
+                <h3>Present Value</h3>
+                <p>Present Value: ₦${pv.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+            `;
+        }
+    },
+
+
+    "future-value": {
+        title: "Future Value",
+        fields: [
+            ["presentValue", "Present Value (₦)", "number"],
+            ["rate", "Interest Rate (%)", "number"],
+            ["time", "Time (Years)", "number"]
+        ],
+        formula: "FV = PV(1 + R)^T",
+        calculate: function (v) {
+
+            const fv =
+                v.presentValue *
+                Math.pow(1 + v.rate / 100, v.time);
+
+            return `
+                <h3>Future Value</h3>
+                <p>Future Value: ₦${fv.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+            `;
+        }
+    },
+
+
+    "straight-line-depreciation": {
+        title: "Straight-Line Depreciation",
+        fields: [
+            ["cost", "Asset Cost (₦)", "number"],
+            ["residual", "Residual Value (₦)", "number"],
+            ["life", "Useful Life (Years)", "number"]
+        ],
+        formula: "Annual Depreciation = (Cost − Residual Value) / Useful Life",
+        calculate: function (v) {
+
+            const annual =
+                (v.cost - v.residual) / v.life;
+
+            const monthly = annual / 12;
+
+            return `
+                <h3>Depreciation</h3>
+                <p>Annual Depreciation: ₦${annual.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+                <p>Monthly Depreciation: ₦${monthly.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+            `;
+        }
+    },
+
+
+    "reducing-balance": {
+        title: "Reducing-Balance Depreciation",
+        fields: [
+            ["cost", "Asset Cost (₦)", "number"],
+            ["rate", "Depreciation Rate (%)", "number"],
+            ["years", "Number of Years", "number"]
+        ],
+        formula: "Depreciation = Opening Book Value × Depreciation Rate",
+        calculate: function (v) {
+
+            let bookValue = v.cost;
+
+            for (let year = 1; year <= v.years; year++) {
+                bookValue = bookValue * (1 - v.rate / 100);
+            }
+
+            return `
+                <h3>Reducing-Balance Depreciation</h3>
+                <p>Book Value After ${v.years} Year(s): ₦${bookValue.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+            `;
+        }
+    },
+
+
+    "book-value": {
+        title: "Book Value",
+        fields: [
+            ["cost", "Asset Cost (₦)", "number"],
+            ["accumulated", "Accumulated Depreciation (₦)", "number"]
+        ],
+        formula: "Book Value = Cost − Accumulated Depreciation",
+        calculate: function (v) {
+
+            const bookValue = v.cost - v.accumulated;
+
+            return `
+                <h3>Book Value</h3>
+                <p>Book Value: ₦${bookValue.toLocaleString()}</p>
+            `;
+        }
+    },
+
+
+    "gross-profit": {
+        title: "Gross Profit",
+        fields: [
+            ["sales", "Sales Revenue (₦)", "number"],
+            ["cogs", "Cost of Goods Sold (₦)", "number"]
+        ],
+        formula: "Gross Profit = Sales − COGS",
+        calculate: function (v) {
+
+            const profit = v.sales - v.cogs;
+
+            return `
+                <h3>Gross Profit</h3>
+                <p>Gross Profit: ₦${profit.toLocaleString()}</p>
+            `;
+        }
+    },
+
+
+    "gross-profit-margin": {
+        title: "Gross Profit Margin",
+        fields: [
+            ["grossProfit", "Gross Profit (₦)", "number"],
+            ["sales", "Sales Revenue (₦)", "number"]
+        ],
+        formula: "Gross Profit Margin = (Gross Profit / Sales) × 100",
+        calculate: function (v) {
+
+            const margin = (v.grossProfit / v.sales) * 100;
+
+            return `
+                <h3>Gross Profit Margin</h3>
+                <p>Gross Profit Margin: ${margin.toFixed(2)}%</p>
+            `;
+        }
+    },
+
+
+    "net-profit": {
+        title: "Net Profit",
+        fields: [
+            ["grossProfit", "Gross Profit (₦)", "number"],
+            ["expenses", "Operating Expenses (₦)", "number"]
+        ],
+        formula: "Net Profit = Gross Profit − Expenses",
+        calculate: function (v) {
+
+            const profit = v.grossProfit - v.expenses;
+
+            return `
+                <h3>Net Profit</h3>
+                <p>Net Profit: ₦${profit.toLocaleString()}</p>
+            `;
+        }
+    },
+
+
+    "net-profit-margin": {
+        title: "Net Profit Margin",
+        fields: [
+            ["netProfit", "Net Profit (₦)", "number"],
+            ["sales", "Sales Revenue (₦)", "number"]
+        ],
+        formula: "Net Profit Margin = (Net Profit / Sales) × 100",
+        calculate: function (v) {
+
+            const margin = (v.netProfit / v.sales) * 100;
+
+            return `
+                <h3>Net Profit Margin</h3>
+                <p>Net Profit Margin: ${margin.toFixed(2)}%</p>
+            `;
+        }
+    },
+
+
+    "markup": {
+        title: "Markup",
+        fields: [
+            ["cost", "Cost (₦)", "number"],
+            ["sellingPrice", "Selling Price (₦)", "number"]
+        ],
+        formula: "Markup = ((Selling Price − Cost) / Cost) × 100",
+        calculate: function (v) {
+
+            const markup =
+                ((v.sellingPrice - v.cost) / v.cost) * 100;
+
+            return `
+                <h3>Markup</h3>
+                <p>Markup: ${markup.toFixed(2)}%</p>
+            `;
+        }
+    },
+
+
+    "break-even": {
+        title: "Break-Even Point",
+        fields: [
+            ["fixedCosts", "Fixed Costs (₦)", "number"],
+            ["sellingPrice", "Selling Price Per Unit (₦)", "number"],
+            ["variableCost", "Variable Cost Per Unit (₦)", "number"]
+        ],
+        formula: "Break-Even Units = Fixed Costs / (Selling Price − Variable Cost)",
+        calculate: function (v) {
+
+            const units =
+                v.fixedCosts /
+                (v.sellingPrice - v.variableCost);
+
+            return `
+                <h3>Break-Even Point</h3>
+                <p>Break-Even Point: ${units.toFixed(2)} units</p>
+            `;
+        }
+    },
+
+
+    "vat": {
+        title: "VAT",
+        fields: [
+            ["amount", "Amount Before VAT (₦)", "number"],
+            ["rate", "VAT Rate (%)", "number"]
+        ],
+        formula: "VAT = Amount × VAT Rate",
+        calculate: function (v) {
+
+            const vat = v.amount * (v.rate / 100);
+            const total = v.amount + vat;
+
+            return `
+                <h3>VAT</h3>
+                <p>VAT: ₦${vat.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+                <p>Total Including VAT: ₦${total.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                })}</p>
+            `;
+        }
+    },
+
+
+    "bad-debt": {
+        title: "Bad Debt",
+        fields: [
+            ["receivable", "Customer Receivable (₦)", "number"],
+            ["badDebt", "Amount Written Off (₦)", "number"]
+        ],
+        formula: "Remaining Receivable = Receivable − Bad Debt",
+        calculate: function (v) {
+
+            const remaining = v.receivable - v.badDebt;
+
+            return `
+                <h3>Bad Debt</h3>
+                <p>Bad Debt Expense: ₦${v.badDebt.toLocaleString()}</p>
+                <p>Remaining Receivable: ₦${remaining.toLocaleString()}</p>
+            `;
+        }
+    },
+
+
+    "cogs": {
+        title: "Cost of Goods Sold",
+        fields: [
+            ["openingInventory", "Opening Inventory (₦)", "number"],
+            ["purchases", "Purchases (₦)", "number"],
+            ["closingInventory", "Closing Inventory (₦)", "number"]
+        ],
+        formula: "COGS = Opening Inventory + Purchases − Closing Inventory",
+        calculate: function (v) {
+
+            const cogs =
+                v.openingInventory +
+                v.purchases -
+                v.closingInventory;
+
+            return `
+                <h3>Cost of Goods Sold</h3>
+                <p>COGS: ₦${cogs.toLocaleString()}</p>
+            `;
+        }
+    }
+
+};
+
+
+// ================================
+// DISPLAY CALCULATOR
+// ================================
+
+function showCalculator(type) {
+
+    const calculator = calculators[type];
+
+    calculatorForm.innerHTML = `
+        <h2>${calculator.title}</h2>
+
+        ${calculator.fields.map(function(field) {
+
+            return `
+                <label for="${field[0]}">${field[1]}</label>
+                <input
+                    type="${field[2]}"
+                    id="${field[0]}"
+                    placeholder="Enter ${field[1]}"
+                    min="0"
+                >
+            `;
+
+        }).join("")}
+
+        <button id="calculateButton">Calculate</button>
+    `;
+
+    formula.innerHTML = `
+        <h3>Formula Used</h3>
+        <p>${calculator.formula}</p>
+    `;
+
+    result.innerHTML = `
+        <p>Enter your values and click Calculate.</p>
+    `;
+
+
+    document
+        .getElementById("calculateButton")
+        .addEventListener("click", function () {
+
+            const values = {};
+
+            calculator.fields.forEach(function(field) {
+
+                values[field[0]] =
+                    Number(document.getElementById(field[0]).value);
+
+            });
+
+
+            const hasEmptyValue =
+                calculator.fields.some(function(field) {
+
+                    return document.getElementById(field[0]).value === "";
+
+                });
+
+
+            if (hasEmptyValue) {
+
+                result.innerHTML =
+                    "<p>Please enter all required values.</p>";
+
+                return;
+            }
+
+
+            result.innerHTML =
+                calculator.calculate(values);
+
+        });
+}
+
+
+// ================================
+// CHANGE CALCULATOR
+// ================================
 
 calculatorType.addEventListener("change", function () {
 
-    if (calculatorType.value === "simple-interest") {
-        console.log("Simple Interest selected");
-    }
-
-    if (calculatorType.value === "compound-interest") {
-        console.log("Compound Interest selected");
-    }
-
-    if (calculatorType.value === "present-value") {
-        console.log("Present Value selected");
-    }
-
-    if (calculatorType.value === "future-value") {
-        console.log("Future Value selected");
-    }
+    showCalculator(calculatorType.value);
 
 });
+
+
+// ================================
+// LOAD SIMPLE INTEREST FIRST
+// ================================
+
+showCalculator("simple-interest");
