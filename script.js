@@ -424,269 +424,49 @@ accounting: {
 
 
 "reducing-balance": {
-    title: "Reducing Balance Depreciation",
+
+    title: "Reducing-Balance Depreciation",
+
     fields: [
-        ["method", "Select Calculation", "select",
-            [
-                ["rate", "Calculate Depreciation Rate"],
-                ["depreciation", "Calculate Depreciation"]
-            ]
-        ]
+        ["cost", "Opening Book Value (₦)", "number"],
+        ["rate", "Depreciation Rate (%)", "number"]
     ],
 
-    formula: "Select a calculation method above.",
+    formula:
+        "Depreciation = Opening Book Value × Depreciation Rate",
 
     calculate(v) {
 
-        const method = v.method;
+        const cost = getNumber(v, "cost");
+        const rate = getNumber(v, "rate");
 
-        /* =========================
-           1. CALCULATE RATE
-           ========================= */
+        const depreciation =
+            cost * rate / 100;
 
-        if (method === "rate") {
+        const closing =
+            cost - depreciation;
 
-            const cost = getNumber(v, "cost");
-            const scrap = getNumber(v, "scrap");
-            const life = getNumber(v, "life");
+        return resultTemplate(
 
-            if (cost <= 0) {
-                return errorMessage("Cost of asset must be greater than zero.");
-            }
+            "Depreciation = Opening Book Value × Rate",
 
-            if (scrap < 0 || scrap >= cost) {
-                return errorMessage(
-                    "Scrap value must be greater than or equal to zero and less than the cost."
-                );
-            }
+            `
+            = ${money(cost)}
+              × ${percent(rate)}<br><br>
 
-            if (life <= 0) {
-                return errorMessage("Useful life must be greater than zero.");
-            }
+            Depreciation =
+            ${money(depreciation)}<br><br>
 
-            const rate =
-                (1 - Math.pow(scrap / cost, 1 / life)) * 100;
+            Closing Book Value =
+            ${money(closing)}
+            `,
 
-            return resultTemplate(
-                "Reducing Balance Rate",
-                `
-                <strong>Formula:</strong><br>
-                r = 1 − (S ÷ C)<sup>1/n</sup><br><br>
-
-                Cost (C) = ${money(cost)}<br>
-                Scrap Value (S) = ${money(scrap)}<br>
-                Useful Life (n) = ${number(life, 2)} years<br><br>
-
-                r = 1 − (${money(scrap)} ÷ ${money(cost)})<sup>1/${number(life, 2)}</sup><br><br>
-
-                r = ${number(rate, 4)}%
-                `,
-                `Reducing Balance Rate = ${number(rate, 2)}%`,
-                `
-                This is the annual depreciation rate required to reduce
-                the asset from its original cost to its scrap value
-                over the stated useful life.
-                `
-            );
-        }
-
-
-        /* =========================
-           2. CALCULATE DEPRECIATION
-           ========================= */
-
-        if (method === "depreciation") {
-
-            const cost = getNumber(v, "cost");
-            const rate = getNumber(v, "rate");
-            const accumulated = getNumber(v, "accumulated");
-            const startDate = new Date(v.startDate);
-            const endDate = new Date(v.endDate);
-
-            if (cost <= 0) {
-                return errorMessage("Cost of asset must be greater than zero.");
-            }
-
-            if (rate <= 0 || rate >= 100) {
-                return errorMessage(
-                    "Depreciation rate must be greater than 0% and less than 100%."
-                );
-            }
-
-            if (endDate <= startDate) {
-                return errorMessage(
-                    "End date must be after the start date."
-                );
-            }
-
-            if (accumulated < 0 || accumulated >= cost) {
-                return errorMessage(
-                    "Accumulated depreciation must be between zero and the asset cost."
-                );
-            }
-
-            /*
-             * Calculate the period in years and months
-             */
-            let years =
-                endDate.getFullYear() - startDate.getFullYear();
-
-            let months =
-                endDate.getMonth() - startDate.getMonth();
-
-            if (months < 0) {
-                years--;
-                months += 12;
-            }
-
-            /*
-             * Carrying amount at the beginning
-             */
-            let openingValue = cost - accumulated;
-
-            if (openingValue <= 0) {
-                return errorMessage(
-                    "Opening carrying amount must be greater than zero."
-                );
-            }
-
-            /*
-             * Convert rate from percentage to decimal
-             */
-            const annualRate = rate / 100;
-
-            /*
-             * Build year-by-year calculation
-             */
-            let working = "";
-            let totalDepreciation = 0;
-            let accumulatedDepreciation = accumulated;
-
-            /*
-             * Full years
-             */
-            for (let year = 1; year <= years; year++) {
-
-                const opening = openingValue;
-
-                const depreciation =
-                    opening * annualRate;
-
-                const closing =
-                    opening - depreciation;
-
-                totalDepreciation += depreciation;
-                accumulatedDepreciation += depreciation;
-
-                working += `
-                    <strong>Year ${year}</strong><br>
-                    Opening carrying amount =
-                    ${money(opening)}<br>
-
-                    Depreciation =
-                    ${money(opening)}
-                    × ${number(rate, 2)}%
-                    =
-                    ${money(depreciation)}<br>
-
-                    Accumulated depreciation =
-                    ${money(accumulatedDepreciation)}<br>
-
-                    Closing carrying amount =
-                    ${money(closing)}
-                    <br><br>
-                `;
-
-                openingValue = closing;
-            }
-
-            /*
-             * Partial year
-             */
-            if (months > 0) {
-
-                const opening = openingValue;
-
-                const annualDepreciation =
-                    opening * annualRate;
-
-                const partialDepreciation =
-                    annualDepreciation * (months / 12);
-
-                const closing =
-                    opening - partialDepreciation;
-
-                totalDepreciation += partialDepreciation;
-                accumulatedDepreciation += partialDepreciation;
-
-                working += `
-                    <strong>Partial Year: ${months} month(s)</strong><br>
-
-                    Annual depreciation =
-                    ${money(annualDepreciation)}<br>
-
-                    Partial depreciation =
-                    ${money(annualDepreciation)}
-                    × ${months}/12
-                    =
-                    ${money(partialDepreciation)}<br>
-
-                    Accumulated depreciation =
-                    ${money(accumulatedDepreciation)}<br>
-
-                    Closing carrying amount =
-                    ${money(closing)}
-                    <br><br>
-                `;
-            }
-
-            const periodText =
-                `${years} year${years !== 1 ? "s" : ""}
-                ${months} month${months !== 1 ? "s" : ""}`;
-
-            return resultTemplate(
-                "Reducing Balance Depreciation",
-                `
-                <strong>Period:</strong>
-                ${periodText}<br><br>
-
-                <strong>Formula:</strong><br>
-                Depreciation =
-                Opening Carrying Amount × Depreciation Rate
-                <br><br>
-
-                ${working}
-                `,
-                `
-                Total Depreciation =
-                ${money(totalDepreciation)}
-                <br><br>
-
-                Accumulated Depreciation =
-                ${money(accumulatedDepreciation)}
-                <br><br>
-
-                Closing Carrying Amount =
-                ${money(openingValue)}
-                `,
-                `
-                The calculation is performed step-by-step.
-                Each year's depreciation is based on the
-                opening carrying amount for that year.
-
-                <br><br>
-
-                <strong>Note:</strong>
-                For a partial year, depreciation is apportioned
-                according to the number of months used.
-                `
-            );
-        }
-
-        return errorMessage(
-            "Please select a reducing balance calculation method."
+            `Depreciation: ${money(depreciation)}<br>
+             Closing Book Value: ${money(closing)}`
         );
+
     }
+
 },
 
 
@@ -4639,440 +4419,45 @@ function showCalculator(type) {
 
                     }
                 );
-function showCalculator(type) {
-
-    const category =
-        categorySelect.value;
-
-    const calculator =
-        calculators[category][type];
-
-    if (!calculator) {
-
-        calculatorTitle.innerHTML =
-            "<h2>Calculator unavailable</h2>";
-
-        calculatorForm.innerHTML = "";
-
-        return;
-    }
 
 
-    calculatorTitle.innerHTML =
-        `<h2>${calculator.title}</h2>`;
+                group.appendChild(select);
 
-    calculatorForm.innerHTML = "";
-
-
-    /*
-     * SPECIAL HANDLING FOR REDUCING BALANCE
-     */
-
-    if (
-        category === "accounting" &&
-        type === "reducing-balance"
-    ) {
-
-        // Method selection dropdown
-        const methodGroup =
-            document.createElement("div");
-
-        methodGroup.className =
-            "input-group";
-
-
-        const methodLabel =
-            document.createElement("label");
-
-        methodLabel.htmlFor =
-            "reducingBalanceMethod";
-
-        methodLabel.textContent =
-            "Select Method";
-
-
-        const methodSelect =
-            document.createElement("select");
-
-        methodSelect.id =
-            "reducingBalanceMethod";
-
-        methodSelect.name =
-            "reducingBalanceMethod";
-
-
-        const rateOption =
-            document.createElement("option");
-
-        rateOption.value =
-            "rate";
-
-        rateOption.textContent =
-            "Calculate Depreciation Rate";
-
-
-        const depreciationOption =
-            document.createElement("option");
-
-        depreciationOption.value =
-            "depreciation";
-
-        depreciationOption.textContent =
-            "Calculate Depreciation";
-
-
-        methodSelect.appendChild(rateOption);
-        methodSelect.appendChild(depreciationOption);
-
-
-        methodGroup.appendChild(methodLabel);
-        methodGroup.appendChild(methodSelect);
-
-        calculatorForm.appendChild(methodGroup);
-
-
-        // Function for displaying the selected method's fields
-        function renderReducingBalanceFields() {
-
-            // Remove everything except the method dropdown
-            while (
-                calculatorForm.children.length > 1
-            ) {
-
-                calculatorForm.removeChild(
-                    calculatorForm.lastChild
-                );
-
-            }
-
-
-            let fields = [];
-
-
-            if (
-                methodSelect.value === "rate"
-            ) {
-
-                fields = [
-
-                    [
-                        "cost",
-                        "Cost of Asset",
-                        "number"
-                    ],
-
-                    [
-                        "residual",
-                        "Scrap / Residual Value",
-                        "number"
-                    ],
-
-                    [
-                        "usefulLife",
-                        "Useful Life (Years)",
-                        "number"
-                    ]
-
-                ];
 
             } else {
 
-                fields = [
+                const input =
+                    document.createElement("input");
 
-                    [
-                        "cost",
-                        "Cost of Asset",
-                        "number"
-                    ],
+                input.type =
+                    inputType;
 
-                    [
-                        "rate",
-                        "Depreciation Rate (%)",
-                        "number"
-                    ],
-
-                    [
-                        "startDate",
-                        "Start Date",
-                        "date"
-                    ],
-
-                    [
-                        "endDate",
-                        "End Date",
-                        "date"
-                    ],
-
-                    [
-                        "openingAccumulated",
-                        "Opening Accumulated Depreciation (Optional)",
-                        "number"
-                    ]
-
-                ];
-
-            }
-
-
-            fields.forEach(
-                field => {
-
-                    const [
-                        name,
-                        label,
-                        inputType
-                    ] = field;
-
-
-                    const group =
-                        document.createElement("div");
-
-                    group.className =
-                        "input-group";
-
-
-                    const labelElement =
-                        document.createElement("label");
-
-                    labelElement.htmlFor =
-                        name;
-
-                    labelElement.textContent =
-                        label;
-
-
-                    group.appendChild(
-                        labelElement
-                    );
-
-
-                    const input =
-                        document.createElement("input");
-
-                    input.type =
-                        inputType;
-
-                    input.id =
-                        name;
-
-                    input.name =
-                        name;
-
-                    input.placeholder =
-                        label;
-
-
-                    if (
-                        inputType === "number"
-                    ) {
-
-                        input.step =
-                            "any";
-
-                    }
-
-
-                    group.appendChild(
-                        input
-                    );
-
-
-                    calculatorForm.appendChild(
-                        group
-                    );
-
-                }
-            );
-
-
-            // Show the correct formula
-            const formulaBox =
-                document.createElement("div");
-
-            formulaBox.className =
-                "formula-box";
-
-
-            if (
-                methodSelect.value === "rate"
-            ) {
-
-                formulaBox.innerHTML = `
-
-                    <strong>Formula:</strong><br><br>
-
-                    S = C(1 − r)<sup>n</sup>
-
-                    <br><br>
-
-                    Therefore:
-
-                    <br><br>
-
-                    r = 1 − (S / C)<sup>1/n</sup>
-
-                `;
-
-            } else {
-
-                formulaBox.innerHTML = `
-
-                    <strong>Formula:</strong><br><br>
-
-                    Depreciation =
-                    Opening Carrying Amount
-                    × Depreciation Rate
-                    × Time
-
-                    <br><br>
-
-                    Closing Carrying Amount =
-                    Opening Carrying Amount
-                    − Depreciation
-
-                `;
-
-            }
-
-
-            calculatorForm.appendChild(
-                formulaBox
-            );
-
-        }
-
-
-        // Display the initial method
-        renderReducingBalanceFields();
-
-
-        // Change fields when method changes
-        methodSelect.addEventListener(
-            "change",
-            renderReducingBalanceFields
-        );
-
-
-    } else {
-
-
-        /*
-         * NORMAL CALCULATORS
-         */
-
-        calculator.fields.forEach(
-            field => {
-
-                const [
-                    name,
-                    label,
-                    inputType
-                ] = field;
-
-
-                const group =
-                    document.createElement("div");
-
-                group.className =
-                    "input-group";
-
-
-                const labelElement =
-                    document.createElement("label");
-
-                labelElement.htmlFor =
+                input.id =
                     name;
 
-                labelElement.textContent =
+                input.name =
+                    name;
+
+                input.placeholder =
                     label;
 
 
-                group.appendChild(
-                    labelElement
-                );
+                if (inputType === "number") {
 
-
-                if (inputType === "select") {
-
-                    const select =
-                        document.createElement("select");
-
-                    select.id = name;
-                    select.name = name;
-
-
-                    const options =
-                        calculator.options[name] || [];
-
-
-                    options.forEach(
-                        optionData => {
-
-                            const option =
-                                document.createElement("option");
-
-                            option.value =
-                                optionData[0];
-
-                            option.textContent =
-                                optionData[1];
-
-                            select.appendChild(
-                                option
-                            );
-
-                        }
-                    );
-
-
-                    group.appendChild(
-                        select
-                    );
-
-
-                } else {
-
-                    const input =
-                        document.createElement("input");
-
-                    input.type =
-                        inputType;
-
-                    input.id =
-                        name;
-
-                    input.name =
-                        name;
-
-                    input.placeholder =
-                        label;
-
-
-                    if (
-                        inputType === "number"
-                    ) {
-
-                        input.step =
-                            "any";
-
-                    }
-
-
-                    group.appendChild(
-                        input
-                    );
+                    input.step = "any";
 
                 }
 
 
-                calculatorForm.appendChild(
-                    group
-                );
+                group.appendChild(input);
 
             }
-        );
 
-    }
+
+            calculatorForm.appendChild(group);
+
+        }
+    );
 
 
     result.innerHTML = `
