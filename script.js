@@ -5085,8 +5085,12 @@ function showCalculator(type) {
     const category =
         categorySelect.value;
 
-    const calculator =
-        calculators[category][type];
+    console.log("CATEGORY:", category);
+console.log("TYPE:", type);
+console.log("AP-GP EXISTS:", calculators[category]["ap-gp"]);
+
+const calculator =
+    calculators[category][type];
 
     if (!calculator) {
 
