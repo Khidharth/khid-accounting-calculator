@@ -1064,15 +1064,6 @@ function showCalculator(type) {
     `;
 
 
-    formula.innerHTML = `
-
-        <h3>Formula Used</h3>
-
-        <p>${calculator.formula}</p>
-
-    `;
-
-
     result.innerHTML = `
 
         <h3>Result</h3>
