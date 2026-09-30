@@ -5087,7 +5087,7 @@ function showCalculator(type) {
 
     console.log("CATEGORY:", category);
 console.log("TYPE:", type);
-console.log("AP-GP EXISTS:", calculators[category]["ap-gp"]);
+console.log("MATHEMATICS KEYS:", Object.keys(calculators.mathematics));
 
 const calculator =
     calculators[category][type];
