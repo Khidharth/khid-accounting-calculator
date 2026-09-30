@@ -2548,9 +2548,6 @@ mathematics: {
             );
         }
 
-        /* =========================
-           ARITHMETIC PROGRESSION
-        ========================= */
 
         if (type === "ap") {
 
@@ -2576,36 +2573,90 @@ mathematics: {
                     Tₙ = ${number(term)}
                     `,
 
+       "ap-gp": {
+    title: "Arithmetic & Geometric Progression",
+
+    fields: [
+        ["sequenceType", "Sequence Type", "select"],
+        ["calculation", "What do you want to calculate?", "select"],
+        ["a", "First Term (a)", "number"],
+        ["d", "Common Difference (d)", "number"],
+        ["r", "Common Ratio (r)", "number"],
+        ["n", "Number of Terms (n)", "number"]
+    ],
+
+    options: {
+        sequenceType: [
+            ["ap", "Arithmetic Progression (AP)"],
+            ["gp", "Geometric Progression (GP)"]
+        ],
+
+        calculation: [
+            ["nth-term", "Find nth Term"],
+            ["sum", "Find Sum of n Terms"]
+        ]
+    },
+
+    formula:
+        "AP: Tₙ = a + (n − 1)d, Sₙ = n/2[2a + (n − 1)d]<br>" +
+        "GP: Tₙ = arⁿ⁻¹, Sₙ = a(rⁿ − 1)/(r − 1)",
+
+    calculate(v) {
+        const type = v.sequenceType;
+        const calculation = v.calculation;
+
+        const a = getNumber(v, "a");
+        const n = getNumber(v, "n");
+
+        if (!Number.isFinite(a) || !Number.isFinite(n)) {
+            return errorMessage("Please enter valid numbers.");
+        }
+
+        if (n <= 0 || !Number.isInteger(n)) {
+            return errorMessage(
+                "Number of terms (n) must be a positive whole number."
+            );
+        }
+
+        if (type === "ap") {
+            const d = getNumber(v, "d");
+
+            if (!Number.isFinite(d)) {
+                return errorMessage(
+                    "Please enter a valid common difference."
+                );
+            }
+
+            if (calculation === "nth-term") {
+                const term = a + (n - 1) * d;
+
+                return resultTemplate(
+                    "Tₙ = a + (n − 1)d",
+                    `
+                    Tₙ = ${a} + (${n} − 1) × ${d}<br><br>
+                    Tₙ = ${number(term)}
+                    `,
                     `The ${n}th term is ${number(term)}`
                 );
             }
 
             if (calculation === "sum") {
-
                 const sumValue =
                     (n / 2) *
                     (2 * a + (n - 1) * d);
 
                 return resultTemplate(
                     "Sₙ = n/2[2a + (n − 1)d]",
-
                     `
                     Sₙ = ${n}/2 [2(${a}) + (${n} − 1)(${d})]<br><br>
-
                     Sₙ = ${number(sumValue)}
                     `,
-
                     `Sum of the first ${n} terms = ${number(sumValue)}`
                 );
             }
         }
 
-        /* =========================
-           GEOMETRIC PROGRESSION
-        ========================= */
-
         if (type === "gp") {
-
             const r = getNumber(v, "r");
 
             if (!Number.isFinite(r)) {
@@ -2615,38 +2666,29 @@ mathematics: {
             }
 
             if (calculation === "nth-term") {
-
                 const term =
                     a * Math.pow(r, n - 1);
 
                 return resultTemplate(
                     "Tₙ = arⁿ⁻¹",
-
                     `
                     Tₙ = ${a} × ${r}⁽${n}⁻¹⁾<br><br>
-
                     Tₙ = ${number(term)}
                     `,
-
                     `The ${n}th term is ${number(term)}`
                 );
             }
 
             if (calculation === "sum") {
-
                 if (r === 1) {
-
                     const sumValue = n * a;
 
                     return resultTemplate(
                         "Sₙ = na when r = 1",
-
                         `
                         Sₙ = ${n} × ${a}<br><br>
-
                         Sₙ = ${number(sumValue)}
                         `,
-
                         `Sum of the first ${n} terms = ${number(sumValue)}`
                     );
                 }
@@ -2658,13 +2700,10 @@ mathematics: {
 
                 return resultTemplate(
                     "Sₙ = a(rⁿ − 1)/(r − 1)",
-
                     `
                     Sₙ = ${a} × (${r}ⁿ − 1) ÷ (${r} − 1)<br><br>
-
                     Sₙ = ${number(sumValue)}
                     `,
-
                     `Sum of the first ${n} terms = ${number(sumValue)}`
                 );
             }
