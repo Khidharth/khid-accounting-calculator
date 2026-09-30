@@ -168,141 +168,6 @@ function getArray(value) {
 
 
 /* =========================================================
-   DATE HELPERS
-========================================================= */
-
-function parseLocalDate(value) {
-
-    if (!value) {
-        return null;
-    }
-
-    const parts = value.split("-").map(Number);
-
-    if (parts.length !== 3) {
-        return null;
-    }
-
-    const [year, month, day] = parts;
-
-    return new Date(
-        year,
-        month - 1,
-        day
-    );
-
-}
-
-
-function dateDifferenceInDays(start, end) {
-
-    const milliseconds =
-        end.getTime() - start.getTime();
-
-    return Math.round(
-        milliseconds / (1000 * 60 * 60 * 24)
-    );
-
-}
-
-
-function addOneYear(date) {
-
-    const result = new Date(date);
-
-    result.setFullYear(
-        result.getFullYear() + 1
-    );
-
-    return result;
-
-}
-
-
-function formatPeriod(start, end) {
-
-    let years =
-        end.getFullYear() -
-        start.getFullYear();
-
-    let months =
-        end.getMonth() -
-        start.getMonth();
-
-    let days =
-        end.getDate() -
-        start.getDate();
-
-
-    if (days < 0) {
-
-        months--;
-
-        const previousMonth =
-            new Date(
-                end.getFullYear(),
-                end.getMonth(),
-                0
-            );
-
-        days +=
-            previousMonth.getDate();
-
-    }
-
-
-    if (months < 0) {
-
-        years--;
-
-        months += 12;
-
-    }
-
-
-    const parts = [];
-
-
-    if (years > 0) {
-
-        parts.push(
-            `${years} year${years === 1 ? "" : "s"}`
-        );
-
-    }
-
-
-    if (months > 0) {
-
-        parts.push(
-            `${months} month${months === 1 ? "" : "s"}`
-        );
-
-    }
-
-
-    if (days > 0) {
-
-        parts.push(
-            `${days} day${days === 1 ? "" : "s"}`
-        );
-
-    }
-
-
-    if (!parts.length) {
-
-        return "0 days";
-
-    }
-
-
-    return parts.join(" ");
-
-}
-
-
-/* =========================================================
    RESULT TEMPLATE
 ========================================================= */
 
@@ -372,21 +237,15 @@ function interpretPED(value) {
     const x = Math.abs(value);
 
     if (!Number.isFinite(x)) {
-
         return "The elasticity cannot be determined from the values entered.";
-
     }
 
     if (x > 1) {
-
         return "Demand is elastic: quantity demanded responds more than proportionately to price.";
-
     }
 
     if (x < 1) {
-
         return "Demand is inelastic: quantity demanded responds less than proportionately to price.";
-
     }
 
     return "Demand has unit elasticity: quantity demanded changes proportionately with price.";
@@ -399,15 +258,11 @@ function interpretPES(value) {
     const x = Math.abs(value);
 
     if (x > 1) {
-
         return "Supply is elastic.";
-
     }
 
     if (x < 1) {
-
         return "Supply is inelastic.";
-
     }
 
     return "Supply has unit elasticity.";
@@ -418,44 +273,32 @@ function interpretPES(value) {
 function interpretIncomeElasticity(value) {
 
     if (value < 0) {
-
         return "The good is an inferior good.";
-
     }
 
     if (value > 1) {
-
         return "The good is a luxury good.";
-
     }
 
     if (value > 0 && value <= 1) {
-
         return "The good is a normal necessity.";
-
     }
 
     return "The relationship is unitary.";
-
 }
 
 
 function interpretCrossElasticity(value) {
 
     if (value > 0) {
-
         return "The goods are substitutes.";
-
     }
 
     if (value < 0) {
-
         return "The goods are complements.";
-
     }
 
     return "The goods are unrelated.";
-
 }
 
 
@@ -464,69 +307,50 @@ function interpretCorrelation(r) {
     const x = Math.abs(r);
 
     if (x >= 0.8) {
-
         return "Very strong correlation.";
-
     }
 
     if (x >= 0.6) {
-
         return "Strong correlation.";
-
     }
 
     if (x >= 0.4) {
-
         return "Moderate correlation.";
-
     }
 
     if (x >= 0.2) {
-
         return "Weak correlation.";
-
     }
 
     return "Very weak or no linear correlation.";
-
 }
 
 
 function interpretSkewness(value) {
 
     if (value > 0) {
-
         return "The distribution is positively skewed.";
-
     }
 
     if (value < 0) {
-
         return "The distribution is negatively skewed.";
-
     }
 
     return "The distribution is approximately symmetrical.";
-
 }
 
 
 function interpretKurtosis(beta2) {
 
     if (beta2 > 3) {
-
         return "The distribution is leptokurtic.";
-
     }
 
     if (beta2 < 3) {
-
         return "The distribution is platykurtic.";
-
     }
 
     return "The distribution is mesokurtic.";
-
 }
 
 
@@ -563,15 +387,10 @@ accounting: {
         const residual = getNumber(v, "residual");
         const life = getNumber(v, "life");
 
-        if (
-            life <= 0 ||
-            cost < residual
-        ) {
-
+        if (life <= 0 || cost < residual) {
             return errorMessage(
                 "Check the asset cost, residual value and useful life."
             );
-
         }
 
         const annual =
@@ -604,643 +423,46 @@ accounting: {
 },
 
 
-/* =========================================================
-   REDUCING-BALANCE DEPRECIATION
-========================================================= */
-
 "reducing-balance": {
 
     title: "Reducing-Balance Depreciation",
 
-    /*
-       The fields are generated dynamically because this
-       calculator has two different calculation methods.
-    */
-
-    fields: [],
+    fields: [
+        ["cost", "Opening Book Value (₦)", "number"],
+        ["rate", "Depreciation Rate (%)", "number"]
+    ],
 
     formula:
-        "Reducing-balance depreciation uses a percentage rate applied to the opening carrying amount.",
+        "Depreciation = Opening Book Value × Depreciation Rate",
 
     calculate(v) {
 
-        const method = v.method;
+        const cost = getNumber(v, "cost");
+        const rate = getNumber(v, "rate");
 
+        const depreciation =
+            cost * rate / 100;
 
-        /* =================================================
-           METHOD 1 — CALCULATE DEPRECIATION RATE
-        ================================================= */
+        const closing =
+            cost - depreciation;
 
-        if (method === "rate") {
+        return resultTemplate(
 
-            const cost =
-                getNumber(v, "cost");
+            "Depreciation = Opening Book Value × Rate",
 
-            const residual =
-                getNumber(v, "residual");
+            `
+            = ${money(cost)}
+              × ${percent(rate)}<br><br>
 
-            const usefulLife =
-                getNumber(v, "usefulLife");
+            Depreciation =
+            ${money(depreciation)}<br><br>
 
+            Closing Book Value =
+            ${money(closing)}
+            `,
 
-            if (
-                !Number.isFinite(cost) ||
-                !Number.isFinite(residual) ||
-                !Number.isFinite(usefulLife)
-            ) {
-
-                return errorMessage(
-                    "Please enter all required values."
-                );
-
-            }
-
-
-            if (cost <= 0) {
-
-                return errorMessage(
-                    "Cost of asset must be greater than zero."
-                );
-
-            }
-
-
-            if (residual < 0) {
-
-                return errorMessage(
-                    "Residual value cannot be negative."
-                );
-
-            }
-
-
-            if (residual >= cost) {
-
-                return errorMessage(
-                    "Residual value must be less than the cost of the asset."
-                );
-
-            }
-
-
-            if (usefulLife <= 0) {
-
-                return errorMessage(
-                    "Useful life must be greater than zero."
-                );
-
-            }
-
-
-            /*
-                S = C(1 − r)^n
-
-                r = 1 − (S/C)^(1/n)
-            */
-
-            const rateDecimal =
-                1 -
-                Math.pow(
-                    residual / cost,
-                    1 / usefulLife
-                );
-
-
-            const rate =
-                rateDecimal * 100;
-
-
-            return resultTemplate(
-
-                `
-                S = C(1 − r)<sup>n</sup><br>
-                r = 1 − (S/C)<sup>1/n</sup>
-                `,
-
-                `
-                S = ${money(residual)}<br>
-                C = ${money(cost)}<br>
-                n = ${number(usefulLife)} years<br><br>
-
-                r =
-                1 −
-                (${money(residual)} ÷ ${money(cost)})<sup>1/${number(usefulLife)}</sup><br><br>
-
-                r =
-                1 −
-                ${number(
-                    Math.pow(
-                        residual / cost,
-                        1 / usefulLife
-                    ),
-                    6
-                )}<br><br>
-
-                r =
-                ${number(rateDecimal, 6)}
-                `,
-
-                `Depreciation Rate = <strong>${percent(rate, 4)}</strong>`,
-
-                "This is the annual reducing-balance depreciation rate required for the asset's carrying amount to reduce from its cost to the stated residual value over the useful life."
-            );
-
-        }
-
-
-        /* =================================================
-           METHOD 2 — CALCULATE DEPRECIATION
-        ================================================= */
-
-        if (method === "depreciation") {
-
-            const cost =
-                getNumber(v, "cost");
-
-            const rate =
-                getNumber(v, "rate");
-
-            const openingAccumulated =
-                v.openingAccumulated === ""
-                ? 0
-                : getNumber(v, "openingAccumulated");
-
-
-            const start =
-                parseLocalDate(v.startDate);
-
-            const end =
-                parseLocalDate(v.endDate);
-
-
-            if (
-                !Number.isFinite(cost) ||
-                !Number.isFinite(rate)
-            ) {
-
-                return errorMessage(
-                    "Please enter the cost and depreciation rate."
-                );
-
-            }
-
-
-            if (!start || !end) {
-
-                return errorMessage(
-                    "Please enter both the start date and end date."
-                );
-
-            }
-
-
-            if (cost <= 0) {
-
-                return errorMessage(
-                    "Cost of asset must be greater than zero."
-                );
-
-            }
-
-
-            if (rate < 0 || rate > 100) {
-
-                return errorMessage(
-                    "Depreciation rate must be between 0% and 100%."
-                );
-
-            }
-
-
-            if (
-                !Number.isFinite(openingAccumulated) ||
-                openingAccumulated < 0
-            ) {
-
-                return errorMessage(
-                    "Opening accumulated depreciation cannot be negative."
-                );
-
-            }
-
-
-            if (openingAccumulated > cost) {
-
-                return errorMessage(
-                    "Opening accumulated depreciation cannot exceed the asset cost."
-                );
-
-            }
-
-
-            if (end <= start) {
-
-                return errorMessage(
-                    "End date must be after the start date."
-                );
-
-            }
-
-
-            /*
-                Opening carrying amount
-                = Cost − Opening Accumulated Depreciation
-            */
-
-            let openingCarrying =
-                cost - openingAccumulated;
-
-            let accumulated =
-                openingAccumulated;
-
-            let currentStart =
-                new Date(start);
-
-            const rows = [];
-
-
-            let periodNumber = 1;
-
-
-            /*
-                We divide the depreciation period into
-                one-year sections and a final partial period.
-
-                Time fraction is based on actual days / 365.
-            */
-
-            while (currentStart < end) {
-
-                let currentEnd =
-                    addOneYear(currentStart);
-
-
-                if (currentEnd > end) {
-
-                    currentEnd =
-                        new Date(end);
-
-                }
-
-
-                const days =
-                    dateDifferenceInDays(
-                        currentStart,
-                        currentEnd
-                    );
-
-
-                const timeFraction =
-                    days / 365;
-
-
-                const depreciation =
-                    Math.min(
-                        openingCarrying,
-                        openingCarrying *
-                        (rate / 100) *
-                        timeFraction
-                    );
-
-
-                const closingCarrying =
-                    openingCarrying -
-                    depreciation;
-
-
-                accumulated +=
-                    depreciation;
-
-
-                rows.push({
-
-                    period:
-                        periodNumber,
-
-                    start:
-                        new Date(currentStart),
-
-                    end:
-                        new Date(currentEnd),
-
-                    days,
-
-                    timeFraction,
-
-                    periodText:
-                        formatPeriod(
-                            currentStart,
-                            currentEnd
-                        ),
-
-                    opening:
-                        openingCarrying,
-
-                    depreciation,
-
-                    accumulated,
-
-                    closing:
-                        closingCarrying
-
-                });
-
-
-                openingCarrying =
-                    closingCarrying;
-
-
-                currentStart =
-                    currentEnd;
-
-
-                periodNumber++;
-
-            }
-
-
-            const totalDays =
-                dateDifferenceInDays(
-                    start,
-                    end
-                );
-
-
-            const totalYears =
-                totalDays / 365;
-
-
-            const totalDepreciation =
-                accumulated -
-                openingAccumulated;
-
-
-            const finalCarrying =
-                cost -
-                accumulated;
-
-
-            let tableRows = "";
-
-
-            rows.forEach(row => {
-
-                tableRows += `
-
-                    <tr>
-
-                        <td style="border:1px solid #94a3b8;padding:8px;text-align:center;">
-                            ${row.period}
-                        </td>
-
-                        <td style="border:1px solid #94a3b8;padding:8px;">
-                            ${row.periodText}
-                        </td>
-
-                        <td style="border:1px solid #94a3b8;padding:8px;text-align:right;">
-                            ${number(row.days, 0)}
-                        </td>
-
-                        <td style="border:1px solid #94a3b8;padding:8px;text-align:right;">
-                            ${money(row.opening)}
-                        </td>
-
-                        <td style="border:1px solid #94a3b8;padding:8px;text-align:right;">
-                            ${money(row.depreciation)}
-                        </td>
-
-                        <td style="border:1px solid #94a3b8;padding:8px;text-align:right;">
-                            ${money(row.accumulated)}
-                        </td>
-
-                        <td style="border:1px solid #94a3b8;padding:8px;text-align:right;">
-                            ${money(row.closing)}
-                        </td>
-
-                    </tr>
-
-                `;
-
-            });
-
-
-            return `
-
-                <div class="formula-box">
-
-                    <strong>Formula</strong>
-
-                    <p>
-                        Depreciation =
-                        Opening Carrying Amount
-                        × Depreciation Rate
-                        × Time Fraction
-                    </p>
-
-                    <p>
-                        Closing Carrying Amount =
-                        Opening Carrying Amount
-                        − Depreciation
-                    </p>
-
-                    <p>
-                        Accumulated Depreciation =
-                        Opening Accumulated Depreciation
-                        + Current Depreciation
-                    </p>
-
-                </div>
-
-
-                <div class="working-box">
-
-                    <strong>Working</strong>
-
-                    <p>
-
-                        Cost of Asset =
-                        ${money(cost)}<br>
-
-                        Opening Accumulated Depreciation =
-                        ${money(openingAccumulated)}<br>
-
-                        Opening Carrying Amount =
-                        ${money(cost)}
-                        −
-                        ${money(openingAccumulated)}
-                        =
-                        <strong>${money(
-                            cost - openingAccumulated
-                        )}</strong><br>
-
-                        Depreciation Rate =
-                        ${percent(rate)}<br>
-
-                        Total Period =
-                        ${formatPeriod(start, end)}
-                        (${number(totalDays, 0)} days)<br>
-
-                        Time in years =
-                        ${number(totalYears, 4)}
-                        years
-
-                    </p>
-
-
-                    <p>
-
-                        For each period:
-
-                        <br><br>
-
-                        Depreciation =
-                        Opening Carrying Amount
-                        ×
-                        ${percent(rate)}
-                        ×
-                        (Days ÷ 365)
-
-                    </p>
-
-
-                    <div style="overflow-x:auto;">
-
-                        <table style="
-                            width:100%;
-                            border-collapse:collapse;
-                            margin-top:15px;
-                            font-size:0.92rem;
-                        ">
-
-                            <thead>
-
-                                <tr>
-
-                                    <th style="
-                                        border:1px solid #94a3b8;
-                                        padding:8px;
-                                        background:#0f766e;
-                                        color:white;
-                                    ">
-                                        Period
-                                    </th>
-
-                                    <th style="
-                                        border:1px solid #94a3b8;
-                                        padding:8px;
-                                        background:#0f766e;
-                                        color:white;
-                                    ">
-                                        Period Length
-                                    </th>
-
-                                    <th style="
-                                        border:1px solid #94a3b8;
-                                        padding:8px;
-                                        background:#0f766e;
-                                        color:white;
-                                    ">
-                                        Days
-                                    </th>
-
-                                    <th style="
-                                        border:1px solid #94a3b8;
-                                        padding:8px;
-                                        background:#0f766e;
-                                        color:white;
-                                    ">
-                                        Opening Carrying Amount
-                                    </th>
-
-                                    <th style="
-                                        border:1px solid #94a3b8;
-                                        padding:8px;
-                                        background:#0f766e;
-                                        color:white;
-                                    ">
-                                        Depreciation
-                                    </th>
-
-                                    <th style="
-                                        border:1px solid #94a3b8;
-                                        padding:8px;
-                                        background:#0f766e;
-                                        color:white;
-                                    ">
-                                        Accumulated Depreciation
-                                    </th>
-
-                                    <th style="
-                                        border:1px solid #94a3b8;
-                                        padding:8px;
-                                        background:#0f766e;
-                                        color:white;
-                                    ">
-                                        Closing Carrying Amount
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-
-                            <tbody>
-
-                                ${tableRows}
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-                </div>
-
-
-                <div class="interpretation-box">
-
-                    <strong>Answer</strong>
-
-                    <p>
-
-                        Total Depreciation =
-                        <strong>${money(totalDepreciation)}</strong>
-
-                    </p>
-
-                    <p>
-
-                        Closing Accumulated Depreciation =
-                        <strong>${money(accumulated)}</strong>
-
-                    </p>
-
-                    <p>
-
-                        Closing Carrying Amount =
-                        <strong>${money(finalCarrying)}</strong>
-
-                    </p>
-
-                    <p>
-
-                        <strong>Note:</strong>
-                        The partial period is calculated using
-                        actual days ÷ 365. The displayed
-                        year/month/day period is shown separately
-                        so that the working is clear.
-
-                    </p>
-
-                </div>
-
-            `;
-
-        }
-
-
-        return errorMessage(
-            "Please select a valid reducing-balance calculation method."
+            `Depreciation: ${money(depreciation)}<br>
+             Closing Book Value: ${money(closing)}`
         );
 
     }
@@ -1262,9 +484,7 @@ accounting: {
 
     calculate(v) {
 
-        const cost =
-            getNumber(v, "cost");
-
+        const cost = getNumber(v, "cost");
         const accumulated =
             getNumber(v, "accumulated");
 
@@ -1281,7 +501,6 @@ accounting: {
             `,
 
             money(book)
-
         );
 
     }
@@ -1303,11 +522,8 @@ accounting: {
 
     calculate(v) {
 
-        const sales =
-            getNumber(v, "sales");
-
-        const cogs =
-            getNumber(v, "cogs");
+        const sales = getNumber(v, "sales");
+        const cogs = getNumber(v, "cogs");
 
         const profit =
             sales - cogs;
@@ -1322,7 +538,6 @@ accounting: {
             `,
 
             money(profit)
-
         );
 
     }
@@ -1344,18 +559,11 @@ accounting: {
 
     calculate(v) {
 
-        const sales =
-            getNumber(v, "sales");
-
-        const cogs =
-            getNumber(v, "cogs");
+        const sales = getNumber(v, "sales");
+        const cogs = getNumber(v, "cogs");
 
         if (sales === 0) {
-
-            return errorMessage(
-                "Sales cannot be zero."
-            );
-
+            return errorMessage("Sales cannot be zero.");
         }
 
         const grossProfit =
@@ -1372,15 +580,12 @@ accounting: {
             Gross Profit =
             ${money(grossProfit)}<br><br>
 
-            =
-            ${money(grossProfit)}
-            ÷
-            ${money(sales)}
-            × 100
+            = ${money(grossProfit)}
+              ÷ ${money(sales)}
+              × 100
             `,
 
             percent(margin)
-
         );
 
     }
@@ -1416,14 +621,11 @@ accounting: {
             "Net Profit = Revenue − Expenses",
 
             `
-            =
-            ${money(revenue)}
-            −
-            ${money(expenses)}
+            = ${money(revenue)}
+              − ${money(expenses)}
             `,
 
             money(profit)
-
         );
 
     }
@@ -1452,11 +654,7 @@ accounting: {
             getNumber(v, "expenses");
 
         if (revenue === 0) {
-
-            return errorMessage(
-                "Revenue cannot be zero."
-            );
-
+            return errorMessage("Revenue cannot be zero.");
         }
 
         const profit =
@@ -1473,15 +671,12 @@ accounting: {
             Net Profit =
             ${money(profit)}<br><br>
 
-            =
-            ${money(profit)}
-            ÷
-            ${money(revenue)}
-            × 100
+            = ${money(profit)}
+              ÷ ${money(revenue)}
+              × 100
             `,
 
             percent(margin)
-
         );
 
     }
@@ -1503,18 +698,11 @@ accounting: {
 
     calculate(v) {
 
-        const cost =
-            getNumber(v, "cost");
-
-        const selling =
-            getNumber(v, "selling");
+        const cost = getNumber(v, "cost");
+        const selling = getNumber(v, "selling");
 
         if (cost === 0) {
-
-            return errorMessage(
-                "Cost cannot be zero."
-            );
-
+            return errorMessage("Cost cannot be zero.");
         }
 
         const markup =
@@ -1528,15 +716,12 @@ accounting: {
             Markup =
             ${money(selling - cost)}<br><br>
 
-            =
-            ${money(selling - cost)}
-            ÷
-            ${money(cost)}
-            × 100
+            = ${money(selling - cost)}
+              ÷ ${money(cost)}
+              × 100
             `,
 
             percent(markup)
-
         );
 
     }
@@ -1559,24 +744,17 @@ accounting: {
 
     calculate(v) {
 
-        const fixed =
-            getNumber(v, "fixed");
-
-        const selling =
-            getNumber(v, "selling");
-
-        const variable =
-            getNumber(v, "variable");
+        const fixed = getNumber(v, "fixed");
+        const selling = getNumber(v, "selling");
+        const variable = getNumber(v, "variable");
 
         const contribution =
             selling - variable;
 
         if (contribution <= 0) {
-
             return errorMessage(
                 "Selling price must be greater than variable cost."
             );
-
         }
 
         const units =
@@ -1590,14 +768,11 @@ accounting: {
             Contribution per unit =
             ${money(contribution)}<br><br>
 
-            =
-            ${money(fixed)}
-            ÷
-            ${money(contribution)}
+            = ${money(fixed)}
+              ÷ ${money(contribution)}
             `,
 
             `${number(units)} units`
-
         );
 
     }
@@ -1619,11 +794,8 @@ accounting: {
 
     calculate(v) {
 
-        const amount =
-            getNumber(v, "amount");
-
-        const rate =
-            getNumber(v, "rate");
+        const amount = getNumber(v, "amount");
+        const rate = getNumber(v, "rate");
 
         const vat =
             amount * rate / 100;
@@ -1638,22 +810,17 @@ accounting: {
             `
             VAT =
             ${money(amount)}
-            ×
-            ${percent(rate)}
-            =
-            ${money(vat)}<br><br>
+            × ${percent(rate)}
+            = ${money(vat)}<br><br>
 
             Total =
             ${money(amount)}
-            +
-            ${money(vat)}
-            =
-            ${money(total)}
+            + ${money(vat)}
+            = ${money(total)}
             `,
 
             `VAT: ${money(vat)}<br>
              Total: ${money(total)}`
-
         );
 
     }
@@ -1682,11 +849,9 @@ accounting: {
             getNumber(v, "bad");
 
         if (bad > receivable) {
-
             return errorMessage(
                 "Bad debt cannot exceed the receivable."
             );
-
         }
 
         const remaining =
@@ -1697,15 +862,12 @@ accounting: {
             "Remaining Receivable = Receivable − Bad Debt",
 
             `
-            =
-            ${money(receivable)}
-            −
-            ${money(bad)}
+            = ${money(receivable)}
+              − ${money(bad)}
             `,
 
             `Bad Debt Expense: ${money(bad)}<br>
              Remaining Receivable: ${money(remaining)}`
-
         );
 
     }
@@ -1728,35 +890,24 @@ accounting: {
 
     calculate(v) {
 
-        const opening =
-            getNumber(v, "opening");
-
-        const purchases =
-            getNumber(v, "purchases");
-
-        const closing =
-            getNumber(v, "closing");
+        const opening = getNumber(v, "opening");
+        const purchases = getNumber(v, "purchases");
+        const closing = getNumber(v, "closing");
 
         const cogs =
-            opening +
-            purchases -
-            closing;
+            opening + purchases - closing;
 
         return resultTemplate(
 
             "COGS = Opening Inventory + Purchases − Closing Inventory",
 
             `
-            =
-            ${money(opening)}
-            +
-            ${money(purchases)}
-            −
-            ${money(closing)}
+            = ${money(opening)}
+              + ${money(purchases)}
+              − ${money(closing)}
             `,
 
             money(cogs)
-
         );
 
     }
@@ -1770,9 +921,49 @@ accounting: {
    FINANCE
 ========================================================= */
 
-finance: {            `,
+finance: {
 
-            `Derivative = ${number(newCoefficient)}x^${number(newPower)}`
+
+"simple-interest": {
+
+    title: "Simple Interest",
+
+    fields: [
+        ["principal", "Principal (₦)", "number"],
+        ["rate", "Interest Rate (%)", "number"],
+        ["time", "Time (Years)", "number"]
+    ],
+
+    formula:
+        "I = PRT",
+
+    calculate(v) {
+
+        const P = getNumber(v, "principal");
+        const R = getNumber(v, "rate") / 100;
+        const T = getNumber(v, "time");
+
+        const interest =
+            P * R * T;
+
+        const amount =
+            P + interest;
+
+        return resultTemplate(
+
+            "I = P × R × T",
+
+            `
+            = ${money(P)}
+              × ${percent(R * 100)}
+              × ${T}<br><br>
+
+            Interest =
+            ${money(interest)}
+            `,
+
+            `Interest: ${money(interest)}<br>
+             Amount: ${money(amount)}`
         );
 
     }
@@ -1780,44 +971,1073 @@ finance: {            `,
 },
 
 
-"factorial": {
+"compound-interest": {
 
-    title: "Factorial",
+    title: "Compound Interest",
 
     fields: [
-        ["n", "Number (n)", "number"]
+        ["principal", "Principal (₦)", "number"],
+        ["rate", "Annual Interest Rate (%)", "number"],
+        ["time", "Time (Years)", "number"],
+        ["frequency", "Compounding Frequency", "select"]
     ],
 
+    options: {
+        frequency: [
+            ["1", "Annual"],
+            ["2", "Semi-Annual"],
+            ["4", "Quarterly"],
+            ["12", "Monthly"],
+            ["365", "Daily"],
+            ["continuous", "Continuous"]
+        ]
+    },
+
     formula:
-        "n! = n × (n−1) × ... × 1",
+        "A = P(1 + r/n)^(nt), or A = Pe^(rt) for continuous compounding",
 
     calculate(v) {
 
-        const n =
-            getNumber(v, "n");
+        const P = getNumber(v, "principal");
+        const r = getNumber(v, "rate") / 100;
+        const t = getNumber(v, "time");
 
-        if (
-            n < 0 ||
-            !Number.isInteger(n)
-        ) {
+        let A;
+        let working;
 
-            return errorMessage(
-                "The number must be a non-negative whole number."
+        if (v.frequency === "continuous") {
+
+            A = P * Math.exp(r * t);
+
+            working =
+                `A = ${money(P)}
+                 × e^(${r} × ${t})`;
+
+        } else {
+
+            const n =
+                Number(v.frequency);
+
+            A =
+                P *
+                Math.pow(
+                    1 + r / n,
+                    n * t
+                );
+
+            working =
+                `A = ${money(P)}
+                 × (1 + ${r}/${n})^(${n} × ${t})`;
+
+        }
+
+        const interest =
+            A - P;
+
+        return resultTemplate(
+
+            "Compound Amount = P(1 + r/n)^(nt)",
+
+            `${working}<br><br>
+             Interest = Amount − Principal =
+             ${money(interest)}`,
+
+            `Amount: ${money(A)}<br>
+             Compound Interest: ${money(interest)}`
+        );
+
+    }
+
+},
+
+
+"present-value": {
+
+    title: "Present Value",
+
+    fields: [
+        ["future", "Future Value (₦)", "number"],
+        ["rate", "Interest Rate (%)", "number"],
+        ["time", "Time (Years)", "number"]
+    ],
+
+    formula:
+        "PV = FV ÷ (1 + r)^t",
+
+    calculate(v) {
+
+        const FV = getNumber(v, "future");
+        const r = getNumber(v, "rate") / 100;
+        const t = getNumber(v, "time");
+
+        const PV =
+            FV / Math.pow(1 + r, t);
+
+        return resultTemplate(
+
+            "PV = FV ÷ (1 + r)^t",
+
+            `
+            = ${money(FV)}
+              ÷ (1 + ${r})^${t}
+            `,
+
+            money(PV)
+        );
+
+    }
+
+},
+
+
+"future-value": {
+
+    title: "Future Value",
+
+    fields: [
+        ["present", "Present Value (₦)", "number"],
+        ["rate", "Interest Rate (%)", "number"],
+        ["time", "Time (Years)", "number"]
+    ],
+
+    formula:
+        "FV = PV(1 + r)^t",
+
+    calculate(v) {
+
+        const PV = getNumber(v, "present");
+        const r = getNumber(v, "rate") / 100;
+        const t = getNumber(v, "time");
+
+        const FV =
+            PV * Math.pow(1 + r, t);
+
+        return resultTemplate(
+
+            "FV = PV(1 + r)^t",
+
+            `
+            = ${money(PV)}
+              × (1 + ${r})^${t}
+            `,
+
+            money(FV)
+        );
+
+    }
+
+},
+
+
+"annuity": {
+
+    title: "Future Value of an Annuity",
+
+    fields: [
+        ["payment", "Periodic Payment (₦)", "number"],
+        ["rate", "Interest Rate per Period (%)", "number"],
+        ["periods", "Number of Periods", "number"]
+    ],
+
+    formula:
+        "FV = PMT × [(1 + r)^n − 1] ÷ r",
+
+    calculate(v) {
+
+        const PMT = getNumber(v, "payment");
+        const r = getNumber(v, "rate") / 100;
+        const n = getNumber(v, "periods");
+
+        if (r === 0) {
+
+            const FV =
+                PMT * n;
+
+            return resultTemplate(
+                "FV = PMT × n when r = 0",
+                `${money(PMT)} × ${n}`,
+                money(FV)
             );
 
         }
 
-        const answer =
-            factorial(n);
+        const FV =
+            PMT *
+            ((Math.pow(1 + r, n) - 1) / r);
 
         return resultTemplate(
 
-            "n! = n × (n−1) × ... × 1",
+            "FV = PMT × [(1 + r)^n − 1] ÷ r",
 
-            `${n}! = ${number(answer)}`,
+            `
+            = ${money(PMT)}
+              × [ (1 + ${r})^${n} − 1 ]
+              ÷ ${r}
+            `,
+
+            money(FV)
+        );
+
+    }
+
+},
+
+
+"payment": {
+
+    title: "Loan Payment / Installment",
+
+    fields: [
+        ["principal", "Loan Principal (₦)", "number"],
+        ["rate", "Annual Interest Rate (%)", "number"],
+        ["periods", "Number of Payments", "number"]
+    ],
+
+    formula:
+        "PMT = P[r(1+r)^n] ÷ [(1+r)^n − 1]",
+
+    calculate(v) {
+
+        const P = getNumber(v, "principal");
+        const r = getNumber(v, "rate") / 100;
+        const n = getNumber(v, "periods");
+
+        if (r === 0) {
+
+            const payment =
+                P / n;
+
+            return resultTemplate(
+                "Payment = Principal ÷ Number of Payments",
+                `${money(P)} ÷ ${n}`,
+                money(payment)
+            );
+
+        }
+
+        const payment =
+            P *
+            (
+                r *
+                Math.pow(1 + r, n)
+            ) /
+            (
+                Math.pow(1 + r, n) - 1
+            );
+
+        return resultTemplate(
+
+            "PMT = P[r(1+r)^n] ÷ [(1+r)^n − 1]",
+
+            `
+            = ${money(payment)}
+            per payment
+            `,
+
+            money(payment)
+        );
+
+    }
+
+},
+
+
+"sinking-fund": {
+
+    title: "Sinking Fund",
+
+    fields: [
+        ["future", "Required Future Amount (₦)", "number"],
+        ["rate", "Interest Rate per Period (%)", "number"],
+        ["periods", "Number of Periods", "number"]
+    ],
+
+    formula:
+        "PMT = FV × r ÷ [(1+r)^n − 1]",
+
+    calculate(v) {
+
+        const FV = getNumber(v, "future");
+        const r = getNumber(v, "rate") / 100;
+        const n = getNumber(v, "periods");
+
+        if (r === 0) {
+
+            const pmt =
+                FV / n;
+
+            return resultTemplate(
+                "PMT = FV ÷ n",
+                `${money(FV)} ÷ ${n}`,
+                money(pmt)
+            );
+
+        }
+
+        const pmt =
+            FV *
+            r /
+            (
+                Math.pow(1 + r, n) - 1
+            );
+
+        return resultTemplate(
+
+            "PMT = FV × r ÷ [(1+r)^n − 1]",
+
+            `
+            = ${money(FV)}
+              × ${r}
+              ÷ [(1 + ${r})^${n} − 1]
+            `,
+
+            money(pmt)
+        );
+
+    }
+
+},
+
+
+"loan-amortization": {
+
+    title: "Loan Amortization",
+
+    fields: [
+        ["principal", "Loan Principal (₦)", "number"],
+        ["rate", "Interest Rate per Period (%)", "number"],
+        ["periods", "Number of Periods", "number"]
+    ],
+
+    formula:
+        "Payment = P[r(1+r)^n] ÷ [(1+r)^n − 1]",
+
+    calculate(v) {
+
+        const P = getNumber(v, "principal");
+        const r = getNumber(v, "rate") / 100;
+        const n = getNumber(v, "periods");
+
+        let payment;
+
+        if (r === 0) {
+
+            payment = P / n;
+
+        } else {
+
+            payment =
+                P *
+                (
+                    r *
+                    Math.pow(1 + r, n)
+                ) /
+                (
+                    Math.pow(1 + r, n) - 1
+                );
+
+        }
+
+        const total =
+            payment * n;
+
+        const interest =
+            total - P;
+
+        return resultTemplate(
+
+            "Loan Payment = P[r(1+r)^n] ÷ [(1+r)^n − 1]",
+
+            `
+            Periodic Payment =
+            ${money(payment)}<br><br>
+
+            Total Payments =
+            ${money(total)}<br><br>
+
+            Total Interest =
+            ${money(interest)}
+            `,
+
+            `Periodic Payment: ${money(payment)}<br>
+             Total Interest: ${money(interest)}`
+        );
+
+    }
+
+}
+
+},
+
+
+/* =========================================================
+   MATHEMATICS
+========================================================= */
+
+mathematics: {
+
+
+"quadratic-equation": {
+
+    title: "Quadratic Equation",
+
+    fields: [
+        ["a", "Coefficient a", "number"],
+        ["b", "Coefficient b", "number"],
+        ["c", "Coefficient c", "number"]
+    ],
+
+    formula:
+        "x = [-b ± √(b² − 4ac)] ÷ 2a",
+
+    calculate(v) {
+
+        const a = getNumber(v, "a");
+        const b = getNumber(v, "b");
+        const c = getNumber(v, "c");
+
+        if (a === 0) {
+            return errorMessage("a cannot be zero.");
+        }
+
+        const D =
+            b * b - 4 * a * c;
+
+        if (D < 0) {
+
+            return resultTemplate(
+
+                "D = b² − 4ac",
+
+                `D = ${number(D)}`,
+
+                "No real roots."
+            );
+
+        }
+
+        const x1 =
+            (-b + Math.sqrt(D)) / (2 * a);
+
+        const x2 =
+            (-b - Math.sqrt(D)) / (2 * a);
+
+        return resultTemplate(
+
+            "x = [-b ± √(b² − 4ac)] ÷ 2a",
+
+            `
+            Discriminant =
+            ${number(D)}<br><br>
+
+            x₁ =
+            ${number(x1)}<br><br>
+
+            x₂ =
+            ${number(x2)}
+            `,
+
+            `x₁ = ${number(x1)}<br>
+             x₂ = ${number(x2)}`
+        );
+
+    }
+
+},
+
+
+"simple-equation": {
+
+    title: "Simple Linear Equation",
+
+    fields: [
+        ["a", "Coefficient a", "number"],
+        ["b", "Constant b", "number"]
+    ],
+
+    formula:
+        "ax + b = 0 → x = −b/a",
+
+    calculate(v) {
+
+        const a = getNumber(v, "a");
+        const b = getNumber(v, "b");
+
+        if (a === 0) {
+            return errorMessage("Coefficient a cannot be zero.");
+        }
+
+        const x =
+            -b / a;
+
+        return resultTemplate(
+            "x = −b ÷ a",
+            `x = −${b} ÷ ${a}`,
+            `x = ${number(x)}`
+        );
+
+    }
+
+},
+
+
+"percentage-change": {
+
+    title: "Percentage Change",
+
+    fields: [
+        ["old", "Original Value", "number"],
+        ["new", "New Value", "number"]
+    ],
+
+    formula:
+        "Percentage Change = (New − Old) ÷ Old × 100",
+
+    calculate(v) {
+
+        const oldValue = getNumber(v, "old");
+        const newValue = getNumber(v, "new");
+
+        if (oldValue === 0) {
+            return errorMessage(
+                "Original value cannot be zero."
+            );
+        }
+
+        const change =
+            ((newValue - oldValue) /
+                oldValue) * 100;
+
+        return resultTemplate(
+
+            "(New − Old) ÷ Old × 100",
+
+            `
+            = (${number(newValue)}
+              − ${number(oldValue)})
+              ÷ ${number(oldValue)}
+              × 100
+            `,
+
+            percent(change)
+        );
+
+    }
+
+},
+
+
+"permutation": {
+
+    title: "Permutation",
+
+    fields: [
+        ["n", "n", "number"],
+        ["r", "r", "number"]
+    ],
+
+    formula:
+        "nPr = n! ÷ (n − r)!",
+
+    calculate(v) {
+
+        const n = getNumber(v, "n");
+        const r = getNumber(v, "r");
+
+        if (
+            n < 0 ||
+            r < 0 ||
+            r > n ||
+            !Number.isInteger(n) ||
+            !Number.isInteger(r)
+        ) {
+            return errorMessage(
+                "n and r must be whole numbers with n ≥ r."
+            );
+        }
+
+        const answer =
+            permutations(n, r);
+
+        return resultTemplate(
+
+            "nPr = n! ÷ (n − r)!",
+
+            `
+            = ${n}! ÷ (${n} − ${r})!
+            `,
 
             number(answer)
+        );
 
+    }
+
+},
+
+
+"combination": {
+
+    title: "Combination",
+
+    fields: [
+        ["n", "n", "number"],
+        ["r", "r", "number"]
+    ],
+
+    formula:
+        "nCr = n! ÷ [r!(n − r)!]",
+
+    calculate(v) {
+
+        const n = getNumber(v, "n");
+        const r = getNumber(v, "r");
+
+        if (
+            n < 0 ||
+            r < 0 ||
+            r > n ||
+            !Number.isInteger(n) ||
+            !Number.isInteger(r)
+        ) {
+            return errorMessage(
+                "n and r must be whole numbers with n ≥ r."
+            );
+        }
+
+        const answer =
+            combinations(n, r);
+
+        return resultTemplate(
+
+            "nCr = n! ÷ [r!(n − r)!]",
+
+            `
+            = ${n}! ÷
+              [${r}!(${n} − ${r})!]
+            `,
+
+            number(answer)
+        );
+
+    }
+
+},
+
+
+"distance": {
+
+    title: "Distance Between Two Points",
+
+    fields: [
+        ["x1", "x₁", "number"],
+        ["y1", "y₁", "number"],
+        ["x2", "x₂", "number"],
+        ["y2", "y₂", "number"]
+    ],
+
+    formula:
+        "d = √[(x₂ − x₁)² + (y₂ − y₁)²]",
+
+    calculate(v) {
+
+        const x1 = getNumber(v, "x1");
+        const y1 = getNumber(v, "y1");
+        const x2 = getNumber(v, "x2");
+        const y2 = getNumber(v, "y2");
+
+        const d =
+            Math.sqrt(
+                Math.pow(x2 - x1, 2) +
+                Math.pow(y2 - y1, 2)
+            );
+
+        return resultTemplate(
+            "d = √[(x₂ − x₁)² + (y₂ − y₁)²]",
+            `d = ${number(d)}`,
+            number(d)
+        );
+
+    }
+
+},
+
+
+"midpoint": {
+
+    title: "Midpoint",
+
+    fields: [
+        ["x1", "x₁", "number"],
+        ["y1", "y₁", "number"],
+        ["x2", "x₂", "number"],
+        ["y2", "y₂", "number"]
+    ],
+
+    formula:
+        "M = ((x₁+x₂)/2, (y₁+y₂)/2)",
+
+    calculate(v) {
+
+        const x1 = getNumber(v, "x1");
+        const y1 = getNumber(v, "y1");
+        const x2 = getNumber(v, "x2");
+        const y2 = getNumber(v, "y2");
+
+        const x =
+            (x1 + x2) / 2;
+
+        const y =
+            (y1 + y2) / 2;
+
+        return resultTemplate(
+            "M = ((x₁+x₂)/2, (y₁+y₂)/2)",
+            `M = (${number(x)}, ${number(y)})`,
+            `(${number(x)}, ${number(y)})`
+        );
+
+    }
+
+},
+
+
+"gradient": {
+
+    title: "Gradient",
+
+    fields: [
+        ["x1", "x₁", "number"],
+        ["y1", "y₁", "number"],
+        ["x2", "x₂", "number"],
+        ["y2", "y₂", "number"]
+    ],
+
+    formula:
+        "m = (y₂ − y₁) ÷ (x₂ − x₁)",
+
+    calculate(v) {
+
+        const x1 = getNumber(v, "x1");
+        const y1 = getNumber(v, "y1");
+        const x2 = getNumber(v, "x2");
+        const y2 = getNumber(v, "y2");
+
+        if (x2 === x1) {
+            return errorMessage(
+                "The gradient is undefined because x₂ − x₁ = 0."
+            );
+        }
+
+        const m =
+            (y2 - y1) / (x2 - x1);
+
+        return resultTemplate(
+            "m = (y₂ − y₁) ÷ (x₂ − x₁)",
+            `m = ${number(m)}`,
+            number(m)
+        );
+
+    }
+
+},
+
+
+"circle-area": {
+
+    title: "Area of a Circle",
+
+    fields: [
+        ["radius", "Radius", "number"]
+    ],
+
+    formula:
+        "Area = πr²",
+
+    calculate(v) {
+
+        const r =
+            getNumber(v, "radius");
+
+        const area =
+            Math.PI * r * r;
+
+        return resultTemplate(
+            "Area = πr²",
+            `π × ${number(r)}²`,
+            number(area)
+        );
+
+    }
+
+},
+
+
+"trigonometry": {
+
+    title: "Trigonometry",
+
+    fields: [
+        ["angle", "Angle (Degrees)", "number"],
+        ["ratio", "Ratio", "select"]
+    ],
+
+    options: {
+        ratio: [
+            ["sin", "sin"],
+            ["cos", "cos"],
+            ["tan", "tan"]
+        ]
+    },
+
+    formula:
+        "Use the selected trigonometric ratio of the angle.",
+
+    calculate(v) {
+
+        const angle =
+            getNumber(v, "angle");
+
+        const radians =
+            angle * Math.PI / 180;
+
+        let answer;
+
+        if (v.ratio === "sin") {
+            answer = Math.sin(radians);
+        }
+
+        if (v.ratio === "cos") {
+            answer = Math.cos(radians);
+        }
+
+        if (v.ratio === "tan") {
+            answer = Math.tan(radians);
+        }
+
+        return resultTemplate(
+
+            `${v.ratio}(${angle}°)`,
+
+            `Angle converted to radians:
+             ${number(radians, 6)}`,
+
+            number(answer, 6)
+        );
+
+    }
+
+},
+
+
+"indices": {
+
+    title: "Indices / Exponents",
+
+    fields: [
+        ["base", "Base", "number"],
+        ["power", "Power", "number"]
+    ],
+
+    formula:
+        "aⁿ",
+
+    calculate(v) {
+
+        const a = getNumber(v, "base");
+        const n = getNumber(v, "power");
+
+        const answer =
+            Math.pow(a, n);
+
+        return resultTemplate(
+            "aⁿ",
+            `${number(a)}^${number(n)}`,
+            number(answer)
+        );
+
+    }
+
+},
+
+
+"logarithm": {
+
+    title: "Logarithm",
+
+    fields: [
+        ["value", "Value", "number"],
+        ["base", "Base", "number"]
+    ],
+
+    formula:
+        "log₍b₎(x) = ln(x) ÷ ln(b)",
+
+    calculate(v) {
+
+        const value = getNumber(v, "value");
+        const base = getNumber(v, "base");
+
+        if (
+            value <= 0 ||
+            base <= 0 ||
+            base === 1
+        ) {
+            return errorMessage(
+                "Value must be positive, and base must be positive and not equal to 1."
+            );
+        }
+
+        const answer =
+            Math.log(value) /
+            Math.log(base);
+
+        return resultTemplate(
+            "log₍b₎(x) = ln(x) ÷ ln(b)",
+            `ln(${value}) ÷ ln(${base})`,
+            number(answer)
+        );
+
+    }
+
+},
+
+
+"simultaneous-equations": {
+
+    title: "Simultaneous Equations",
+
+    fields: [
+        ["a1", "a₁", "number"],
+        ["b1", "b₁", "number"],
+        ["c1", "c₁", "number"],
+        ["a2", "a₂", "number"],
+        ["b2", "b₂", "number"],
+        ["c2", "c₂", "number"]
+    ],
+
+    formula:
+        "a₁x+b₁y=c₁ and a₂x+b₂y=c₂",
+
+    calculate(v) {
+
+        const a1 = getNumber(v, "a1");
+        const b1 = getNumber(v, "b1");
+        const c1 = getNumber(v, "c1");
+
+        const a2 = getNumber(v, "a2");
+        const b2 = getNumber(v, "b2");
+        const c2 = getNumber(v, "c2");
+
+        const D =
+            a1 * b2 -
+            a2 * b1;
+
+        if (D === 0) {
+            return errorMessage(
+                "The equations do not have one unique solution."
+            );
+        }
+
+        const x =
+            (c1 * b2 - c2 * b1) / D;
+
+        const y =
+            (a1 * c2 - a2 * c1) / D;
+
+        return resultTemplate(
+            "Cramer's Rule",
+            `
+            D = ${number(D)}<br><br>
+            x = ${number(x)}<br>
+            y = ${number(y)}
+            `,
+            `x = ${number(x)}<br>
+             y = ${number(y)}`
+        );
+
+    }
+
+},
+
+
+"differentiation-power": {
+
+    title: "Differentiation – Power Rule",
+
+    fields: [
+        ["coefficient", "Coefficient", "number"],
+        ["power", "Power", "number"]
+    ],
+
+    formula:
+        "d/dx (axⁿ) = an xⁿ⁻¹",
+
+    calculate(v) {
+
+        const a =
+            getNumber(v, "coefficient");
+
+        const n =
+            getNumber(v, "power");
+
+        const newCoefficient =
+            a * n;
+
+        const newPower =
+            n - 1;
+
+        return resultTemplate(
+            "d/dx(axⁿ) = anxⁿ⁻¹",
+            `
+            = ${number(a)} × ${number(n)}
+              x^(${number(newPower)})
+            `,
+            `${number(newCoefficient)}x^${number(newPower)}`
+        );
+
+    }
+
+},
+
+
+"integration-power": {
+
+    title: "Integration – Power Rule",
+
+    fields: [
+        ["coefficient", "Coefficient", "number"],
+        ["power", "Power", "number"]
+    ],
+
+    formula:
+        "∫axⁿ dx = axⁿ⁺¹ ÷ (n+1) + C",
+
+    calculate(v) {
+
+        const a =
+            getNumber(v, "coefficient");
+
+        const n =
+            getNumber(v, "power");
+
+        if (n === -1) {
+            return errorMessage(
+                "For n = -1, use logarithmic integration."
+            );
+        }
+
+        const newPower =
+            n + 1;
+
+        const newCoefficient =
+            a / newPower;
+
+        return resultTemplate(
+            "∫axⁿ dx = axⁿ⁺¹ ÷ (n+1) + C",
+            `
+            = ${number(newCoefficient)}
+              x^${number(newPower)} + C
+            `,
+            `${number(newCoefficient)}x^${number(newPower)} + C`
         );
 
     }
@@ -1836,10 +2056,10 @@ statistics: {
 
 "mean": {
 
-    title: "Mean",
+    title: "Arithmetic Mean",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["data", "Data Values (comma separated)", "text"]
     ],
 
     formula:
@@ -1847,44 +2067,88 @@ statistics: {
 
     calculate(v) {
 
-        const values =
+        const data =
             getArray(v.data);
 
-        if (!values.length) {
-
+        if (!data.length) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Enter valid data separated by commas."
             );
-
         }
 
-        const total =
-            sum(values);
-
         const mean =
-            total / values.length;
+            average(data);
 
         return resultTemplate(
 
             "Mean = Σx ÷ n",
 
             `
-            Σx =
-            ${number(total)}<br><br>
-
-            n =
-            ${values.length}<br><br>
+            Σx = ${number(sum(data))}<br>
+            n = ${data.length}<br><br>
 
             Mean =
-            ${number(total)}
-            ÷
-            ${values.length}
-            =
-            ${number(mean)}
+            ${number(sum(data))}
+            ÷ ${data.length}
             `,
 
             number(mean)
+        );
 
+    }
+
+},
+
+
+"weighted-mean": {
+
+    title: "Weighted Mean",
+
+    fields: [
+        ["values", "Values (comma separated)", "text"],
+        ["weights", "Weights (comma separated)", "text"]
+    ],
+
+    formula:
+        "Weighted Mean = Σwx ÷ Σw",
+
+    calculate(v) {
+
+        const values =
+            getArray(v.values);
+
+        const weights =
+            getArray(v.weights);
+
+        if (
+            values.length === 0 ||
+            values.length !== weights.length
+        ) {
+            return errorMessage(
+                "Values and weights must have the same number of entries."
+            );
+        }
+
+        const weightedTotal =
+            values.reduce(
+                (total, value, i) =>
+                    total + value * weights[i],
+                0
+            );
+
+        const weightTotal =
+            sum(weights);
+
+        const answer =
+            weightedTotal / weightTotal;
+
+        return resultTemplate(
+            "Weighted Mean = Σwx ÷ Σw",
+            `
+            Σwx = ${number(weightedTotal)}<br>
+            Σw = ${number(weightTotal)}
+            `,
+            number(answer)
         );
 
     }
@@ -1897,63 +2161,47 @@ statistics: {
     title: "Median",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["data", "Data Values (comma separated)", "text"]
     ],
 
     formula:
-        "Median = middle value after arranging data in order",
+        "Median = middle value after arranging data",
 
     calculate(v) {
 
-        const values =
-            getArray(v.data);
+        const data =
+            getArray(v.data)
+            .sort((a, b) => a - b);
 
-        if (!values.length) {
-
+        if (!data.length) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Enter valid data."
             );
-
         }
 
-        values.sort(
-            (a, b) => a - b
-        );
-
-        const n =
-            values.length;
+        const n = data.length;
 
         let median;
 
-        if (n % 2 === 0) {
+        if (n % 2 === 1) {
 
             median =
-                (
-                    values[n / 2 - 1] +
-                    values[n / 2]
-                ) / 2;
+                data[Math.floor(n / 2)];
 
         } else {
 
             median =
-                values[Math.floor(n / 2)];
+                (
+                    data[n / 2 - 1] +
+                    data[n / 2]
+                ) / 2;
 
         }
 
         return resultTemplate(
-
-            "Median = middle value after arranging data",
-
-            `
-            Ordered data =
-            ${values.join(", ")}<br><br>
-
-            Median =
-            ${number(median)}
-            `,
-
+            "Median = Middle value",
+            `Ordered data: ${data.join(", ")}`,
             number(median)
-
         );
 
     }
@@ -1966,85 +2214,48 @@ statistics: {
     title: "Mode",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["data", "Data Values (comma separated)", "text"]
     ],
 
     formula:
-        "Mode = value(s) occurring most frequently",
+        "Mode = Most frequently occurring value",
 
     calculate(v) {
 
-        const values =
+        const data =
             getArray(v.data);
 
-        if (!values.length) {
-
+        if (!data.length) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Enter valid data."
             );
-
         }
 
-        const frequency = {};
+        const frequencies = {};
 
-        values.forEach(value => {
+        data.forEach(value => {
 
-            frequency[value] =
-                (frequency[value] || 0) + 1;
+            frequencies[value] =
+                (frequencies[value] || 0) + 1;
 
         });
 
-
-        let highest = 0;
-
-        Object.values(frequency)
-            .forEach(count => {
-
-                if (count > highest) {
-                    highest = count;
-                }
-
-            });
-
-
-        if (highest === 1) {
-
-            return resultTemplate(
-
-                "Mode = value(s) occurring most frequently",
-
-                "Every value occurs once.",
-
-                "No mode."
-
+        const max =
+            Math.max(
+                ...Object.values(frequencies)
             );
 
-        }
-
-
         const modes =
-            Object.keys(frequency)
+            Object.keys(frequencies)
                 .filter(
-                    value =>
-                        frequency[value] === highest
-                )
-                .map(Number);
-
+                    key =>
+                        frequencies[key] === max
+                );
 
         return resultTemplate(
-
-            "Mode = value(s) occurring most frequently",
-
-            `
-            Highest frequency =
-            ${highest}<br><br>
-
-            Mode(s) =
-            ${modes.join(", ")}
-            `,
-
+            "Mode = Most frequent value",
+            `Highest frequency = ${max}`,
             modes.join(", ")
-
         );
 
     }
@@ -2057,7 +2268,7 @@ statistics: {
     title: "Range",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["data", "Data Values (comma separated)", "text"]
     ],
 
     formula:
@@ -2065,47 +2276,25 @@ statistics: {
 
     calculate(v) {
 
-        const values =
+        const data =
             getArray(v.data);
 
-        if (!values.length) {
-
+        if (!data.length) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Enter valid data."
             );
-
         }
 
-        const minimum =
-            Math.min(...values);
+        const min =
+            Math.min(...data);
 
-        const maximum =
-            Math.max(...values);
-
-        const range =
-            maximum - minimum;
+        const max =
+            Math.max(...data);
 
         return resultTemplate(
-
             "Range = Maximum − Minimum",
-
-            `
-            Maximum =
-            ${number(maximum)}<br><br>
-
-            Minimum =
-            ${number(minimum)}<br><br>
-
-            Range =
-            ${number(maximum)}
-            −
-            ${number(minimum)}
-            =
-            ${number(range)}
-            `,
-
-            number(range)
-
+            `${number(max)} − ${number(min)}`,
+            number(max - min)
         );
 
     }
@@ -2118,7 +2307,7 @@ statistics: {
     title: "Variance",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["data", "Data Values (comma separated)", "text"]
     ],
 
     formula:
@@ -2126,51 +2315,30 @@ statistics: {
 
     calculate(v) {
 
-        const values =
+        const data =
             getArray(v.data);
 
-        if (!values.length) {
-
+        if (!data.length) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Enter valid data."
             );
-
         }
 
-        const meanValue =
-            average(values);
+        const mean =
+            average(data);
 
-        const squaredDifferences =
-            values.map(
-                value =>
-                    Math.pow(
-                        value - meanValue,
-                        2
-                    )
-            );
-
-        const varianceValue =
-            average(squaredDifferences);
+        const variance =
+            data.reduce(
+                (total, x) =>
+                    total +
+                    Math.pow(x - mean, 2),
+                0
+            ) / data.length;
 
         return resultTemplate(
-
-            "Population Variance = Σ(x − x̄)² ÷ n",
-
-            `
-            Mean =
-            ${number(meanValue)}<br><br>
-
-            Σ(x − x̄)² =
-            ${number(
-                sum(squaredDifferences)
-            )}<br><br>
-
-            Variance =
-            ${number(varianceValue)}
-            `,
-
-            number(varianceValue)
-
+            "Variance = Σ(x − x̄)² ÷ n",
+            `Mean = ${number(mean)}`,
+            number(variance)
         );
 
     }
@@ -2183,7 +2351,7 @@ statistics: {
     title: "Standard Deviation",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["data", "Data Values (comma separated)", "text"]
     ],
 
     formula:
@@ -2191,50 +2359,33 @@ statistics: {
 
     calculate(v) {
 
-        const values =
+        const data =
             getArray(v.data);
 
-        if (!values.length) {
-
+        if (!data.length) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Enter valid data."
             );
-
         }
 
-        const meanValue =
-            average(values);
+        const mean =
+            average(data);
 
-        const varianceValue =
-            average(
-                values.map(
-                    value =>
-                        Math.pow(
-                            value - meanValue,
-                            2
-                        )
-                )
-            );
+        const variance =
+            data.reduce(
+                (total, x) =>
+                    total +
+                    Math.pow(x - mean, 2),
+                0
+            ) / data.length;
 
-        const standardDeviation =
-            Math.sqrt(varianceValue);
+        const sd =
+            Math.sqrt(variance);
 
         return resultTemplate(
-
-            "Standard Deviation = √Variance",
-
-            `
-            Variance =
-            ${number(varianceValue)}<br><br>
-
-            Standard Deviation =
-            √${number(varianceValue)}
-            =
-            ${number(standardDeviation)}
-            `,
-
-            number(standardDeviation)
-
+            "SD = √Variance",
+            `Variance = ${number(variance)}`,
+            number(sd)
         );
 
     }
@@ -2247,304 +2398,34 @@ statistics: {
     title: "Coefficient of Variation",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["mean", "Mean", "number"],
+        ["sd", "Standard Deviation", "number"]
     ],
 
     formula:
-        "CV = Standard Deviation ÷ Mean × 100",
+        "CV = SD ÷ Mean × 100",
 
     calculate(v) {
 
-        const values =
-            getArray(v.data);
+        const mean =
+            getNumber(v, "mean");
 
-        if (!values.length) {
+        const sd =
+            getNumber(v, "sd");
 
-            return errorMessage(
-                "Enter valid numbers separated by commas."
-            );
-
-        }
-
-        const meanValue =
-            average(values);
-
-        if (meanValue === 0) {
-
+        if (mean === 0) {
             return errorMessage(
                 "Mean cannot be zero."
             );
-
         }
-
-        const varianceValue =
-            average(
-                values.map(
-                    value =>
-                        Math.pow(
-                            value - meanValue,
-                            2
-                        )
-                )
-            );
-
-        const sd =
-            Math.sqrt(varianceValue);
 
         const cv =
-            (sd / Math.abs(meanValue))
-            * 100;
+            (sd / mean) * 100;
 
         return resultTemplate(
-
-            "CV = Standard Deviation ÷ Mean × 100",
-
-            `
-            Mean =
-            ${number(meanValue)}<br><br>
-
-            Standard Deviation =
-            ${number(sd)}<br><br>
-
-            CV =
-            ${number(sd)}
-            ÷
-            ${number(Math.abs(meanValue))}
-            × 100
-            `,
-
+            "CV = SD ÷ Mean × 100",
+            `${number(sd)} ÷ ${number(mean)} × 100`,
             percent(cv)
-
-        );
-
-    }
-
-},
-
-
-"quartile": {
-
-    title: "Quartiles",
-
-    fields: [
-        ["data", "Data (comma separated)", "text"]
-    ],
-
-    formula:
-        "Quartiles divide ordered data into four parts.",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter valid numbers separated by commas."
-            );
-
-        }
-
-        values.sort(
-            (a, b) => a - b
-        );
-
-
-        const medianOfArray =
-            arr => {
-
-                const n =
-                    arr.length;
-
-                if (n % 2 === 0) {
-
-                    return (
-                        arr[n / 2 - 1] +
-                        arr[n / 2]
-                    ) / 2;
-
-                }
-
-                return arr[
-                    Math.floor(n / 2)
-                ];
-
-            };
-
-
-        const n =
-            values.length;
-
-        const median =
-            medianOfArray(values);
-
-
-        const lower =
-            n % 2 === 0
-            ? values.slice(0, n / 2)
-            : values.slice(0, Math.floor(n / 2));
-
-
-        const upper =
-            n % 2 === 0
-            ? values.slice(n / 2)
-            : values.slice(Math.floor(n / 2) + 1);
-
-
-        const Q1 =
-            lower.length
-            ? medianOfArray(lower)
-            : median;
-
-
-        const Q3 =
-            upper.length
-            ? medianOfArray(upper)
-            : median;
-
-
-        const IQR =
-            Q3 - Q1;
-
-
-        return resultTemplate(
-
-            "Quartiles divide ordered data into four parts.",
-
-            `
-            Ordered data =
-            ${values.join(", ")}<br><br>
-
-            Q₁ =
-            ${number(Q1)}<br>
-
-            Q₂ =
-            ${number(median)}<br>
-
-            Q₃ =
-            ${number(Q3)}<br><br>
-
-            IQR =
-            Q₃ − Q₁
-            =
-            ${number(IQR)}
-            `,
-
-            `Q₁ = ${number(Q1)}<br>
-             Q₂ = ${number(median)}<br>
-             Q₃ = ${number(Q3)}<br>
-             IQR = ${number(IQR)}`
-
-        );
-
-    }
-
-},
-
-
-"correlation": {
-
-    title: "Correlation Coefficient",
-
-    fields: [
-        ["x", "X values (comma separated)", "text"],
-        ["y", "Y values (comma separated)", "text"]
-    ],
-
-    formula:
-        "r = correlation coefficient",
-
-    calculate(v) {
-
-        const x =
-            getArray(v.x);
-
-        const y =
-            getArray(v.y);
-
-
-        if (
-            !x.length ||
-            !y.length ||
-            x.length !== y.length
-        ) {
-
-            return errorMessage(
-                "X and Y must contain the same number of valid values."
-            );
-
-        }
-
-
-        const xMean =
-            average(x);
-
-        const yMean =
-            average(y);
-
-
-        let numerator = 0;
-        let xSum = 0;
-        let ySum = 0;
-
-
-        for (
-            let i = 0;
-            i < x.length;
-            i++
-        ) {
-
-            const dx =
-                x[i] - xMean;
-
-            const dy =
-                y[i] - yMean;
-
-            numerator +=
-                dx * dy;
-
-            xSum +=
-                dx * dx;
-
-            ySum +=
-                dy * dy;
-
-        }
-
-
-        const denominator =
-            Math.sqrt(
-                xSum * ySum
-            );
-
-
-        if (denominator === 0) {
-
-            return errorMessage(
-                "Correlation cannot be determined when one variable has no variation."
-            );
-
-        }
-
-
-        const r =
-            numerator / denominator;
-
-
-        return resultTemplate(
-
-            "Correlation coefficient",
-
-            `
-            r =
-            ${number(r, 6)}
-            `,
-
-            number(r, 6),
-
-            interpretCorrelation(r)
-
         );
 
     }
@@ -2557,90 +2438,39 @@ statistics: {
     title: "Skewness",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["mean", "Mean", "number"],
+        ["mode", "Mode", "number"],
+        ["sd", "Standard Deviation", "number"]
     ],
 
     formula:
-        "Skewness = μ₃ ÷ σ³",
+        "Skewness = (Mean − Mode) ÷ SD",
 
     calculate(v) {
 
-        const values =
-            getArray(v.data);
+        const mean =
+            getNumber(v, "mean");
 
-        if (!values.length) {
+        const mode =
+            getNumber(v, "mode");
 
+        const sd =
+            getNumber(v, "sd");
+
+        if (sd === 0) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Standard deviation cannot be zero."
             );
-
         }
 
-        const meanValue =
-            average(values);
-
-
-        const deviations =
-            values.map(
-                value =>
-                    value - meanValue
-            );
-
-
-        const m2 =
-            average(
-                deviations.map(
-                    value =>
-                        Math.pow(value, 2)
-                )
-            );
-
-
-        const m3 =
-            average(
-                deviations.map(
-                    value =>
-                        Math.pow(value, 3)
-                )
-            );
-
-
-        if (m2 === 0) {
-
-            return errorMessage(
-                "Skewness cannot be determined when all values are equal."
-            );
-
-        }
-
-
-        const skewness =
-            m3 /
-            Math.pow(m2, 1.5);
-
+        const skew =
+            (mean - mode) / sd;
 
         return resultTemplate(
-
-            "Skewness = μ₃ ÷ σ³",
-
-            `
-            Mean =
-            ${number(meanValue)}<br><br>
-
-            μ₂ =
-            ${number(m2)}<br><br>
-
-            μ₃ =
-            ${number(m3)}<br><br>
-
-            Skewness =
-            ${number(skewness)}
-            `,
-
-            number(skewness),
-
-            interpretSkewness(skewness)
-
+            "Skewness = (Mean − Mode) ÷ SD",
+            `(${mean} − ${mode}) ÷ ${sd}`,
+            number(skew),
+            interpretSkewness(skew)
         );
 
     }
@@ -2653,87 +2483,493 @@ statistics: {
     title: "Kurtosis",
 
     fields: [
-        ["data", "Data (comma separated)", "text"]
+        ["m4", "Fourth Central Moment", "number"],
+        ["variance", "Variance", "number"]
     ],
 
     formula:
-        "β₂ = μ₄ ÷ μ₂²",
+        "β₂ = μ₄ ÷ σ⁴",
+
+    calculate(v) {
+
+        const m4 =
+            getNumber(v, "m4");
+
+        const variance =
+            getNumber(v, "variance");
+
+        if (variance === 0) {
+            return errorMessage(
+                "Variance cannot be zero."
+            );
+        }
+
+        const beta2 =
+            m4 /
+            Math.pow(variance, 2);
+
+        return resultTemplate(
+            "β₂ = μ₄ ÷ σ⁴",
+            `${number(m4)} ÷ ${number(variance)}²`,
+            number(beta2),
+            interpretKurtosis(beta2)
+        );
+
+    }
+
+},
+
+
+"correlation": {
+
+    title: "Pearson Correlation",
+
+    fields: [
+        ["x", "X Values (comma separated)", "text"],
+        ["y", "Y Values (comma separated)", "text"]
+    ],
+
+    formula:
+        "r = Cov(X,Y) ÷ (σxσy)",
+
+    calculate(v) {
+
+        const x =
+            getArray(v.x);
+
+        const y =
+            getArray(v.y);
+
+        if (
+            !x.length ||
+            x.length !== y.length
+        ) {
+            return errorMessage(
+                "X and Y must contain the same number of values."
+            );
+        }
+
+        const meanX =
+            average(x);
+
+        const meanY =
+            average(y);
+
+        let numerator = 0;
+        let sumX = 0;
+        let sumY = 0;
+
+        for (let i = 0; i < x.length; i++) {
+
+            numerator +=
+                (x[i] - meanX) *
+                (y[i] - meanY);
+
+            sumX +=
+                Math.pow(x[i] - meanX, 2);
+
+            sumY +=
+                Math.pow(y[i] - meanY, 2);
+
+        }
+
+        const denominator =
+            Math.sqrt(sumX * sumY);
+
+        if (denominator === 0) {
+            return errorMessage(
+                "Correlation cannot be calculated."
+            );
+        }
+
+        const r =
+            numerator / denominator;
+
+        return resultTemplate(
+            "r = Σ[(x−x̄)(y−ȳ)] ÷ √[Σ(x−x̄)²Σ(y−ȳ)²]",
+            `r = ${number(r, 4)}`,
+            number(r, 4),
+            interpretCorrelation(r)
+        );
+
+    }
+
+},
+
+
+"spearman": {
+
+    title: "Spearman Rank Correlation",
+
+    fields: [
+        ["d2", "Σd²", "number"],
+        ["n", "Number of Observations", "number"]
+    ],
+
+    formula:
+        "ρ = 1 − [6Σd² ÷ n(n²−1)]",
+
+    calculate(v) {
+
+        const d2 =
+            getNumber(v, "d2");
+
+        const n =
+            getNumber(v, "n");
+
+        if (n <= 1) {
+            return errorMessage(
+                "Number of observations must be greater than 1."
+            );
+        }
+
+        const rho =
+            1 -
+            (
+                6 * d2 /
+                (n * (n * n - 1))
+            );
+
+        return resultTemplate(
+            "ρ = 1 − [6Σd² ÷ n(n²−1)]",
+            `ρ = ${number(rho, 4)}`,
+            number(rho, 4),
+            interpretCorrelation(rho)
+        );
+
+    }
+
+},
+
+
+"covariance": {
+
+    title: "Covariance",
+
+    fields: [
+        ["x", "X Values (comma separated)", "text"],
+        ["y", "Y Values (comma separated)", "text"]
+    ],
+
+    formula:
+        "Cov(X,Y) = Σ[(x−x̄)(y−ȳ)] ÷ n",
+
+    calculate(v) {
+
+        const x =
+            getArray(v.x);
+
+        const y =
+            getArray(v.y);
+
+        if (
+            !x.length ||
+            x.length !== y.length
+        ) {
+            return errorMessage(
+                "X and Y must have the same number of values."
+            );
+        }
+
+        const meanX =
+            average(x);
+
+        const meanY =
+            average(y);
+
+        let total = 0;
+
+        for (let i = 0; i < x.length; i++) {
+
+            total +=
+                (x[i] - meanX) *
+                (y[i] - meanY);
+
+        }
+
+        const covariance =
+            total / x.length;
+
+        return resultTemplate(
+            "Cov(X,Y) = Σ[(x−x̄)(y−ȳ)] ÷ n",
+            `Σ = ${number(total)}`,
+            number(covariance)
+        );
+
+    }
+
+},
+
+
+"moving-average": {
+
+    title: "Moving Average",
+
+    fields: [
+        ["data", "Data Values (comma separated)", "text"],
+        ["period", "Moving Average Period", "number"]
+    ],
+
+    formula:
+        "Moving Average = Sum of selected observations ÷ Number of observations",
+
+    calculate(v) {
+
+        const data =
+            getArray(v.data);
+
+        const period =
+            getNumber(v, "period");
+
+        if (
+            period <= 0 ||
+            period > data.length
+        ) {
+            return errorMessage(
+                "Invalid moving-average period."
+            );
+        }
+
+        const averages = [];
+
+        for (
+            let i = 0;
+            i <= data.length - period;
+            i++
+        ) {
+
+            const group =
+                data.slice(i, i + period);
+
+            averages.push(
+                average(group)
+            );
+
+        }
+
+        return resultTemplate(
+            "Moving Average = Sum ÷ Number of observations",
+            averages
+                .map(
+                    (x, i) =>
+                        `Period ${i + 1}: ${number(x)}`
+                )
+                .join("<br>"),
+            averages
+                .map(number)
+                .join(", ")
+        );
+
+    }
+
+},
+
+
+"weighted-moving-average": {
+
+    title: "Weighted Moving Average",
+
+    fields: [
+        ["values", "Values (comma separated)", "text"],
+        ["weights", "Weights (comma separated)", "text"]
+    ],
+
+    formula:
+        "WMA = Σ(Value × Weight) ÷ ΣWeights",
 
     calculate(v) {
 
         const values =
-            getArray(v.data);
+            getArray(v.values);
 
-        if (!values.length) {
+        const weights =
+            getArray(v.weights);
 
+        if (
+            values.length === 0 ||
+            values.length !== weights.length
+        ) {
             return errorMessage(
-                "Enter valid numbers separated by commas."
+                "Values and weights must have the same number of entries."
             );
-
         }
 
-        const meanValue =
-            average(values);
-
-
-        const deviations =
-            values.map(
-                value =>
-                    value - meanValue
+        const numerator =
+            values.reduce(
+                (total, value, i) =>
+                    total + value * weights[i],
+                0
             );
 
+        const denominator =
+            sum(weights);
 
-        const m2 =
-            average(
-                deviations.map(
-                    value =>
-                        Math.pow(value, 2)
-                )
-            );
-
-
-        const m4 =
-            average(
-                deviations.map(
-                    value =>
-                        Math.pow(value, 4)
-                )
-            );
-
-
-        if (m2 === 0) {
-
+        if (denominator === 0) {
             return errorMessage(
-                "Kurtosis cannot be determined when all values are equal."
+                "Total weight cannot be zero."
             );
-
         }
 
-
-        const beta2 =
-            m4 /
-            Math.pow(m2, 2);
-
+        const answer =
+            numerator / denominator;
 
         return resultTemplate(
+            "WMA = Σ(Value × Weight) ÷ ΣWeights",
+            `${number(numerator)} ÷ ${number(denominator)}`,
+            number(answer)
+        );
 
-            "β₂ = μ₄ ÷ μ₂²",
+    }
 
+},
+
+
+"least-squares-trend": {
+
+    title: "Least Squares Trend",
+
+    fields: [
+        ["x", "X Values (comma separated)", "text"],
+        ["y", "Y Values (comma separated)", "text"]
+    ],
+
+    formula:
+        "Trend line: Y = a + bX",
+
+    calculate(v) {
+
+        const x =
+            getArray(v.x);
+
+        const y =
+            getArray(v.y);
+
+        if (
+            !x.length ||
+            x.length !== y.length
+        ) {
+            return errorMessage(
+                "X and Y must have the same number of values."
+            );
+        }
+
+        const meanX =
+            average(x);
+
+        const meanY =
+            average(y);
+
+        let numerator = 0;
+        let denominator = 0;
+
+        for (let i = 0; i < x.length; i++) {
+
+            numerator +=
+                (x[i] - meanX) *
+                (y[i] - meanY);
+
+            denominator +=
+                Math.pow(x[i] - meanX, 2);
+
+        }
+
+        if (denominator === 0) {
+            return errorMessage(
+                "X values must vary."
+            );
+        }
+
+        const b =
+            numerator / denominator;
+
+        const a =
+            meanY - b * meanX;
+
+        return resultTemplate(
+            "Y = a + bX",
             `
-            μ₂ =
-            ${number(m2)}<br><br>
-
-            μ₄ =
-            ${number(m4)}<br><br>
-
-            β₂ =
-            ${number(beta2)}
+            b = ${number(b)}<br>
+            a = ${number(a)}
             `,
+            `Y = ${number(a)} + ${number(b)}X`
+        );
 
-            number(beta2),
+    }
 
-            interpretKurtosis(beta2)
+},
 
+
+"trend-forecast": {
+
+    title: "Trend Forecast",
+
+    fields: [
+        ["a", "Intercept (a)", "number"],
+        ["b", "Trend Coefficient (b)", "number"],
+        ["x", "Future X Value", "number"]
+    ],
+
+    formula:
+        "Y = a + bX",
+
+    calculate(v) {
+
+        const a =
+            getNumber(v, "a");
+
+        const b =
+            getNumber(v, "b");
+
+        const x =
+            getNumber(v, "x");
+
+        const forecast =
+            a + b * x;
+
+        return resultTemplate(
+            "Y = a + bX",
+            `${a} + (${b} × ${x})`,
+            number(forecast)
+        );
+
+    }
+
+},
+
+
+"seasonal-index": {
+
+    title: "Seasonal Index",
+
+    fields: [
+        ["actual", "Actual Value", "number"],
+        ["average", "Average / Trend Value", "number"]
+    ],
+
+    formula:
+        "Seasonal Index = Actual ÷ Average × 100",
+
+    calculate(v) {
+
+        const actual =
+            getNumber(v, "actual");
+
+        const avg =
+            getNumber(v, "average");
+
+        if (avg === 0) {
+            return errorMessage(
+                "Average value cannot be zero."
+            );
+        }
+
+        const index =
+            (actual / avg) * 100;
+
+        return resultTemplate(
+            "Seasonal Index = Actual ÷ Average × 100",
+            `${actual} ÷ ${avg} × 100`,
+            percent(index)
         );
 
     }
@@ -2752,12 +2988,12 @@ economics: {
 
 "price-elasticity-demand": {
 
-    title: "Price Elasticity of Demand (PED)",
+    title: "Price Elasticity of Demand",
 
     fields: [
-        ["q1", "Initial Quantity Demanded", "number"],
+        ["q1", "Original Quantity Demanded", "number"],
         ["q2", "New Quantity Demanded", "number"],
-        ["p1", "Initial Price", "number"],
+        ["p1", "Original Price", "number"],
         ["p2", "New Price", "number"]
     ],
 
@@ -2778,18 +3014,14 @@ economics: {
         const p2 =
             getNumber(v, "p2");
 
-
         if (
             q1 === 0 ||
             p1 === 0
         ) {
-
             return errorMessage(
-                "Initial quantity and initial price cannot be zero."
+                "Original quantity and original price cannot be zero."
             );
-
         }
-
 
         const percentQ =
             ((q2 - q1) / q1) * 100;
@@ -2797,51 +3029,48 @@ economics: {
         const percentP =
             ((p2 - p1) / p1) * 100;
 
-
         if (percentP === 0) {
-
             return errorMessage(
                 "Percentage change in price cannot be zero."
             );
-
         }
 
-
         const ped =
-            percentQ /
-            percentP;
-
+            percentQ / percentP;
 
         const absolutePED =
             Math.abs(ped);
 
-
         return resultTemplate(
 
-            "PED = % Change in Quantity Demanded ÷ % Change in Price",
+            "PED = %ΔQd ÷ %ΔP",
 
             `
-            % Change in Quantity =
+            % change in Qd =
             ${percent(percentQ)}<br><br>
 
-            % Change in Price =
+            % change in Price =
             ${percent(percentP)}<br><br>
 
             PED =
-            ${number(ped, 4)}<br><br>
-
-            Absolute PED =
-            |${number(ped, 4)}|
+            ${number(percentQ, 4)}
+            ÷
+            ${number(percentP, 4)}
             =
-            ${number(absolutePED, 4)}
+            ${number(absolutePED)}
             `,
 
-            `PED = <strong>${number(absolutePED, 4)}</strong>`,
+            `PED = ${number(absolutePED)}`,
 
-            `${interpretPED(ped)}
-            <br><br>
-            <strong>Note:</strong> The negative sign in the ordinary PED value reflects the inverse relationship between price and quantity demanded. PED is commonly reported as an absolute positive value when classifying elasticity.`
+            `${interpretPED(absolutePED)}<br><br>
 
+            <small>
+            <strong>Note:</strong>
+            PED is shown as a positive value because the
+            negative sign reflects the inverse relationship
+            between price and quantity demanded. The absolute
+            value shows the degree of responsiveness.
+            </small>`
         );
 
     }
@@ -2851,12 +3080,12 @@ economics: {
 
 "price-elasticity-supply": {
 
-    title: "Price Elasticity of Supply (PES)",
+    title: "Price Elasticity of Supply",
 
     fields: [
-        ["q1", "Initial Quantity Supplied", "number"],
+        ["q1", "Original Quantity Supplied", "number"],
         ["q2", "New Quantity Supplied", "number"],
-        ["p1", "Initial Price", "number"],
+        ["p1", "Original Price", "number"],
         ["p2", "New Price", "number"]
     ],
 
@@ -2877,18 +3106,14 @@ economics: {
         const p2 =
             getNumber(v, "p2");
 
-
         if (
             q1 === 0 ||
             p1 === 0
         ) {
-
             return errorMessage(
-                "Initial quantity and initial price cannot be zero."
+                "Original quantity and original price cannot be zero."
             );
-
         }
-
 
         const percentQ =
             ((q2 - q1) / q1) * 100;
@@ -2896,40 +3121,36 @@ economics: {
         const percentP =
             ((p2 - p1) / p1) * 100;
 
-
         if (percentP === 0) {
-
             return errorMessage(
                 "Percentage change in price cannot be zero."
             );
-
         }
 
-
         const pes =
-            percentQ /
-            percentP;
+            percentQ / percentP;
 
+        const absolutePES =
+            Math.abs(pes);
 
         return resultTemplate(
 
-            "PES = % Change in Quantity Supplied ÷ % Change in Price",
+            "PES = %ΔQs ÷ %ΔP",
 
             `
-            % Change in Quantity =
+            % change in Qs =
             ${percent(percentQ)}<br><br>
 
-            % Change in Price =
+            % change in Price =
             ${percent(percentP)}<br><br>
 
             PES =
-            ${number(pes, 4)}
+            ${number(absolutePES)}
             `,
 
-            `PES = <strong>${number(pes, 4)}</strong>`,
+            `PES = ${number(absolutePES)}`,
 
-            interpretPES(pes)
-
+            interpretPES(absolutePES)
         );
 
     }
@@ -2942,82 +3163,52 @@ economics: {
     title: "Income Elasticity of Demand",
 
     fields: [
-        ["q1", "Initial Quantity Demanded", "number"],
-        ["q2", "New Quantity Demanded", "number"],
-        ["i1", "Initial Income", "number"],
-        ["i2", "New Income", "number"]
+        ["q1", "Original Quantity", "number"],
+        ["q2", "New Quantity", "number"],
+        ["y1", "Original Income", "number"],
+        ["y2", "New Income", "number"]
     ],
 
     formula:
-        "YED = % Change in Quantity Demanded ÷ % Change in Income",
+        "YED = % Change in Quantity ÷ % Change in Income",
 
     calculate(v) {
 
-        const q1 =
-            getNumber(v, "q1");
+        const q1 = getNumber(v, "q1");
+        const q2 = getNumber(v, "q2");
+        const y1 = getNumber(v, "y1");
+        const y2 = getNumber(v, "y2");
 
-        const q2 =
-            getNumber(v, "q2");
-
-        const i1 =
-            getNumber(v, "i1");
-
-        const i2 =
-            getNumber(v, "i2");
-
-
-        if (
-            q1 === 0 ||
-            i1 === 0
-        ) {
-
+        if (q1 === 0 || y1 === 0) {
             return errorMessage(
-                "Initial quantity and initial income cannot be zero."
+                "Original quantity and income cannot be zero."
             );
-
         }
-
 
         const percentQ =
             ((q2 - q1) / q1) * 100;
 
-        const percentI =
-            ((i2 - i1) / i1) * 100;
+        const percentY =
+            ((y2 - y1) / y1) * 100;
 
-
-        if (percentI === 0) {
-
+        if (percentY === 0) {
             return errorMessage(
                 "Percentage change in income cannot be zero."
             );
-
         }
 
-
-        const elasticity =
-            percentQ /
-            percentI;
-
+        const yed =
+            percentQ / percentY;
 
         return resultTemplate(
-
-            "YED = % Change in Quantity Demanded ÷ % Change in Income",
-
+            "YED = %ΔQ ÷ %ΔY",
             `
-            % Change in Quantity =
-            ${percent(percentQ)}<br><br>
-
-            % Change in Income =
-            ${percent(percentI)}<br><br>
-
-            YED =
-            ${number(elasticity, 4)}
+            %ΔQ = ${percent(percentQ)}<br>
+            %ΔY = ${percent(percentY)}<br><br>
+            YED = ${number(yed)}
             `,
-
-            number(elasticity, 4),
-
-            interpretIncomeElasticity(elasticity)
-
+            number(yed),
+            interpretIncomeElasticity(yed)
         );
 
     }
@@ -3030,9 +3221,9 @@ economics: {
     title: "Cross Elasticity of Demand",
 
     fields: [
-        ["q1", "Initial Quantity of Good X", "number"],
+        ["q1", "Original Quantity of Good X", "number"],
         ["q2", "New Quantity of Good X", "number"],
-        ["p1", "Initial Price of Good Y", "number"],
+        ["p1", "Original Price of Good Y", "number"],
         ["p2", "New Price of Good Y", "number"]
     ],
 
@@ -3041,30 +3232,16 @@ economics: {
 
     calculate(v) {
 
-        const q1 =
-            getNumber(v, "q1");
+        const q1 = getNumber(v, "q1");
+        const q2 = getNumber(v, "q2");
+        const p1 = getNumber(v, "p1");
+        const p2 = getNumber(v, "p2");
 
-        const q2 =
-            getNumber(v, "q2");
-
-        const p1 =
-            getNumber(v, "p1");
-
-        const p2 =
-            getNumber(v, "p2");
-
-
-        if (
-            q1 === 0 ||
-            p1 === 0
-        ) {
-
+        if (q1 === 0 || p1 === 0) {
             return errorMessage(
-                "Initial quantity and initial price cannot be zero."
+                "Original values cannot be zero."
             );
-
         }
-
 
         const percentQ =
             ((q2 - q1) / q1) * 100;
@@ -3072,40 +3249,341 @@ economics: {
         const percentP =
             ((p2 - p1) / p1) * 100;
 
-
         if (percentP === 0) {
-
             return errorMessage(
-                "Percentage change in price cannot be zero."
+                "Price change cannot be zero."
             );
-
         }
 
-
-        const elasticity =
-            percentQ /
-            percentP;
-
+        const xed =
+            percentQ / percentP;
 
         return resultTemplate(
-
-            "XED = % Change in Quantity of X ÷ % Change in Price of Y",
-
+            "XED = %ΔQx ÷ %ΔPy",
             `
-            % Change in Quantity of X =
-            ${percent(percentQ)}<br><br>
-
-            % Change in Price of Y =
-            ${percent(percentP)}<br><br>
-
-            XED =
-            ${number(elasticity, 4)}
+            %ΔQx = ${percent(percentQ)}<br>
+            %ΔPy = ${percent(percentP)}<br><br>
+            XED = ${number(xed)}
             `,
+            number(xed),
+            interpretCrossElasticity(xed)
+        );
 
-            number(elasticity, 4),
+    }
 
-            interpretCrossElasticity(elasticity)
+},
 
+
+"equilibrium": {
+
+    title: "Market Equilibrium",
+
+    fields: [
+        ["a", "Demand Intercept (a)", "number"],
+        ["b", "Demand Slope (b)", "number"],
+        ["c", "Supply Intercept (c)", "number"],
+        ["d", "Supply Slope (d)", "number"]
+    ],
+
+    formula:
+        "Demand: Qd = a − bP; Supply: Qs = c + dP",
+
+    calculate(v) {
+
+        const a = getNumber(v, "a");
+        const b = getNumber(v, "b");
+        const c = getNumber(v, "c");
+        const d = getNumber(v, "d");
+
+        if (b + d === 0) {
+            return errorMessage(
+                "Demand and supply slopes cannot produce a zero denominator."
+            );
+        }
+
+        const price =
+            (a - c) / (b + d);
+
+        const quantity =
+            a - b * price;
+
+        return resultTemplate(
+            "At equilibrium: Qd = Qs",
+            `
+            P = (${a} − ${c})
+                ÷ (${b} + ${d})<br><br>
+
+            P = ${number(price)}<br>
+            Q = ${number(quantity)}
+            `,
+            `Equilibrium Price = ${number(price)}<br>
+             Equilibrium Quantity = ${number(quantity)}`
+        );
+
+    }
+
+},
+
+
+"total-revenue": {
+
+    title: "Total Revenue",
+
+    fields: [
+        ["price", "Price per Unit (₦)", "number"],
+        ["quantity", "Quantity Sold", "number"]
+    ],
+
+    formula:
+        "TR = P × Q",
+
+    calculate(v) {
+
+        const P = getNumber(v, "price");
+        const Q = getNumber(v, "quantity");
+
+        const TR =
+            P * Q;
+
+        return resultTemplate(
+            "TR = P × Q",
+            `${money(P)} × ${number(Q)}`,
+            money(TR)
+        );
+
+    }
+
+},
+
+
+"average-revenue": {
+
+    title: "Average Revenue",
+
+    fields: [
+        ["revenue", "Total Revenue (₦)", "number"],
+        ["quantity", "Quantity Sold", "number"]
+    ],
+
+    formula:
+        "AR = TR ÷ Q",
+
+    calculate(v) {
+
+        const TR =
+            getNumber(v, "revenue");
+
+        const Q =
+            getNumber(v, "quantity");
+
+        if (Q === 0) {
+            return errorMessage(
+                "Quantity cannot be zero."
+            );
+        }
+
+        const AR =
+            TR / Q;
+
+        return resultTemplate(
+            "AR = TR ÷ Q",
+            `${money(TR)} ÷ ${number(Q)}`,
+            money(AR)
+        );
+
+    }
+
+},
+
+
+"marginal-revenue": {
+
+    title: "Marginal Revenue",
+
+    fields: [
+        ["r1", "Previous Total Revenue (₦)", "number"],
+        ["r2", "New Total Revenue (₦)", "number"],
+        ["q1", "Previous Quantity", "number"],
+        ["q2", "New Quantity", "number"]
+    ],
+
+    formula:
+        "MR = ΔTR ÷ ΔQ",
+
+    calculate(v) {
+
+        const r1 = getNumber(v, "r1");
+        const r2 = getNumber(v, "r2");
+        const q1 = getNumber(v, "q1");
+        const q2 = getNumber(v, "q2");
+
+        const deltaQ =
+            q2 - q1;
+
+        if (deltaQ === 0) {
+            return errorMessage(
+                "Change in quantity cannot be zero."
+            );
+        }
+
+        const MR =
+            (r2 - r1) / deltaQ;
+
+        return resultTemplate(
+            "MR = ΔTR ÷ ΔQ",
+            `
+            ΔTR = ${money(r2 - r1)}<br>
+            ΔQ = ${number(deltaQ)}
+            `,
+            money(MR)
+        );
+
+    }
+
+},
+
+
+"total-cost": {
+
+    title: "Total Cost",
+
+    fields: [
+        ["fixed", "Fixed Cost (₦)", "number"],
+        ["variable", "Variable Cost (₦)", "number"]
+    ],
+
+    formula:
+        "TC = FC + VC",
+
+    calculate(v) {
+
+        const FC =
+            getNumber(v, "fixed");
+
+        const VC =
+            getNumber(v, "variable");
+
+        const TC =
+            FC + VC;
+
+        return resultTemplate(
+            "TC = FC + VC",
+            `${money(FC)} + ${money(VC)}`,
+            money(TC)
+        );
+
+    }
+
+},
+
+
+"average-cost": {
+
+    title: "Average Cost",
+
+    fields: [
+        ["total", "Total Cost (₦)", "number"],
+        ["quantity", "Quantity", "number"]
+    ],
+
+    formula:
+        "AC = TC ÷ Q",
+
+    calculate(v) {
+
+        const TC =
+            getNumber(v, "total");
+
+        const Q =
+            getNumber(v, "quantity");
+
+        if (Q === 0) {
+            return errorMessage(
+                "Quantity cannot be zero."
+            );
+        }
+
+        const AC =
+            TC / Q;
+
+        return resultTemplate(
+            "AC = TC ÷ Q",
+            `${money(TC)} ÷ ${number(Q)}`,
+            money(AC)
+        );
+
+    }
+
+},
+
+
+"average-fixed-cost": {
+
+    title: "Average Fixed Cost",
+
+    fields: [
+        ["fixed", "Fixed Cost (₦)", "number"],
+        ["quantity", "Quantity", "number"]
+    ],
+
+    formula:
+        "AFC = FC ÷ Q",
+
+    calculate(v) {
+
+        const FC =
+            getNumber(v, "fixed");
+
+        const Q =
+            getNumber(v, "quantity");
+
+        if (Q === 0) {
+            return errorMessage(
+                "Quantity cannot be zero."
+            );
+        }
+
+        return resultTemplate(
+            "AFC = FC ÷ Q",
+            `${money(FC)} ÷ ${number(Q)}`,
+            money(FC / Q)
+        );
+
+    }
+
+},
+
+
+"average-variable-cost": {
+
+    title: "Average Variable Cost",
+
+    fields: [
+        ["variable", "Variable Cost (₦)", "number"],
+        ["quantity", "Quantity", "number"]
+    ],
+
+    formula:
+        "AVC = VC ÷ Q",
+
+    calculate(v) {
+
+        const VC =
+            getNumber(v, "variable");
+
+        const Q =
+            getNumber(v, "quantity");
+
+        if (Q === 0) {
+            return errorMessage(
+                "Quantity cannot be zero."
+            );
+        }
+
+        return resultTemplate(
+            "AVC = VC ÷ Q",
+            `${money(VC)} ÷ ${number(Q)}`,
+            money(VC / Q)
         );
 
     }
@@ -3119,46 +3597,27 @@ economics: {
 
     fields: [
         ["revenue", "Total Revenue (₦)", "number"],
-        ["explicit", "Explicit Costs (₦)", "number"],
-        ["implicit", "Implicit Costs (₦)", "number"]
+        ["cost", "Total Cost (₦)", "number"]
     ],
 
     formula:
-        "Economic Profit = Total Revenue − Explicit Costs − Implicit Costs",
+        "Profit = Total Revenue − Total Cost",
 
     calculate(v) {
 
-        const revenue =
+        const TR =
             getNumber(v, "revenue");
 
-        const explicit =
-            getNumber(v, "explicit");
-
-        const implicit =
-            getNumber(v, "implicit");
-
+        const TC =
+            getNumber(v, "cost");
 
         const profit =
-            revenue -
-            explicit -
-            implicit;
-
+            TR - TC;
 
         return resultTemplate(
-
-            "Economic Profit = TR − Explicit Costs − Implicit Costs",
-
-            `
-            =
-            ${money(revenue)}
-            −
-            ${money(explicit)}
-            −
-            ${money(implicit)}
-            `,
-
+            "Profit = TR − TC",
+            `${money(TR)} − ${money(TC)}`,
             money(profit)
-
         );
 
     }
@@ -3166,59 +3625,43 @@ economics: {
 },
 
 
-"national-income": {
+"consumer-surplus": {
 
-    title: "National Income",
+    title: "Consumer Surplus",
 
     fields: [
-        ["wages", "Wages", "number"],
-        ["rent", "Rent", "number"],
-        ["interest", "Interest", "number"],
-        ["profit", "Profit", "number"]
+        ["maximum", "Maximum Willingness to Pay (₦)", "number"],
+        ["actual", "Actual Market Price (₦)", "number"],
+        ["quantity", "Quantity", "number"]
     ],
 
     formula:
-        "National Income = Wages + Rent + Interest + Profit",
+        "Consumer Surplus = ½ × (Maximum Price − Market Price) × Quantity",
 
     calculate(v) {
 
-        const wages =
-            getNumber(v, "wages");
+        const max =
+            getNumber(v, "maximum");
 
-        const rent =
-            getNumber(v, "rent");
+        const price =
+            getNumber(v, "actual");
 
-        const interest =
-            getNumber(v, "interest");
+        const Q =
+            getNumber(v, "quantity");
 
-        const profit =
-            getNumber(v, "profit");
-
-
-        const income =
-            wages +
-            rent +
-            interest +
-            profit;
-
+        const CS =
+            0.5 *
+            (max - price) *
+            Q;
 
         return resultTemplate(
-
-            "National Income = Wages + Rent + Interest + Profit",
-
+            "CS = ½ × (Maximum Price − Market Price) × Q",
             `
-            =
-            ${money(wages)}
-            +
-            ${money(rent)}
-            +
-            ${money(interest)}
-            +
-            ${money(profit)}
+            = ½ × (${money(max)}
+            − ${money(price)})
+            × ${number(Q)}
             `,
-
-            money(income)
-
+            money(CS)
         );
 
     }
@@ -3226,54 +3669,334 @@ economics: {
 },
 
 
-"price-index": {
+"producer-surplus": {
 
-    title: "Price Index",
+    title: "Producer Surplus",
 
     fields: [
-        ["current", "Current Price", "number"],
-        ["base", "Base Price", "number"]
+        ["market", "Market Price (₦)", "number"],
+        ["minimum", "Minimum Supply Price (₦)", "number"],
+        ["quantity", "Quantity", "number"]
     ],
 
     formula:
-        "Price Index = Current Price ÷ Base Price × 100",
+        "Producer Surplus = ½ × (Market Price − Minimum Price) × Quantity",
 
     calculate(v) {
 
-        const current =
-            getNumber(v, "current");
+        const market =
+            getNumber(v, "market");
 
-        const base =
-            getNumber(v, "base");
+        const minimum =
+            getNumber(v, "minimum");
+
+        const Q =
+            getNumber(v, "quantity");
+
+        const PS =
+            0.5 *
+            (market - minimum) *
+            Q;
+
+        return resultTemplate(
+            "PS = ½ × (Market Price − Minimum Price) × Q",
+            `
+            = ½ × (${money(market)}
+            − ${money(minimum)})
+            × ${number(Q)}
+            `,
+            money(PS)
+        );
+
+    }
+
+},
 
 
-        if (base === 0) {
+"total-product": {
 
+    title: "Total Product",
+
+    fields: [
+        ["output", "Total Output", "number"]
+    ],
+
+    formula:
+        "TP = Total Output",
+
+    calculate(v) {
+
+        const TP =
+            getNumber(v, "output");
+
+        return resultTemplate(
+            "TP = Total Output",
+            `TP = ${number(TP)}`,
+            number(TP)
+        );
+
+    }
+
+},
+
+
+"average-product": {
+
+    title: "Average Product",
+
+    fields: [
+        ["output", "Total Product", "number"],
+        ["labour", "Units of Labour", "number"]
+    ],
+
+    formula:
+        "AP = TP ÷ Labour",
+
+    calculate(v) {
+
+        const TP =
+            getNumber(v, "output");
+
+        const L =
+            getNumber(v, "labour");
+
+        if (L === 0) {
             return errorMessage(
-                "Base price cannot be zero."
+                "Labour cannot be zero."
             );
-
         }
 
+        return resultTemplate(
+            "AP = TP ÷ Labour",
+            `${number(TP)} ÷ ${number(L)}`,
+            number(TP / L)
+        );
 
-        const index =
-            (current / base) * 100;
+    }
 
+},
+
+
+"marginal-product": {
+
+    title: "Marginal Product",
+
+    fields: [
+        ["q1", "Previous Output", "number"],
+        ["q2", "New Output", "number"],
+        ["l1", "Previous Labour", "number"],
+        ["l2", "New Labour", "number"]
+    ],
+
+    formula:
+        "MP = ΔTP ÷ ΔL",
+
+    calculate(v) {
+
+        const q1 =
+            getNumber(v, "q1");
+
+        const q2 =
+            getNumber(v, "q2");
+
+        const l1 =
+            getNumber(v, "l1");
+
+        const l2 =
+            getNumber(v, "l2");
+
+        const deltaL =
+            l2 - l1;
+
+        if (deltaL === 0) {
+            return errorMessage(
+                "Change in labour cannot be zero."
+            );
+        }
+
+        const MP =
+            (q2 - q1) / deltaL;
 
         return resultTemplate(
-
-            "Price Index = Current Price ÷ Base Price × 100",
-
+            "MP = ΔTP ÷ ΔL",
             `
-            =
-            ${number(current)}
-            ÷
-            ${number(base)}
+            ΔTP = ${number(q2 - q1)}<br>
+            ΔL = ${number(deltaL)}
+            `,
+            number(MP)
+        );
+
+    }
+
+},
+
+
+"inflation-rate": {
+
+    title: "Inflation Rate",
+
+    fields: [
+        ["old", "Old Price Index", "number"],
+        ["new", "New Price Index", "number"]
+    ],
+
+    formula:
+        "Inflation Rate = (New Index − Old Index) ÷ Old Index × 100",
+
+    calculate(v) {
+
+        const oldIndex =
+            getNumber(v, "old");
+
+        const newIndex =
+            getNumber(v, "new");
+
+        if (oldIndex === 0) {
+            return errorMessage(
+                "Old price index cannot be zero."
+            );
+        }
+
+        const rate =
+            ((newIndex - oldIndex) /
+                oldIndex) * 100;
+
+        return resultTemplate(
+            "Inflation Rate = (New − Old) ÷ Old × 100",
+            `
+            (${newIndex} − ${oldIndex})
+            ÷ ${oldIndex}
             × 100
             `,
+            percent(rate)
+        );
 
-            number(index)
+    }
 
+},
+
+
+"per-capita-income": {
+
+    title: "Per Capita Income",
+
+    fields: [
+        ["income", "National Income (₦)", "number"],
+        ["population", "Population", "number"]
+    ],
+
+    formula:
+        "Per Capita Income = National Income ÷ Population",
+
+    calculate(v) {
+
+        const income =
+            getNumber(v, "income");
+
+        const population =
+            getNumber(v, "population");
+
+        if (population === 0) {
+            return errorMessage(
+                "Population cannot be zero."
+            );
+        }
+
+        const answer =
+            income / population;
+
+        return resultTemplate(
+            "PCI = National Income ÷ Population",
+            `${money(income)} ÷ ${number(population)}`,
+            money(answer)
+        );
+
+    }
+
+},
+
+
+"nominal-real-gdp": {
+
+    title: "Real GDP from Nominal GDP",
+
+    fields: [
+        ["nominal", "Nominal GDP (₦)", "number"],
+        ["deflator", "GDP Deflator", "number"]
+    ],
+
+    formula:
+        "Real GDP = Nominal GDP ÷ GDP Deflator × 100",
+
+    calculate(v) {
+
+        const nominal =
+            getNumber(v, "nominal");
+
+        const deflator =
+            getNumber(v, "deflator");
+
+        if (deflator === 0) {
+            return errorMessage(
+                "GDP deflator cannot be zero."
+            );
+        }
+
+        const real =
+            nominal / deflator * 100;
+
+        return resultTemplate(
+            "Real GDP = Nominal GDP ÷ GDP Deflator × 100",
+            `
+            = ${money(nominal)}
+              ÷ ${number(deflator)}
+              × 100
+            `,
+            money(real)
+        );
+
+    }
+
+},
+
+
+"gdp-deflator": {
+
+    title: "GDP Deflator",
+
+    fields: [
+        ["nominal", "Nominal GDP (₦)", "number"],
+        ["real", "Real GDP (₦)", "number"]
+    ],
+
+    formula:
+        "GDP Deflator = Nominal GDP ÷ Real GDP × 100",
+
+    calculate(v) {
+
+        const nominal =
+            getNumber(v, "nominal");
+
+        const real =
+            getNumber(v, "real");
+
+        if (real === 0) {
+            return errorMessage(
+                "Real GDP cannot be zero."
+            );
+        }
+
+        const deflator =
+            nominal / real * 100;
+
+        return resultTemplate(
+            "GDP Deflator = Nominal GDP ÷ Real GDP × 100",
+            `
+            = ${money(nominal)}
+              ÷ ${money(real)}
+              × 100
+            `,
+            number(deflator)
         );
 
     }
@@ -3321,7 +4044,7 @@ const calculatorNames = {
             "Break-Even Point",
 
         "vat":
-            "VAT Calculator",
+            "VAT",
 
         "bad-debt":
             "Bad Debt",
@@ -3350,7 +4073,7 @@ const calculatorNames = {
             "Annuity",
 
         "payment":
-            "Loan Payment / Installment",
+            "Payment / Installment",
 
         "sinking-fund":
             "Sinking Fund",
@@ -3368,6 +4091,15 @@ const calculatorNames = {
 
         "simple-equation":
             "Simple Linear Equation",
+
+        "simultaneous-equations":
+            "Simultaneous Equations",
+
+        "indices":
+            "Indices / Exponents",
+
+        "logarithm":
+            "Logarithm",
 
         "percentage-change":
             "Percentage Change",
@@ -3392,1377 +4124,6 @@ const calculatorNames = {
 
         "trigonometry":
             "Trigonometry",
-
-        "indices":
-            "Indices / Exponents",
-
-        "logarithm":
-            "Logarithm",
-
-        "simultaneous-equations":
-            "Simultaneous Equations",
-
-        "differentiation-power":
-            "Differentiation – Power Rule",
-
-        "factorial":
-            "Factorial"
-
-    },
-
-
-    statistics: {
-
-        "mean":
-            "Mean",
-
-        "median":
-            "Median",
-
-        "mode":
-            "Mode",
-
-        "range":
-            "Range",
-
-        "variance":
-            "Variance",
-
-        "standard-deviation":
-            "Standard Deviation",
-
-        "coefficient-variation":
-            "Coefficient of Variation",
-
-        "quartile":
-            "Quartiles",
-
-        "correlation":
-            "Correlation Coefficient",
-
-        "skewness":
-            "Skewness",
-
-        "kurtosis":
-            "Kurtosis"
-
-    },
-
-
-    economics: {
-
-        "price-elasticity-demand":
-            "Price Elasticity of Demand (PED)",
-
-        "price-elasticity-supply":
-            "Price Elasticity of Supply (PES)",
-
-        "income-elasticity":
-            "Income Elasticity of Demand",
-
-        "cross-elasticity":
-            "Cross Elasticity of Demand",
-
-        "profit":
-            "Economic Profit",
-
-        "national-income":
-            "National Income",
-
-        "price-index":
-            "Price Index"
-
-    }
-
-};
-
-
-/* =========================================================
-   DOM ELEMENTS
-========================================================= */
-
-const categorySelect =
-    document.getElementById("category");            `
-
-            Derivative =
-            ${number(newCoefficient)}x^${number(newPower)}
-            `,
-
-            `${number(newCoefficient)}x^${number(newPower)}`
-        );
-
-    }
-
-},
-
-
-"basic-arithmetic": {
-
-    title: "Basic Arithmetic",
-
-    fields: [
-        ["first", "First Number", "number"],
-        ["second", "Second Number", "number"],
-        ["operation", "Operation", "select"]
-    ],
-
-    options: {
-        operation: [
-            ["add", "Addition (+)"],
-            ["subtract", "Subtraction (−)"],
-            ["multiply", "Multiplication (×)"],
-            ["divide", "Division (÷)"]
-        ]
-    },
-
-    formula:
-        "Perform the selected arithmetic operation.",
-
-    calculate(v) {
-
-        const first =
-            getNumber(v, "first");
-
-        const second =
-            getNumber(v, "second");
-
-        let answer;
-        let symbol;
-
-        if (v.operation === "add") {
-
-            answer = first + second;
-            symbol = "+";
-
-        }
-
-        if (v.operation === "subtract") {
-
-            answer = first - second;
-            symbol = "−";
-
-        }
-
-        if (v.operation === "multiply") {
-
-            answer = first * second;
-            symbol = "×";
-
-        }
-
-        if (v.operation === "divide") {
-
-            if (second === 0) {
-
-                return errorMessage(
-                    "Division by zero is not allowed."
-                );
-
-            }
-
-            answer = first / second;
-            symbol = "÷";
-
-        }
-
-        return resultTemplate(
-
-            "Selected arithmetic operation",
-
-            `
-            ${number(first)}
-            ${symbol}
-            ${number(second)}
-            =
-            ${number(answer)}
-            `,
-
-            number(answer)
-        );
-
-    }
-
-}
-
-},
-
-
-/* =========================================================
-   STATISTICS
-========================================================= */
-
-statistics: {
-
-
-"mean": {
-
-    title: "Mean",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Mean = Σx ÷ n",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const total =
-            sum(values);
-
-        const mean =
-            average(values);
-
-        return resultTemplate(
-
-            "Mean = Σx ÷ n",
-
-            `
-            Σx = ${number(total)}<br><br>
-
-            n = ${values.length}<br><br>
-
-            Mean =
-            ${number(total)}
-            ÷ ${values.length}
-            =
-            ${number(mean)}
-            `,
-
-            number(mean)
-        );
-
-    }
-
-},
-
-
-"median": {
-
-    title: "Median",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Median = middle value after arranging the data.",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data)
-                .sort((a, b) => a - b);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const middle =
-            Math.floor(values.length / 2);
-
-        let median;
-
-        if (values.length % 2 === 0) {
-
-            median =
-                (
-                    values[middle - 1] +
-                    values[middle]
-                ) / 2;
-
-        } else {
-
-            median =
-                values[middle];
-
-        }
-
-        return resultTemplate(
-
-            "Median = middle value after arranging the data.",
-
-            `
-            Ordered data:
-            ${values.join(", ")}<br><br>
-
-            Median =
-            ${number(median)}
-            `,
-
-            number(median)
-        );
-
-    }
-
-},
-
-
-"mode": {
-
-    title: "Mode",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Mode = value(s) occurring most frequently.",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const frequencies = {};
-
-        values.forEach(value => {
-
-            frequencies[value] =
-                (frequencies[value] || 0) + 1;
-
-        });
-
-        const highest =
-            Math.max(
-                ...Object.values(frequencies)
-            );
-
-        const modes =
-            Object.keys(frequencies)
-                .filter(
-                    key =>
-                        frequencies[key] === highest
-                )
-                .map(Number);
-
-        if (highest === 1) {
-
-            return resultTemplate(
-
-                "Mode = value occurring most frequently.",
-
-                `
-                Every value occurs only once.
-                `,
-
-                "No mode."
-            );
-
-        }
-
-        return resultTemplate(
-
-            "Mode = value(s) occurring most frequently.",
-
-            `
-            Highest frequency =
-            ${highest}<br><br>
-
-            Mode value(s):
-            ${modes.join(", ")}
-            `,
-
-            modes.join(", ")
-        );
-
-    }
-
-},
-
-
-"range": {
-
-    title: "Range",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Range = Maximum − Minimum",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const minimum =
-            Math.min(...values);
-
-        const maximum =
-            Math.max(...values);
-
-        const range =
-            maximum - minimum;
-
-        return resultTemplate(
-
-            "Range = Maximum − Minimum",
-
-            `
-            Maximum = ${number(maximum)}<br><br>
-
-            Minimum = ${number(minimum)}<br><br>
-
-            Range =
-            ${number(maximum)}
-            −
-            ${number(minimum)}
-            =
-            ${number(range)}
-            `,
-
-            number(range)
-        );
-
-    }
-
-},
-
-
-"variance": {
-
-    title: "Variance",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Population Variance = Σ(x − x̄)² ÷ n",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const mean =
-            average(values);
-
-        const squaredDifferences =
-            values.map(
-                x =>
-                    Math.pow(x - mean, 2)
-            );
-
-        const variance =
-            average(squaredDifferences);
-
-        return resultTemplate(
-
-            "Population Variance = Σ(x − x̄)² ÷ n",
-
-            `
-            Mean =
-            ${number(mean)}<br><br>
-
-            Σ(x − x̄)² =
-            ${number(sum(squaredDifferences))}<br><br>
-
-            Variance =
-            ${number(variance)}
-            `,
-
-            number(variance)
-        );
-
-    }
-
-},
-
-
-"standard-deviation": {
-
-    title: "Standard Deviation",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Standard Deviation = √Variance",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const mean =
-            average(values);
-
-        const variance =
-            average(
-                values.map(
-                    x =>
-                        Math.pow(x - mean, 2)
-                )
-            );
-
-        const standardDeviation =
-            Math.sqrt(variance);
-
-        return resultTemplate(
-
-            "Standard Deviation = √Variance",
-
-            `
-            Variance =
-            ${number(variance)}<br><br>
-
-            Standard Deviation =
-            √${number(variance)}
-            =
-            ${number(standardDeviation)}
-            `,
-
-            number(standardDeviation)
-        );
-
-    }
-
-},
-
-
-"coefficient-of-variation": {
-
-    title: "Coefficient of Variation",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "CV = Standard Deviation ÷ Mean × 100",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const mean =
-            average(values);
-
-        if (mean === 0) {
-
-            return errorMessage(
-                "Mean cannot be zero."
-            );
-
-        }
-
-        const variance =
-            average(
-                values.map(
-                    x =>
-                        Math.pow(x - mean, 2)
-                )
-            );
-
-        const sd =
-            Math.sqrt(variance);
-
-        const cv =
-            (sd / Math.abs(mean)) * 100;
-
-        return resultTemplate(
-
-            "CV = Standard Deviation ÷ Mean × 100",
-
-            `
-            Mean =
-            ${number(mean)}<br><br>
-
-            Standard Deviation =
-            ${number(sd)}<br><br>
-
-            CV =
-            ${number(sd)}
-            ÷
-            ${number(Math.abs(mean))}
-            × 100
-            `,
-
-            percent(cv)
-        );
-
-    }
-
-},
-
-
-"correlation": {
-
-    title: "Correlation Coefficient",
-
-    fields: [
-        ["x", "X Values (comma separated)", "text"],
-        ["y", "Y Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "r = Cov(X,Y) ÷ (σx × σy)",
-
-    calculate(v) {
-
-        const x =
-            getArray(v.x);
-
-        const y =
-            getArray(v.y);
-
-        if (
-            !x.length ||
-            !y.length ||
-            x.length !== y.length
-        ) {
-
-            return errorMessage(
-                "X and Y must contain the same number of valid values."
-            );
-
-        }
-
-        const meanX =
-            average(x);
-
-        const meanY =
-            average(y);
-
-        let numerator = 0;
-        let denominatorX = 0;
-        let denominatorY = 0;
-
-        for (
-            let i = 0;
-            i < x.length;
-            i++
-        ) {
-
-            const dx =
-                x[i] - meanX;
-
-            const dy =
-                y[i] - meanY;
-
-            numerator +=
-                dx * dy;
-
-            denominatorX +=
-                dx * dx;
-
-            denominatorY +=
-                dy * dy;
-
-        }
-
-        if (
-            denominatorX === 0 ||
-            denominatorY === 0
-        ) {
-
-            return errorMessage(
-                "Correlation cannot be calculated when one variable has no variation."
-            );
-
-        }
-
-        const r =
-            numerator /
-            Math.sqrt(
-                denominatorX *
-                denominatorY
-            );
-
-        return resultTemplate(
-
-            "r = Σ[(x − x̄)(y − ȳ)] ÷ √[Σ(x − x̄)²Σ(y − ȳ)²]",
-
-            `
-            r =
-            ${number(r, 4)}
-            `,
-
-            number(r, 4),
-
-            interpretCorrelation(r)
-        );
-
-    }
-
-},
-
-
-"skewness": {
-
-    title: "Skewness",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Skewness = μ₃ ÷ σ³",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const mean =
-            average(values);
-
-        const variance =
-            average(
-                values.map(
-                    x =>
-                        Math.pow(x - mean, 2)
-                )
-            );
-
-        const sd =
-            Math.sqrt(variance);
-
-        if (sd === 0) {
-
-            return errorMessage(
-                "Skewness cannot be calculated when standard deviation is zero."
-            );
-
-        }
-
-        const thirdMoment =
-            average(
-                values.map(
-                    x =>
-                        Math.pow(x - mean, 3)
-                )
-            );
-
-        const skewness =
-            thirdMoment /
-            Math.pow(sd, 3);
-
-        return resultTemplate(
-
-            "Skewness = μ₃ ÷ σ³",
-
-            `
-            Mean =
-            ${number(mean)}<br><br>
-
-            Standard Deviation =
-            ${number(sd)}<br><br>
-
-            Third central moment =
-            ${number(thirdMoment)}<br><br>
-
-            Skewness =
-            ${number(skewness)}
-            `,
-
-            number(skewness),
-
-            interpretSkewness(skewness)
-        );
-
-    }
-
-},
-
-
-"kurtosis": {
-
-    title: "Kurtosis",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "β₂ = μ₄ ÷ σ⁴",
-
-    calculate(v) {
-
-        const values =
-            getArray(v.data);
-
-        if (!values.length) {
-
-            return errorMessage(
-                "Enter at least one valid number."
-            );
-
-        }
-
-        const mean =
-            average(values);
-
-        const variance =
-            average(
-                values.map(
-                    x =>
-                        Math.pow(x - mean, 2)
-                )
-            );
-
-        if (variance === 0) {
-
-            return errorMessage(
-                "Kurtosis cannot be calculated when variance is zero."
-            );
-
-        }
-
-        const fourthMoment =
-            average(
-                values.map(
-                    x =>
-                        Math.pow(x - mean, 4)
-                )
-            );
-
-        const beta2 =
-            fourthMoment /
-            Math.pow(variance, 2);
-
-        return resultTemplate(
-
-            "β₂ = μ₄ ÷ σ⁴",
-
-            `
-            Fourth central moment =
-            ${number(fourthMoment)}<br><br>
-
-            Variance =
-            ${number(variance)}<br><br>
-
-            Kurtosis =
-            ${number(beta2)}
-            `,
-
-            number(beta2),
-
-            interpretKurtosis(beta2)
-        );
-
-    }
-
-}
-
-},        return resultTemplate(
-            "GDP Deflator = Nominal GDP ÷ Real GDP × 100",
-            `
-            = ${money(nominal)}
-              ÷ ${money(real)}
-              × 100
-            `,
-            number(deflator)
-        );
-
-    }
-
-},
-
-
-"unemployment-rate": {
-
-    title: "Unemployment Rate",
-
-    fields: [
-        ["unemployed", "Number of Unemployed", "number"],
-        ["labour", "Labour Force", "number"]
-    ],
-
-    formula:
-        "Unemployment Rate = Unemployed ÷ Labour Force × 100",
-
-    calculate(v) {
-
-        const unemployed =
-            getNumber(v, "unemployed");
-
-        const labour =
-            getNumber(v, "labour");
-
-        if (labour === 0) {
-            return errorMessage(
-                "Labour force cannot be zero."
-            );
-        }
-
-        const rate =
-            unemployed / labour * 100;
-
-        return resultTemplate(
-            "Unemployment Rate = Unemployed ÷ Labour Force × 100",
-            `${number(unemployed)} ÷ ${number(labour)} × 100`,
-            percent(rate)
-        );
-
-    }
-
-},
-
-
-"employment-rate": {
-
-    title: "Employment Rate",
-
-    fields: [
-        ["employed", "Number Employed", "number"],
-        ["labour", "Labour Force", "number"]
-    ],
-
-    formula:
-        "Employment Rate = Employed ÷ Labour Force × 100",
-
-    calculate(v) {
-
-        const employed =
-            getNumber(v, "employed");
-
-        const labour =
-            getNumber(v, "labour");
-
-        if (labour === 0) {
-            return errorMessage(
-                "Labour force cannot be zero."
-            );
-        }
-
-        const rate =
-            employed / labour * 100;
-
-        return resultTemplate(
-            "Employment Rate = Employed ÷ Labour Force × 100",
-            `${number(employed)} ÷ ${number(labour)} × 100`,
-            percent(rate)
-        );
-
-    }
-
-},
-
-
-"national-income": {
-
-    title: "National Income",
-
-    fields: [
-        ["consumption", "Consumption (₦)", "number"],
-        ["investment", "Investment (₦)", "number"],
-        ["government", "Government Expenditure (₦)", "number"],
-        ["exports", "Exports (₦)", "number"],
-        ["imports", "Imports (₦)", "number"]
-    ],
-
-    formula:
-        "Y = C + I + G + (X − M)",
-
-    calculate(v) {
-
-        const C =
-            getNumber(v, "consumption");
-
-        const I =
-            getNumber(v, "investment");
-
-        const G =
-            getNumber(v, "government");
-
-        const X =
-            getNumber(v, "exports");
-
-        const M =
-            getNumber(v, "imports");
-
-        const Y =
-            C + I + G + X - M;
-
-        return resultTemplate(
-            "Y = C + I + G + (X − M)",
-            `
-            = ${money(C)}
-              + ${money(I)}
-              + ${money(G)}
-              + ${money(X)}
-              − ${money(M)}
-            `,
-            money(Y)
-        );
-
-    }
-
-},
-
-
-"multiplier": {
-
-    title: "Simple Keynesian Multiplier",
-
-    fields: [
-        ["mpc", "Marginal Propensity to Consume", "number"]
-    ],
-
-    formula:
-        "Multiplier = 1 ÷ (1 − MPC)",
-
-    calculate(v) {
-
-        const mpc =
-            getNumber(v, "mpc");
-
-        if (
-            mpc >= 1 ||
-            mpc < 0
-        ) {
-            return errorMessage(
-                "MPC must be between 0 and less than 1."
-            );
-        }
-
-        const multiplier =
-            1 / (1 - mpc);
-
-        return resultTemplate(
-            "Multiplier = 1 ÷ (1 − MPC)",
-            `1 ÷ (1 − ${number(mpc)})`,
-            number(multiplier)
-        );
-
-    }
-
-},
-
-
-"marginal-propensity-consume": {
-
-    title: "Marginal Propensity to Consume",
-
-    fields: [
-        ["changeConsumption", "Change in Consumption (₦)", "number"],
-        ["changeIncome", "Change in Income (₦)", "number"]
-    ],
-
-    formula:
-        "MPC = ΔC ÷ ΔY",
-
-    calculate(v) {
-
-        const deltaC =
-            getNumber(v, "changeConsumption");
-
-        const deltaY =
-            getNumber(v, "changeIncome");
-
-        if (deltaY === 0) {
-            return errorMessage(
-                "Change in income cannot be zero."
-            );
-        }
-
-        const mpc =
-            deltaC / deltaY;
-
-        return resultTemplate(
-            "MPC = ΔC ÷ ΔY",
-            `${number(deltaC)} ÷ ${number(deltaY)}`,
-            number(mpc)
-        );
-
-    }
-
-},
-
-
-"marginal-propensity-save": {
-
-    title: "Marginal Propensity to Save",
-
-    fields: [
-        ["changeSaving", "Change in Saving (₦)", "number"],
-        ["changeIncome", "Change in Income (₦)", "number"]
-    ],
-
-    formula:
-        "MPS = ΔS ÷ ΔY",
-
-    calculate(v) {
-
-        const deltaS =
-            getNumber(v, "changeSaving");
-
-        const deltaY =
-            getNumber(v, "changeIncome");
-
-        if (deltaY === 0) {
-            return errorMessage(
-                "Change in income cannot be zero."
-            );
-        }
-
-        const mps =
-            deltaS / deltaY;
-
-        return resultTemplate(
-            "MPS = ΔS ÷ ΔY",
-            `${number(deltaS)} ÷ ${number(deltaY)}`,
-            number(mps)
-        );
-
-    }
-
-},
-
-
-"balance-of-trade": {
-
-    title: "Balance of Trade",
-
-    fields: [
-        ["exports", "Exports (₦)", "number"],
-        ["imports", "Imports (₦)", "number"]
-    ],
-
-    formula:
-        "BOT = Exports − Imports",
-
-    calculate(v) {
-
-        const exports =
-            getNumber(v, "exports");
-
-        const imports =
-            getNumber(v, "imports");
-
-        const balance =
-            exports - imports;
-
-        return resultTemplate(
-            "BOT = Exports − Imports",
-            `${money(exports)} − ${money(imports)}`,
-            money(balance)
-        );
-
-    }
-
-},
-
-
-"exchange-rate": {
-
-    title: "Currency Conversion",
-
-    fields: [
-        ["amount", "Amount", "number"],
-        ["rate", "Exchange Rate", "number"]
-    ],
-
-    formula:
-        "Converted Amount = Amount × Exchange Rate",
-
-    calculate(v) {
-
-        const amount =
-            getNumber(v, "amount");
-
-        const rate =
-            getNumber(v, "rate");
-
-        const converted =
-            amount * rate;
-
-        return resultTemplate(
-            "Converted Amount = Amount × Exchange Rate",
-            `${number(amount)} × ${number(rate)}`,
-            number(converted)
-        );
-
-    }
-
-}
-
-},
-
-
-/* =========================================================
-   CALCULATOR NAMES
-========================================================= */
-
-const calculatorNames = {
-
-    accounting: {
-
-        "straight-line-depreciation":
-            "Straight-Line Depreciation",
-
-        "reducing-balance":
-            "Reducing-Balance Depreciation",
-
-        "book-value":
-            "Book Value",
-
-        "gross-profit":
-            "Gross Profit",
-
-        "gross-profit-margin":
-            "Gross Profit Margin",
-
-        "net-profit":
-            "Net Profit",
-
-        "net-profit-margin":
-            "Net Profit Margin",
-
-        "markup":
-            "Markup",
-
-        "break-even":
-            "Break-Even Point",
-
-        "vat":
-            "VAT Calculator",
-
-        "bad-debt":
-            "Bad Debt",
-
-        "cogs":
-            "Cost of Goods Sold"
-
-    },
-
-    finance: {
-
-        "simple-interest":
-            "Simple Interest",
-
-        "compound-interest":
-            "Compound Interest",
-
-        "present-value":
-            "Present Value",
-
-        "future-value":
-            "Future Value",
-
-        "annuity":
-            "Future Value of an Annuity",
-
-        "payment":
-            "Loan Payment / Installment",
-
-        "sinking-fund":
-            "Sinking Fund",
-
-        "loan-amortization":
-            "Loan Amortization"
-
-    },
-
-    mathematics: {
-
-        "quadratic-equation":
-            "Quadratic Equation",
-
-        "simple-equation":
-            "Simple Linear Equation",
-
-        "percentage-change":
-            "Percentage Change",
-
-        "permutation":
-            "Permutation",
-
-        "combination":
-            "Combination",
-
-        "distance":
-            "Distance Between Two Points",
-
-        "midpoint":
-            "Midpoint",
-
-        "gradient":
-            "Gradient",
-
-        "circle-area":
-            "Area of a Circle",
-
-        "trigonometry":
-            "Trigonometry",
-
-        "indices":
-            "Indices / Exponents",
-
-        "logarithm":
-            "Logarithm",
-
-        "simultaneous-equations":
-            "Simultaneous Equations",
 
         "differentiation-power":
             "Differentiation – Power Rule",
@@ -4771,6 +4132,7 @@ const calculatorNames = {
             "Integration – Power Rule"
 
     },
+
 
     statistics: {
 
@@ -4829,6 +4191,7 @@ const calculatorNames = {
             "Seasonal Index"
 
     },
+
 
     economics: {
 
@@ -4896,790 +4259,11 @@ const calculatorNames = {
             "Real GDP from Nominal GDP",
 
         "gdp-deflator":
-            "GDP Deflator",
-
-        "unemployment-rate":
-            "Unemployment Rate",
-
-        "employment-rate":
-            "Employment Rate",
-
-        "national-income":
-            "National Income",
-
-        "multiplier":
-            "Simple Keynesian Multiplier",
-
-        "marginal-propensity-consume":
-            "Marginal Propensity to Consume",
-
-        "marginal-propensity-save":
-            "Marginal Propensity to Save",
-
-        "balance-of-trade":
-            "Balance of Trade",
-
-        "exchange-rate":
-            "Currency Conversion"
-
-    }
-
-};/* =========================================================
-   REDUCING-BALANCE DEPRECIATION
-   UPDATED TWO-METHOD SYSTEM
-========================================================= */
-
-calculators.accounting["reducing-balance"] = {
-
-    title: "Reducing-Balance Depreciation",
-
-    fields: [],
-
-    calculate(v) {
-
-        const method = v.method;
-
-
-        /* =================================================
-           METHOD 1:
-           CALCULATE DEPRECIATION RATE
-        ================================================= */
-
-        if (method === "rate") {
-
-            const cost = Number(v.cost);
-            const residual = Number(v.residual);
-            const usefulLife = Number(v.usefulLife);
-
-
-            if (
-                !Number.isFinite(cost) ||
-                !Number.isFinite(residual) ||
-                !Number.isFinite(usefulLife)
-            ) {
-
-                return errorMessage(
-                    "Please enter valid numbers for all fields."
-                );
-
-            }
-
-
-            if (cost <= 0) {
-
-                return errorMessage(
-                    "Cost of asset must be greater than zero."
-                );
-
-            }
-
-
-            if (residual < 0) {
-
-                return errorMessage(
-                    "Residual value cannot be negative."
-                );
-
-            }
-
-
-            if (residual >= cost) {
-
-                return errorMessage(
-                    "Residual value must be less than the cost of the asset."
-                );
-
-            }
-
-
-            if (usefulLife <= 0) {
-
-                return errorMessage(
-                    "Useful life must be greater than zero."
-                );
-
-            }
-
-
-            /*
-                S = C(1-r)^n
-
-                r = 1 - (S/C)^(1/n)
-            */
-
-            const rate =
-                1 -
-                Math.pow(
-                    residual / cost,
-                    1 / usefulLife
-                );
-
-
-            const percentageRate =
-                rate * 100;
-
-
-            return resultTemplate(
-
-                "S = C(1 − r)ⁿ<br><br>" +
-                "Rearranged:<br>" +
-                "r = 1 − (S/C)^(1/n)",
-
-                `
-                <strong>Step 1: Identify the values</strong><br><br>
-
-                Cost of Asset (C) =
-                ${money(cost)}<br>
-
-                Residual Value (S) =
-                ${money(residual)}<br>
-
-                Useful Life (n) =
-                ${number(usefulLife)} years
-
-                <br><br>
-
-                <strong>Step 2: Substitute into the formula</strong><br><br>
-
-                r = 1 −
-                (${money(residual)} ÷ ${money(cost)})^(1/${number(usefulLife)})
-
-                <br><br>
-
-                <strong>Step 3: Calculate the rate</strong><br><br>
-
-                r =
-                ${number(rate, 6)}
-
-                <br><br>
-
-                Depreciation Rate =
-                ${percent(percentageRate)}
-                `,
-
-                percent(percentageRate)
-
-            );
-
-        }
-
-
-
-        /* =================================================
-           METHOD 2:
-           CALCULATE DEPRECIATION
-        ================================================= */
-
-        if (method === "depreciation") {
-
-            const cost = Number(v.cost);
-            const rate = Number(v.rate);
-            const openingAccumulated =
-                v.openingAccumulated === ""
-                    ? 0
-                    : Number(v.openingAccumulated);
-
-
-            const start =
-                rbParseDate(v.startDate);
-
-            const end =
-                rbParseDate(v.endDate);
-
-
-            if (
-                !Number.isFinite(cost) ||
-                !Number.isFinite(rate) ||
-                !Number.isFinite(openingAccumulated)
-            ) {
-
-                return errorMessage(
-                    "Please enter valid numerical values."
-                );
-
-            }
-
-
-            if (cost <= 0) {
-
-                return errorMessage(
-                    "Cost of asset must be greater than zero."
-                );
-
-            }
-
-
-            if (rate < 0 || rate > 100) {
-
-                return errorMessage(
-                    "Depreciation rate must be between 0% and 100%."
-                );
-
-            }
-
-
-            if (
-                openingAccumulated < 0 ||
-                openingAccumulated > cost
-            ) {
-
-                return errorMessage(
-                    "Opening accumulated depreciation must be between ₦0 and the asset cost."
-                );
-
-            }
-
-
-            if (!start || !end) {
-
-                return errorMessage(
-                    "Please enter both the start date and end date."
-                );
-
-            }
-
-
-            if (end <= start) {
-
-                return errorMessage(
-                    "End date must be after the start date."
-                );
-
-            }
-
-
-            const openingCarrying =
-                cost - openingAccumulated;
-
-
-            let currentOpening =
-                openingCarrying;
-
-            let accumulated =
-                openingAccumulated;
-
-            let periodStart =
-                new Date(start);
-
-
-            const rows = [];
-
-
-            while (periodStart < end) {
-
-                let anniversary =
-                    rbAddOneYear(periodStart);
-
-
-                let periodEnd =
-                    anniversary < end
-                        ? anniversary
-                        : end;
-
-
-                const days =
-                    rbDaysBetween(
-                        periodStart,
-                        periodEnd
-                    );
-
-
-                const timeFraction =
-                    days / 365;
-
-
-                let depreciation =
-                    currentOpening *
-                    (rate / 100) *
-                    timeFraction;
-
-
-                /*
-                   Depreciation cannot exceed
-                   the carrying amount.
-                */
-
-                if (depreciation > currentOpening) {
-
-                    depreciation =
-                        currentOpening;
-
-                }
-
-
-                const closing =
-                    currentOpening -
-                    depreciation;
-
-
-                accumulated +=
-                    depreciation;
-
-
-                const periodDescription =
-                    rbFormatPeriod(
-                        periodStart,
-                        periodEnd
-                    );
-
-
-                rows.push({
-
-                    period:
-                        periodDescription,
-
-                    days:
-                        days,
-
-                    opening:
-                        currentOpening,
-
-                    depreciation:
-                        depreciation,
-
-                    accumulated:
-                        accumulated,
-
-                    closing:
-                        closing
-
-                });
-
-
-                currentOpening =
-                    closing;
-
-
-                periodStart =
-                    new Date(periodEnd);
-
-            }
-
-
-            const totalDays =
-                rbDaysBetween(
-                    start,
-                    end
-                );
-
-
-            const totalPeriod =
-                rbFormatPeriod(
-                    start,
-                    end
-                );
-
-
-            let tableRows = "";
-
-
-            rows.forEach(
-                (row, index) => {
-
-                    tableRows += `
-
-                        <tr>
-
-                            <td>
-                                ${index + 1}
-                            </td>
-
-                            <td>
-                                ${row.period}
-                            </td>
-
-                            <td>
-                                ${row.days}
-                            </td>
-
-                            <td>
-                                ${money(row.opening)}
-                            </td>
-
-                            <td>
-                                ${money(row.depreciation)}
-                            </td>
-
-                            <td>
-                                ${money(row.accumulated)}
-                            </td>
-
-                            <td>
-                                ${money(row.closing)}
-                            </td>
-
-                        </tr>
-
-                    `;
-
-                }
-            );
-
-
-            const schedule = `
-
-                <div style="
-                    overflow-x:auto;
-                    margin-top:20px;
-                ">
-
-                    <table style="
-                        width:100%;
-                        border-collapse:collapse;
-                        font-size:14px;
-                    ">
-
-                        <thead>
-
-                            <tr>
-
-                                <th style="
-                                    border:1px solid #ccc;
-                                    padding:8px;
-                                ">
-                                    Year
-                                </th>
-
-                                <th style="
-                                    border:1px solid #ccc;
-                                    padding:8px;
-                                ">
-                                    Period
-                                </th>
-
-                                <th style="
-                                    border:1px solid #ccc;
-                                    padding:8px;
-                                ">
-                                    Days
-                                </th>
-
-                                <th style="
-                                    border:1px solid #ccc;
-                                    padding:8px;
-                                ">
-                                    Opening Carrying Amount
-                                </th>
-
-                                <th style="
-                                    border:1px solid #ccc;
-                                    padding:8px;
-                                ">
-                                    Depreciation
-                                </th>
-
-                                <th style="
-                                    border:1px solid #ccc;
-                                    padding:8px;
-                                ">
-                                    Accumulated Depreciation
-                                </th>
-
-                                <th style="
-                                    border:1px solid #ccc;
-                                    padding:8px;
-                                ">
-                                    Closing Carrying Amount
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody>
-
-                            ${tableRows}
-
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-            `;
-
-
-            const finalDepreciation =
-                rows.length
-                    ? rows[rows.length - 1].closing
-                    : openingCarrying;
-
-
-            return resultTemplate(
-
-                `
-                Depreciation =
-                Opening Carrying Amount ×
-                Depreciation Rate ×
-                Time
-
-                <br><br>
-
-                Closing Carrying Amount =
-                Opening Carrying Amount −
-                Depreciation
-
-                <br><br>
-
-                Partial period:
-                Actual Days ÷ 365
-                `,
-
-                `
-
-                <strong>Asset Cost:</strong>
-                ${money(cost)}
-
-                <br>
-
-                <strong>Opening Accumulated Depreciation:</strong>
-                ${money(openingAccumulated)}
-
-                <br>
-
-                <strong>Opening Carrying Amount:</strong>
-                ${money(openingCarrying)}
-
-                <br>
-
-                <strong>Depreciation Rate:</strong>
-                ${percent(rate)}
-
-                <br>
-
-                <strong>Total Period:</strong>
-                ${totalPeriod}
-
-                <br>
-
-                <strong>Total Days:</strong>
-                ${number(totalDays, 0)}
-
-                <br><br>
-
-                <strong>Depreciation Schedule</strong>
-
-                ${schedule}
-
-                `,
-
-                `
-
-                Final Carrying Amount:
-                ${money(finalDepreciation)}
-
-                <br><br>
-
-                Total Accumulated Depreciation:
-                ${money(accumulated)}
-
-                `
-
-            );
-
-        }
-
-
-        return errorMessage(
-            "Please select a valid reducing-balance calculation method."
-        );
+            "GDP Deflator"
 
     }
 
 };
-
-
-
-/* =========================================================
-   REDUCING-BALANCE DATE HELPERS
-========================================================= */
-
-function rbParseDate(value) {
-
-    if (!value) {
-        return null;
-    }
-
-
-    const parts =
-        value.split("-").map(Number);
-
-
-    if (parts.length !== 3) {
-        return null;
-    }
-
-
-    const year = parts[0];
-    const month = parts[1] - 1;
-    const day = parts[2];
-
-
-    const date =
-        new Date(
-            year,
-            month,
-            day
-        );
-
-
-    if (
-        date.getFullYear() !== year ||
-        date.getMonth() !== month ||
-        date.getDate() !== day
-    ) {
-
-        return null;
-
-    }
-
-
-    return date;
-
-}
-
-
-function rbDaysBetween(start, end) {
-
-    const milliseconds =
-        end.getTime() -
-        start.getTime();
-
-
-    return Math.round(
-        milliseconds /
-        (1000 * 60 * 60 * 24)
-    );
-
-}
-
-
-function rbAddOneYear(date) {
-
-    const result =
-        new Date(date);
-
-
-    const originalMonth =
-        result.getMonth();
-
-
-    result.setFullYear(
-        result.getFullYear() + 1
-    );
-
-
-    /*
-       Handles February 29
-       when moving to a non-leap year.
-    */
-
-    if (
-        result.getMonth() !== originalMonth
-    ) {
-
-        result.setDate(0);
-
-    }
-
-
-    return result;
-
-}
-
-
-function rbFormatPeriod(start, end) {
-
-    let years =
-        end.getFullYear() -
-        start.getFullYear();
-
-
-    let months =
-        end.getMonth() -
-        start.getMonth();
-
-
-    let days =
-        end.getDate() -
-        start.getDate();
-
-
-    if (days < 0) {
-
-        months--;
-
-        const previousMonth =
-            new Date(
-                end.getFullYear(),
-                end.getMonth(),
-                0
-            );
-
-
-        days +=
-            previousMonth.getDate();
-
-    }
-
-
-    if (months < 0) {
-
-        years--;
-
-        months += 12;
-
-    }
-
-
-    const parts = [];
-
-
-    if (years === 1) {
-
-        parts.push("1 year");
-
-    } else if (years > 1) {
-
-        parts.push(
-            `${years} years`
-        );
-
-    }
-
-
-    if (months === 1) {
-
-        parts.push("1 month");
-
-    } else if (months > 1) {
-
-        parts.push(
-            `${months} months`
-        );
-
-    }
-
-
-    if (days === 1) {
-
-        parts.push("1 day");
-
-    } else if (days > 1) {
-
-        parts.push(
-            `${days} days`
-        );
-
-    }
-
-
-    return parts.length
-        ? parts.join(" ")
-        : "0 days";
-
-}
-
 
 
 /* =========================================================
@@ -5705,7 +4289,6 @@ const result =
     document.getElementById("result");
 
 
-
 /* =========================================================
    POPULATE CALCULATORS
 ========================================================= */
@@ -5715,13 +4298,10 @@ function populateCalculators() {
     const category =
         categorySelect.value;
 
-
     calculatorSelect.innerHTML = "";
-
 
     const names =
         calculatorNames[category];
-
 
     Object.entries(names).forEach(
         ([value, text]) => {
@@ -5729,17 +4309,10 @@ function populateCalculators() {
             const option =
                 document.createElement("option");
 
+            option.value = value;
+            option.textContent = text;
 
-            option.value =
-                value;
-
-            option.textContent =
-                text;
-
-
-            calculatorSelect.appendChild(
-                option
-            );
+            calculatorSelect.appendChild(option);
 
         }
     );
@@ -5752,235 +4325,6 @@ function populateCalculators() {
 }
 
 
-
-/* =========================================================
-   CREATE INPUT FIELD
-========================================================= */
-
-function createCalculatorInput(
-    container,
-    name,
-    label,
-    type = "number"
-) {
-
-    const group =
-        document.createElement("div");
-
-
-    group.className =
-        "input-group";
-
-
-    const labelElement =
-        document.createElement("label");
-
-
-    labelElement.htmlFor =
-        name;
-
-
-    labelElement.textContent =
-        label;
-
-
-    group.appendChild(
-        labelElement
-    );
-
-
-    const input =
-        document.createElement("input");
-
-
-    input.type =
-        type;
-
-
-    input.id =
-        name;
-
-
-    input.name =
-        name;
-
-
-    input.placeholder =
-        label;
-
-
-    if (type === "number") {
-
-        input.step =
-            "any";
-
-    }
-
-
-    group.appendChild(
-        input
-    );
-
-
-    container.appendChild(
-        group
-    );
-
-}
-
-
-
-/* =========================================================
-   SHOW REDUCING-BALANCE FIELDS
-========================================================= */
-
-function showReducingBalanceFields(
-    method,
-    container
-) {
-
-    container.innerHTML = "";
-
-
-    if (method === "rate") {
-
-        createCalculatorInput(
-            container,
-            "cost",
-            "Cost of Asset (₦)"
-        );
-
-
-        createCalculatorInput(
-            container,
-            "residual",
-            "Scrap / Residual Value (₦)"
-        );
-
-
-        createCalculatorInput(
-            container,
-            "usefulLife",
-            "Useful Life (Years)"
-        );
-
-
-        const formula =
-            document.createElement("div");
-
-
-        formula.style.marginTop =
-            "15px";
-
-
-        formula.innerHTML = `
-
-            <strong>Formula:</strong>
-
-            <br><br>
-
-            S = C(1 − r)ⁿ
-
-            <br><br>
-
-            Therefore:
-
-            <br>
-
-            r = 1 − (S/C)^(1/n)
-
-        `;
-
-
-        container.appendChild(
-            formula
-        );
-
-    }
-
-
-
-    if (method === "depreciation") {
-
-        createCalculatorInput(
-            container,
-            "cost",
-            "Cost of Asset (₦)"
-        );
-
-
-        createCalculatorInput(
-            container,
-            "rate",
-            "Depreciation Rate (%)"
-        );
-
-
-        createCalculatorInput(
-            container,
-            "startDate",
-            "Start Date",
-            "date"
-        );
-
-
-        createCalculatorInput(
-            container,
-            "endDate",
-            "End Date",
-            "date"
-        );
-
-
-        createCalculatorInput(
-            container,
-            "openingAccumulated",
-            "Opening Accumulated Depreciation (₦) — Optional"
-        );
-
-
-        const formula =
-            document.createElement("div");
-
-
-        formula.style.marginTop =
-            "15px";
-
-
-        formula.innerHTML = `
-
-            <strong>Formula:</strong>
-
-            <br><br>
-
-            Depreciation =
-            Opening Carrying Amount ×
-            Rate × Time
-
-            <br><br>
-
-            Closing Carrying Amount =
-            Opening Carrying Amount −
-            Depreciation
-
-            <br><br>
-
-            Partial Period =
-            Actual Days ÷ 365
-
-        `;
-
-
-        container.appendChild(
-            formula
-        );
-
-    }
-
-}
-
-
-
 /* =========================================================
    SHOW SELECTED CALCULATOR
 ========================================================= */
@@ -5990,20 +4334,15 @@ function showCalculator(type) {
     const category =
         categorySelect.value;
 
-
     const calculator =
         calculators[category][type];
-
 
     if (!calculator) {
 
         calculatorTitle.innerHTML =
             "<h2>Calculator unavailable</h2>";
 
-
-        calculatorForm.innerHTML =
-            "";
-
+        calculatorForm.innerHTML = "";
 
         return;
 
@@ -6014,141 +4353,8 @@ function showCalculator(type) {
         `<h2>${calculator.title}</h2>`;
 
 
-    calculatorForm.innerHTML =
-        "";
+    calculatorForm.innerHTML = "";
 
-
-    /*
-       Special interface for
-       Reducing-Balance.
-    */
-
-    if (
-        category === "accounting" &&
-        type === "reducing-balance"
-    ) {
-
-        const methodGroup =
-            document.createElement("div");
-
-
-        methodGroup.className =
-            "input-group";
-
-
-        const methodLabel =
-            document.createElement("label");
-
-
-        methodLabel.htmlFor =
-            "reducingBalanceMethod";
-
-
-        methodLabel.textContent =
-            "Calculation Method";
-
-
-        methodGroup.appendChild(
-            methodLabel
-        );
-
-
-        const methodSelect =
-            document.createElement("select");
-
-
-        methodSelect.id =
-            "reducingBalanceMethod";
-
-
-        methodSelect.innerHTML = `
-
-            <option value="rate">
-                Calculate Depreciation Rate
-            </option>
-
-            <option value="depreciation">
-                Calculate Depreciation
-            </option>
-
-        `;
-
-
-        methodGroup.appendChild(
-            methodSelect
-        );
-
-
-        calculatorForm.appendChild(
-            methodGroup
-        );
-
-
-        const dynamicContainer =
-            document.createElement("div");
-
-
-        dynamicContainer.id =
-            "reducingBalanceDynamicFields";
-
-
-        calculatorForm.appendChild(
-            dynamicContainer
-        );
-
-
-        showReducingBalanceFields(
-            methodSelect.value,
-            dynamicContainer
-        );
-
-
-        methodSelect.addEventListener(
-            "change",
-            function () {
-
-                showReducingBalanceFields(
-                    methodSelect.value,
-                    dynamicContainer
-                );
-
-
-                result.innerHTML = `
-
-                    <h3>Result</h3>
-
-                    <p>
-                        Enter your values and click
-                        <strong>Calculate</strong>.
-                    </p>
-
-                `;
-
-            }
-        );
-
-
-        result.innerHTML = `
-
-            <h3>Result</h3>
-
-            <p>
-                Select a method, enter your values,
-                and click <strong>Calculate</strong>.
-            </p>
-
-        `;
-
-
-        return;
-
-    }
-
-
-
-    /*
-       Normal calculators.
-    */
 
     calculator.fields.forEach(
         field => {
@@ -6163,7 +4369,6 @@ function showCalculator(type) {
             const group =
                 document.createElement("div");
 
-
             group.className =
                 "input-group";
 
@@ -6171,10 +4376,8 @@ function showCalculator(type) {
             const labelElement =
                 document.createElement("label");
 
-
             labelElement.htmlFor =
                 name;
-
 
             labelElement.textContent =
                 label;
@@ -6185,20 +4388,13 @@ function showCalculator(type) {
             );
 
 
-            if (
-                inputType === "select"
-            ) {
+            if (inputType === "select") {
 
                 const select =
                     document.createElement("select");
 
-
-                select.id =
-                    name;
-
-
-                select.name =
-                    name;
+                select.id = name;
+                select.name = name;
 
 
                 const options =
@@ -6211,14 +4407,11 @@ function showCalculator(type) {
                         const option =
                             document.createElement("option");
 
-
                         option.value =
                             optionData[0];
 
-
                         option.textContent =
                             optionData[1];
-
 
                         select.appendChild(
                             option
@@ -6228,9 +4421,7 @@ function showCalculator(type) {
                 );
 
 
-                group.appendChild(
-                    select
-                );
+                group.appendChild(select);
 
 
             } else {
@@ -6238,43 +4429,32 @@ function showCalculator(type) {
                 const input =
                     document.createElement("input");
 
-
                 input.type =
                     inputType;
-
 
                 input.id =
                     name;
 
-
                 input.name =
                     name;
-
 
                 input.placeholder =
                     label;
 
 
-                if (
-                    inputType === "number"
-                ) {
+                if (inputType === "number") {
 
-                    input.step =
-                        "any";
+                    input.step = "any";
 
                 }
 
 
-                group.appendChild(
-                    input
-                );
+                group.appendChild(input);
 
             }
 
 
-            calculatorForm.appendChild(
-                group
-            );
+            calculatorForm.appendChild(group);
 
         }
     );
@@ -6294,7 +4474,6 @@ function showCalculator(type) {
 }
 
 
-
 /* =========================================================
    CALCULATE CURRENT
 ========================================================= */
@@ -6304,10 +4483,8 @@ function calculateCurrent() {
     const category =
         categorySelect.value;
 
-
     const type =
         calculatorSelect.value;
-
 
     const calculator =
         calculators[category][type];
@@ -6328,97 +4505,30 @@ function calculateCurrent() {
     const values = {};
 
 
-    /*
-       Special handling for
-       Reducing-Balance.
-    */
+    calculator.fields.forEach(
+        field => {
 
-    if (
-        category === "accounting" &&
-        type === "reducing-balance"
-    ) {
+            const name =
+                field[0];
 
-        const methodElement =
-            document.getElementById(
-                "reducingBalanceMethod"
-            );
+            const element =
+                document.getElementById(name);
 
+            if (element) {
 
-        values.method =
-            methodElement
-                ? methodElement.value
-                : "";
-
-
-        const reducingFields = [
-
-            "cost",
-            "residual",
-            "usefulLife",
-            "rate",
-            "startDate",
-            "endDate",
-            "openingAccumulated"
-
-        ];
-
-
-        reducingFields.forEach(
-            name => {
-
-                const element =
-                    document.getElementById(name);
-
-
-                if (element) {
-
-                    values[name] =
-                        element.value;
-
-                }
+                values[name] =
+                    element.value;
 
             }
-        );
 
-    }
-
-
-
-    /*
-       Normal calculators.
-    */
-
-    else {
-
-        calculator.fields.forEach(
-            field => {
-
-                const name =
-                    field[0];
-
-
-                const element =
-                    document.getElementById(name);
-
-
-                if (element) {
-
-                    values[name] =
-                        element.value;
-
-                }
-
-            }
-        );
-
-    }
+        }
+    );
 
 
     try {
 
         const output =
             calculator.calculate(values);
-
 
         result.innerHTML = `
 
@@ -6432,7 +4542,6 @@ function calculateCurrent() {
 
         console.error(error);
 
-
         result.innerHTML =
             errorMessage(
                 "Something went wrong. Please check your inputs."
@@ -6441,7 +4550,6 @@ function calculateCurrent() {
     }
 
 }
-
 
 
 /* =========================================================
@@ -6482,7 +4590,6 @@ if (calculateButton) {
     );
 
 }
-
 
 
 /* =========================================================
