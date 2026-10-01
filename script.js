@@ -19,7 +19,7 @@ if (themeToggle) {
 
         document.body.classList.add("dark-mode");
 
-        themeToggle.textContent = "Light Mode";
+        themeToggle.textContent = "Sun Light Mode";
 
     }
 
@@ -33,13 +33,13 @@ if (themeToggle) {
 
         if (isDark) {
 
-            themeToggle.textContent = "Light Mode";
+            themeToggle.textContent = "Sun Light Mode";
 
             localStorage.setItem("theme", "dark");
 
         } else {
 
-            themeToggle.textContent = "Dark Mode";
+            themeToggle.textContent = "Moon Dark Mode";
 
             localStorage.setItem("theme", "light");
 
@@ -353,6 +353,338 @@ function interpretKurtosis(beta2) {
     return "The distribution is mesokurtic.";
 }
 
+
+
+/* =========================================================
+   ADVANCED MATHEMATICS ENGINE
+========================================================= */
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function clampInt(value, min, max) {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < min || n > max) return null;
+    return n;
+}
+
+function normalizeMathExpression(input) {
+    let s = String(input || "").trim()
+        .replace(/[âˆ’â€“â€”]/g, "-")
+        .replace(/Ï€/g, "pi")
+        .replace(/âˆš/g, "sqrt")
+        .replace(/\s+/g, "");
+
+    s = s.replace(/\bln\b/gi, "ln");
+    s = s.replace(/\bsin\b/gi, "sin");
+    s = s.replace(/\bcos\b/gi, "cos");
+    s = s.replace(/\btan\b/gi, "tan");
+    s = s.replace(/\bsqrt\b/gi, "sqrt");
+    s = s.replace(/\bexp\b/gi, "exp");
+
+    // Common implicit multiplication: 2x, 2(x+1), x(x+1), 2sin(x), etc.
+    s = s.replace(/(\d|x|pi|\))(?=(x|pi|\(|sin|cos|tan|ln|sqrt|exp))/g, "$1*");
+    s = s.replace(/(x|pi|\))(?=\d)/g, "$1*");
+    return s;
+}
+
+function tokenizeMath(s) {
+    const tokens = [];
+    let i = 0;
+    while (i < s.length) {
+        const ch = s[i];
+        if (/\d|\./.test(ch)) {
+            let j = i + 1;
+            while (j < s.length && /[\d.]/.test(s[j])) j++;
+            if (s[j] === "e" || s[j] === "E") {
+                j++;
+                if (s[j] === "+" || s[j] === "-") j++;
+                while (j < s.length && /\d/.test(s[j])) j++;
+            }
+            tokens.push({type:"number", value:s.slice(i,j)}); i=j; continue;
+        }
+        if (/[a-zA-Z]/.test(ch)) {
+            let j=i+1;
+            while (j<s.length && /[a-zA-Z]/.test(s[j])) j++;
+            tokens.push({type:"name", value:s.slice(i,j)}); i=j; continue;
+        }
+        if ("+-*/^(),".includes(ch)) { tokens.push({type:ch,value:ch}); i++; continue; }
+        throw new Error("Invalid character");
+    }
+    tokens.push({type:"EOF",value:""});
+    return tokens;
+}
+
+function parseMathExpression(input) {
+    const tokens = tokenizeMath(normalizeMathExpression(input));
+    let pos=0;
+    const peek=()=>tokens[pos];
+    const eat=(type)=>{ if(peek().type!==type) throw new Error("Expected "+type); return tokens[pos++]; };
+
+    function primary() {
+        const t=peek();
+        if(t.type==="number") { pos++; return {kind:"const",value:Number(t.value)}; }
+        if(t.type==="name") {
+            pos++;
+            const name=t.value;
+            if(name==="x") return {kind:"var"};
+            if(name==="pi") return {kind:"const",value:Math.PI};
+            if(name==="e") return {kind:"const",value:Math.E};
+            if(["sin","cos","tan","ln","sqrt","exp"].includes(name)) {
+                eat("("); const arg=expression(); eat(")"); return {kind:"func",name,arg};
+            }
+            throw new Error("Unknown name");
+        }
+        if(t.type==="(") { pos++; const n=expression(); eat(")"); return n; }
+        if(t.type==="-") { pos++; return {kind:"neg",arg:primary()}; }
+        if(t.type==="+") { pos++; return primary(); }
+        throw new Error("Expected primary");
+    }
+    function power() {
+        let left=primary();
+        if(peek().type==="^") { pos++; const right=power(); left={kind:"pow",left,right}; }
+        return left;
+    }
+    function term() {
+        let left=power();
+        while(peek().type==="*" || peek().type==="/") { const op=peek().type; pos++; const right=power(); left={kind:op,left,right}; }
+        return left;
+    }
+    function expression() {
+        let left=term();
+        while(peek().type==="+" || peek().type==="-") { const op=peek().type; pos++; const right=term(); left={kind:op,left,right}; }
+        return left;
+    }
+    const ast=expression();
+    if(peek().type!=="EOF") throw new Error("Unexpected token");
+    return ast;
+}
+
+function cloneAst(node) { return JSON.parse(JSON.stringify(node)); }
+function isConst(node) { return node && node.kind === "const"; }
+function constAst(v) { return {kind:"const",value:v}; }
+function addAst(a,b) { return {kind:"+",left:a,right:b}; }
+function mulAst(a,b) { return {kind:"*",left:a,right:b}; }
+
+function derivativeAst(n) {
+    switch(n.kind) {
+        case "const": return constAst(0);
+        case "var": return constAst(1);
+        case "neg": return {kind:"neg",arg:derivativeAst(n.arg)};
+        case "+": return addAst(derivativeAst(n.left),derivativeAst(n.right));
+        case "-": return {kind:"-",left:derivativeAst(n.left),right:derivativeAst(n.right)};
+        case "*": return {kind:"+",left:{kind:"*",left:derivativeAst(n.left),right:cloneAst(n.right)},right:{kind:"*",left:cloneAst(n.left),right:derivativeAst(n.right)}};
+        case "/": return {kind:"/",left:{kind:"-",left:{kind:"*",left:derivativeAst(n.left),right:cloneAst(n.right)},right:{kind:"*",left:cloneAst(n.left),right:derivativeAst(n.right)}},right:{kind:"pow",left:cloneAst(n.right),right:constAst(2)}};
+        case "pow":
+            if(isConst(n.right)) return {kind:"*",left:{kind:"*",left:cloneAst(n.right),right:{kind:"pow",left:cloneAst(n.left),right:constAst(n.right.value-1)}},right:derivativeAst(n.left)};
+            return {kind:"*",left:{kind:"pow",left:cloneAst(n.left),right:cloneAst(n.right)},right:{kind:"+",left:{kind:"*",left:derivativeAst(n.right),right:{kind:"func",name:"ln",arg:cloneAst(n.left)}},right:{kind:"/",left:{kind:"*",left:cloneAst(n.right),right:derivativeAst(n.left)},right:cloneAst(n.left)}}};
+        case "func": {
+            const d=derivativeAst(n.arg);
+            if(n.name==="sin") return mulAst({kind:"func",name:"cos",arg:cloneAst(n.arg)},d);
+            if(n.name==="cos") return mulAst({kind:"neg",arg:{kind:"func",name:"sin",arg:cloneAst(n.arg)}},d);
+            if(n.name==="tan") return mulAst({kind:"/",left:constAst(1),right:{kind:"pow",left:{kind:"func",name:"cos",arg:cloneAst(n.arg)},right:constAst(2)}},d);
+            if(n.name==="ln") return {kind:"/",left:d,right:cloneAst(n.arg)};
+            if(n.name==="exp") return mulAst({kind:"func",name:"exp",arg:cloneAst(n.arg)},d);
+            if(n.name==="sqrt") return {kind:"/",left:d,right:{kind:"*",left:constAst(2),right:{kind:"func",name:"sqrt",arg:cloneAst(n.arg)}}};
+            throw new Error("Unsupported function");
+        }
+        default: throw new Error("Unsupported node");
+    }
+}
+
+function integrateAst(n) {
+    switch(n.kind) {
+        case "const": return {kind:"*",left:constAst(n.value),right:{kind:"var"}};
+        case "var": return {kind:"/",left:{kind:"pow",left:{kind:"var"},right:constAst(2)},right:constAst(2)};
+        case "neg": return {kind:"neg",arg:integrateAst(n.arg)};
+        case "+": return {kind:"+",left:integrateAst(n.left),right:integrateAst(n.right)};
+        case "-": return {kind:"-",left:integrateAst(n.left),right:integrateAst(n.right)};
+        case "*": {
+            if(isConst(n.left)) return {kind:"*",left:cloneAst(n.left),right:integrateAst(n.right)};
+            if(isConst(n.right)) return {kind:"*",left:cloneAst(n.right),right:integrateAst(n.left)};
+            throw new Error("Only constant-coefficient products are directly integrated");
+        }
+        case "/": {
+            if(isConst(n.right)) return {kind:"/",left:integrateAst(n.left),right:cloneAst(n.right)};
+            if(n.right.kind==="var" && isConst(n.left)) return {kind:"*",left:cloneAst(n.left),right:{kind:"func",name:"ln",arg:{kind:"var"}}};
+            throw new Error("Unsupported quotient");
+        }
+        case "pow": {
+            if(n.left.kind!=="var" || !isConst(n.right)) throw new Error("Integration currently supports powers of x");
+            const p=n.right.value;
+            if(p===-1) return {kind:"func",name:"ln",arg:{kind:"var"}};
+            return {kind:"/",left:{kind:"pow",left:{kind:"var"},right:constAst(p+1)},right:constAst(p+1)};
+        }
+        case "func":
+            if(n.arg.kind!=="var") throw new Error("Integration of composed functions is not supported in this basic engine");
+            if(n.name==="sin") return {kind:"neg",arg:{kind:"func",name:"cos",arg:{kind:"var"}}};
+            if(n.name==="cos") return {kind:"func",name:"sin",arg:{kind:"var"}};
+            if(n.name==="exp") return {kind:"func",name:"exp",arg:{kind:"var"}};
+            if(n.name==="ln") return {kind:"-",left:{kind:"*",left:{kind:"var"},right:{kind:"func",name:"ln",arg:{kind:"var"}}},right:{kind:"var"}};
+            throw new Error("Unsupported function");
+        default: throw new Error("Unsupported integral");
+    }
+}
+
+function simplifyAst(n) {
+    if(!n) return n;
+    if(["+","-","*","/","pow"].includes(n.kind)) {
+        n.left=simplifyAst(n.left); n.right=simplifyAst(n.right);
+        if(isConst(n.left) && isConst(n.right)) {
+            if(n.kind==="+") return constAst(n.left.value+n.right.value);
+            if(n.kind==="-") return constAst(n.left.value-n.right.value);
+            if(n.kind==="*") return constAst(n.left.value*n.right.value);
+            if(n.kind==="/") return constAst(n.left.value/n.right.value);
+            if(n.kind==="pow") return constAst(Math.pow(n.left.value,n.right.value));
+        }
+        if(n.kind==="+") { if(isConst(n.left)&&n.left.value===0) return n.right; if(isConst(n.right)&&n.right.value===0) return n.left; }
+        if(n.kind==="-") { if(isConst(n.right)&&n.right.value===0) return n.left; }
+        if(n.kind==="*") { if(isConst(n.left)&&n.left.value===0) return constAst(0); if(isConst(n.right)&&n.right.value===0) return constAst(0); if(isConst(n.left)&&n.left.value===1) return n.right; if(isConst(n.right)&&n.right.value===1) return n.left; }
+        if(n.kind==="/") { if(isConst(n.left)&&n.left.value===0) return constAst(0); if(isConst(n.right)&&n.right.value===1) return n.left; }
+        if(n.kind==="pow") { if(isConst(n.right)&&n.right.value===1) return n.left; if(isConst(n.right)&&n.right.value===0) return constAst(1); }
+        return n;
+    }
+    if(n.kind==="neg") { n.arg=simplifyAst(n.arg); if(isConst(n.arg)) return constAst(-n.arg.value); if(n.arg.kind==="neg") return n.arg.arg; return n; }
+    if(n.kind==="func") { n.arg=simplifyAst(n.arg); return n; }
+    return n;
+}
+
+function astToString(n, parent=0) {
+    if(n.kind==="const") return Number.isInteger(n.value) ? String(n.value) : Number(n.value.toFixed(8)).toString();
+    if(n.kind==="var") return "x";
+    if(n.kind==="neg") return `-${needsParens(n.arg,3)?"("+astToString(n.arg)+")":astToString(n.arg)}`;
+    if(n.kind==="func") return `${n.name}(${astToString(n.arg)})`;
+    const prec={"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind];
+    let a=astToString(n.left,prec), b=astToString(n.right,prec);
+    if(n.kind==="pow") return `${wrapIf(n.left,n.kind)}^${wrapIf(n.right,n.kind)}`;
+    let out=`${a} ${n.kind} ${b}`;
+    if(prec<parent) out=`(${out})`;
+    return out;
+}
+function needsParens(n, p){ return n && ({"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind]||4)<p; }
+function wrapIf(n,kind){ const p={"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind]||4; return p<3?`(${astToString(n)})`:astToString(n); }
+
+function evaluateAst(n,x) {
+    switch(n.kind) {
+        case "const": return n.value;
+        case "var": return x;
+        case "neg": return -evaluateAst(n.arg,x);
+        case "+": return evaluateAst(n.left,x)+evaluateAst(n.right,x);
+        case "-": return evaluateAst(n.left,x)-evaluateAst(n.right,x);
+        case "*": return evaluateAst(n.left,x)*evaluateAst(n.right,x);
+        case "/": return evaluateAst(n.left,x)/evaluateAst(n.right,x);
+        case "pow": return Math.pow(evaluateAst(n.left,x),evaluateAst(n.right,x));
+        case "func": {
+            const a=evaluateAst(n.arg,x);
+            if(n.name==="sin") return Math.sin(a);
+            if(n.name==="cos") return Math.cos(a);
+            if(n.name==="tan") return Math.tan(a);
+            if(n.name==="ln") return Math.log(a);
+            if(n.name==="sqrt") return Math.sqrt(a);
+            if(n.name==="exp") return Math.exp(a);
+            throw new Error("Unsupported function");
+        }
+    }
+}
+
+function containsSingularity(ast, lower, upper) {
+    // ln(x), x^negative, and 1/x are undefined at x=0. Also reject any interval crossing 0 for these forms.
+    if(lower===0 || upper===0 || (lower<0 && upper>0)) {
+        let found=false;
+        (function walk(n){
+            if(!n||found) return;
+            if(n.kind==="func" && n.name==="ln") found=true;
+            if(n.kind==="/" && n.right.kind==="var") found=true;
+            if(n.kind==="pow" && isConst(n.right) && n.right.value<0) found=true;
+            if(n.left) walk(n.left); if(n.right) walk(n.right); if(n.arg) walk(n.arg);
+        })(ast);
+        return found;
+    }
+    return false;
+}
+
+function matrixHtml(M) {
+    return `<table style="border-collapse:collapse; margin:8px 0;"><tbody>` +
+        M.map(row => `<tr>${row.map(x => `<td style="border:1px solid #999; padding:8px; min-width:45px; text-align:center;">${number(x,4)}</td>`).join("")}</tr>`).join("") +
+        `</tbody></table>`;
+}
+function readMatrix(v,prefix,rows,cols) {
+    return Array.from({length:rows},(_,i)=>Array.from({length:cols},(_,j)=>{
+        const raw=v[`${prefix}${i+1}${j+1}`];
+        const n=Number(raw);
+        return Number.isFinite(n)?n:0;
+    }));
+}
+function determinant(M) {
+    const n=M.length;
+    if(n===1) return M[0][0];
+    if(n===2) return M[0][0]*M[1][1]-M[0][1]*M[1][0];
+    let d=0;
+    for(let j=0;j<n;j++) {
+        const minor=M.slice(1).map(r=>r.filter((_,k)=>k!==j));
+        d += (j%2===0?1:-1)*M[0][j]*determinant(minor);
+    }
+    return d;
+}
+function inverseMatrix(M) {
+    const n=M.length;
+    const aug=M.map((r,i)=>r.map(x=>x).concat(Array.from({length:n},(_,j)=>i===j?1:0)));
+    for(let i=0;i<n;i++) {
+        let pivot=i;
+        for(let r=i+1;r<n;r++) if(Math.abs(aug[r][i])>Math.abs(aug[pivot][i])) pivot=r;
+        if(Math.abs(aug[pivot][i])<1e-12) return null;
+        [aug[i],aug[pivot]]=[aug[pivot],aug[i]];
+        const div=aug[i][i];
+        for(let j=0;j<2*n;j++) aug[i][j]/=div;
+        for(let r=0;r<n;r++) if(r!==i) {
+            const factor=aug[r][i];
+            for(let j=0;j<2*n;j++) aug[r][j]-=factor*aug[i][j];
+        }
+    }
+    return aug.map(r=>r.slice(n));
+}
+
+function calculateLogExpression(raw) {
+    const input=(raw||"").trim();
+    if(!input) return errorMessage("Enter a logarithm expression, for example log_5(2) + log_2(5). You may use as many logarithms as you need.");
+
+    // Supported notation: log_5(2), log(5,2), ln(2), with ordinary + - * / and parentheses.
+    const original=input;
+    let s=input.replace(/\s+/g,"");
+    const terms=[];
+    const pattern=/log_?\(?([0-9.]+)\)?\(([-+]?\d*\.?\d+)\)/g;
+    // Convert log_5(2) -> log(5,2) before parsing.
+    s=s.replace(/log_([0-9.]+)\(([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>`log(${b},${a})`);
+    s=s.replace(/log\(([0-9.]+),([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>{ terms.push({base:Number(b),arg:Number(a)}); return `(${Math.log(Number(a))/Math.log(Number(b))})`; });
+
+    // Also allow log(b,a) anywhere in the expression.
+    const leftovers=/log\(/i.test(s);
+    if(leftovers) return errorMessage("Use log_base(argument), such as log_5(2), or log(base,argument). Base must be positive and not 1; argument must be positive.");
+
+    try {
+        if(!terms.length && /^ln\(/i.test(s)) {
+            return errorMessage("For this calculator, enter logarithms with an explicit base, such as log_10(100) or log_2(8).");
+        }
+        const value=Function(`"use strict"; return (${s});`)();
+        if(!Number.isFinite(value)) return errorMessage("The logarithm expression is undefined for the values entered.");
+        return resultTemplate(
+            "log_b(x) = ln(x) / ln(b)",
+            `<strong>Expression:</strong> ${escapeHtml(original)}<br><br>` +
+            terms.map((t,i)=>`log<sub>${number(t.base)}</sub>(${number(t.arg)}) = ${number(Math.log(t.arg)/Math.log(t.base),8)}`).join("<br>") +
+            `<br><br><strong>Numeric calculation:</strong> ${number(value,8)}`,
+            `<span style="font-size:1.05em;">${escapeHtml(original)}</span><br><strong>â‰ˆ ${number(value,8)}</strong>`,
+            "The symbolic expression is retained so expressions such as log_5(2) + log_2(5) are not forced into an inaccurate rounded exact form."
+        );
+    } catch(e) {
+        return errorMessage("Invalid logarithm expression. Use examples like log_10(100), log_2(8) + log_5(25), or log_5(2) + log_2(5).");
+    }
+}
 
 /* =========================================================
    CALCULATORS
@@ -2113,41 +2445,17 @@ mathematics: {
 
 "logarithm": {
 
-    title: "Logarithm",
+    title: "Logarithms",
 
     fields: [
-        ["value", "Value", "number"],
-        ["base", "Base", "number"]
+        ["logExpression", "Logarithm Expression", "text"]
     ],
 
     formula:
-        "log(b)(x) = ln(x) / ln(b)",
+        "log_b(x) = ln(x) / ln(b). You can combine multiple logarithms using +, -, *, and /.",
 
     calculate(v) {
-
-        const value = getNumber(v, "value");
-        const base = getNumber(v, "base");
-
-        if (
-            value <= 0 ||
-            base <= 0 ||
-            base === 1
-        ) {
-            return errorMessage(
-                "Value must be positive, and base must be positive and not equal to 1."
-            );
-        }
-
-        const answer =
-            Math.log(value) /
-            Math.log(base);
-
-        return resultTemplate(
-            "log(b)(x) = ln(x) / ln(b)",
-            `ln(${value}) / ln(${base})`,
-            number(answer)
-        );
-
+        return calculateLogExpression(v.logExpression);
     }
 
 },
@@ -2211,372 +2519,272 @@ mathematics: {
 },
 
 
-"differentiation-power": {
 
-    title: "Differentiation - Power Rule",
+"matrices": {
 
-    fields: [
-        ["coefficient", "Coefficient", "number"],
-        ["power", "Power", "number"]
-    ],
-
-    formula:
-        "d/dx (axn) = an xn-1",
-
-    calculate(v) {
-
-        const a =
-            getNumber(v, "coefficient");
-
-        const n =
-            getNumber(v, "power");
-
-        const newCoefficient =
-            a * n;
-
-        const newPower =
-            n - 1;
-
-        return resultTemplate(
-            "d/dx(axn) = anxn-1",
-            `
-            = ${number(a)} * ${number(n)}
-              x^(${number(newPower)})
-            `,
-            `${number(newCoefficient)}x^${number(newPower)}`
-        );
-
-    }
-
-},
-
-
-"integration-power": {
-
-    title: "Integration - Power Rule",
+    title: "Matrices",
 
     fields: [
-        ["coefficient", "Coefficient", "number"],
-        ["power", "Power", "number"]
-    ],
-
-    formula:
-        "integralaxn dx = axn+1 / (n+1) + C",
-
-    calculate(v) {
-
-        const a =
-            getNumber(v, "coefficient");
-
-        const n =
-            getNumber(v, "power");
-
-        if (n === -1) {
-            return errorMessage(
-                "For n = -1, use logarithmic integration."
-            );
-        }
-
-        const newPower =
-            n + 1;
-
-        const newCoefficient =
-            a / newPower;
-
-        return resultTemplate(
-            "integralaxn dx = axn+1 / (n+1) + C",
-            `
-            = ${number(newCoefficient)}
-              x^${number(newPower)} + C
-            `,
-            `${number(newCoefficient)}x^${number(newPower)} + C`
-        );
-
-    }
-
-},
-
-
-"sets": {
-
-    title: "Sets",
-
-    fields: [
-        ["operation", "Set Operation", "select"],
-        ["setA", "Set A (comma separated)", "text"],
-        ["setB", "Set B (comma separated)", "text"],
-        ["universal", "Universal Set U (comma separated)", "text"]
+        ["matrixOperation", "Matrix Operation", "select"],
+        ["matrixRowsA", "Rows of Matrix A", "number"],
+        ["matrixColsA", "Columns of Matrix A", "number"],
+        ["matrixRowsB", "Rows of Matrix B", "number"],
+        ["matrixColsB", "Columns of Matrix B", "number"],
+        ["matrixScalar", "Scalar", "number"],
+        ...Array.from({length: 9}, (_, i) => [`a${Math.floor(i/3)+1}${(i%3)+1}`, `A${Math.floor(i/3)+1}${(i%3)+1}`, "number"]),
+        ...Array.from({length: 9}, (_, i) => [`b${Math.floor(i/3)+1}${(i%3)+1}`, `B${Math.floor(i/3)+1}${(i%3)+1}`, "number"])
     ],
 
     options: {
-        operation: [
-            ["union", "A U B - Union"],
-            ["intersection", "A intersection B - Intersection"],
-            ["differenceAB", "A - B - Difference"],
-            ["differenceBA", "B - A - Difference"],
-            ["symmetric", "A delta B - Symmetric Difference"],
-            ["complementA", "A' - Complement of A"],
-            ["complementB", "B' - Complement of B"],
-            ["cardinalityA", "n(A) - Cardinality of A"],
-            ["cardinalityB", "n(B) - Cardinality of B"],
-            ["cartesian", "A * B - Cartesian Product"]
+        matrixOperation: [
+            ["add", "A + B"],
+            ["subtract", "A - B"],
+            ["multiply", "A Ã— B"],
+            ["scalar", "Scalar Multiplication"],
+            ["transposeA", "Transpose of A"],
+            ["determinantA", "Determinant of A"],
+            ["inverseA", "Inverse of A"]
+        ]
+    },
+
+    formula: "Matrix operations follow the dimensions and rules of the selected operation.",
+
+    calculate(v) {
+        const op = v.matrixOperation;
+        const ra = clampInt(v.matrixRowsA, 1, 3);
+        const ca = clampInt(v.matrixColsA, 1, 3);
+        const rb = clampInt(v.matrixRowsB, 1, 3);
+        const cb = clampInt(v.matrixColsB, 1, 3);
+
+        if (!ra || !ca || !rb || !cb) return errorMessage("Matrix dimensions must be whole numbers from 1 to 3.");
+
+        const A = readMatrix(v, "a", ra, ca);
+        const B = readMatrix(v, "b", rb, cb);
+
+        if (["add", "subtract"].includes(op) && (ra !== rb || ca !== cb)) {
+            return errorMessage("For addition or subtraction, Matrix A and Matrix B must have the same dimensions.");
+        }
+        if (op === "multiply" && ca !== rb) {
+            return errorMessage("For multiplication, the columns of A must equal the rows of B.");
+        }
+        if (["determinantA", "inverseA"].includes(op) && ra !== ca) {
+            return errorMessage("A determinant or inverse requires a square Matrix A.");
+        }
+
+        let resultMatrix;
+        let working;
+
+        if (op === "add" || op === "subtract") {
+            resultMatrix = A.map((row, i) => row.map((x, j) => op === "add" ? x + B[i][j] : x - B[i][j]));
+            working = op === "add" ? "Add corresponding entries of A and B." : "Subtract corresponding entries of B from A.";
+        } else if (op === "multiply") {
+            resultMatrix = Array.from({length: ra}, () => Array(cb).fill(0));
+            for (let i=0;i<ra;i++) for (let j=0;j<cb;j++) for (let k=0;k<ca;k++) resultMatrix[i][j] += A[i][k] * B[k][j];
+            working = "Each entry is the dot product of a row of A and a column of B.";
+        } else if (op === "scalar") {
+            const scalar = Number(v.matrixScalar);
+            if (!Number.isFinite(scalar)) return errorMessage("Enter a valid scalar value.");
+            resultMatrix = A.map(row => row.map(x => x * scalar));
+            working = `Multiply every entry of A by ${number(scalar)}.`;
+        } else if (op === "transposeA") {
+            resultMatrix = A[0].map((_, j) => A.map(row => row[j]));
+            working = "Rows of A become columns of the transpose.";
+        } else if (op === "determinantA") {
+            const det = determinant(A);
+            return resultTemplate("det(A)", `A = ${matrixHtml(A)}<br><br>det(A) = ${number(det, 6)}`, number(det, 6));
+        } else if (op === "inverseA") {
+            const inv = inverseMatrix(A);
+            if (!inv) return errorMessage("Matrix A is singular, so it has no inverse.");
+            resultMatrix = inv;
+            working = "Use the inverse operation / Gauss-Jordan elimination to obtain Aâ»Â¹.";
+        } else {
+            return errorMessage("Select a valid matrix operation.");
+        }
+
+        return resultTemplate(
+            "Matrix calculation",
+            `${working}<br><br>Result:<br>${matrixHtml(resultMatrix)}`,
+            matrixHtml(resultMatrix)
+        );
+    }
+
+},
+
+"differentiation": {
+
+    title: "Differentiation",
+
+    fields: [
+        ["diffMethod", "Differentiation Method", "select"],
+        ["diffMode", "Evaluation", "select"],
+        ["diffExpression", "Expression in x", "text"],
+        ["diffU", "u(x) - for Product/Quotient", "text"],
+        ["diffV", "v(x) - for Product/Quotient", "text"],
+        ["diffInner", "Inner function u(x) - for Chain Rule", "text"],
+        ["diffOuter", "Outer function F(u) - for Chain Rule", "text"],
+        ["diffX", "x value", "number"]
+    ],
+
+    options: {
+        diffMethod: [
+            ["general", "General / Automatic Rule"],
+            ["power", "Power Rule"],
+            ["product", "Product Rule"],
+            ["quotient", "Quotient Rule"],
+            ["chain", "Chain Rule"]
+        ],
+        diffMode: [
+            ["without", "Without x value - symbolic answer"],
+            ["with", "With x value - evaluate derivative"]
         ]
     },
 
     formula:
-        "Set operations: A U B, A intersection B, A - B, A', n(A), A * B",
+        "Differentiate the expression with respect to x using the selected rule.",
 
     calculate(v) {
+        const method = v.diffMethod || "general";
+        const mode = v.diffMode || "without";
+        let expression = (v.diffExpression || "").trim();
 
-        const parseSet = (value) => {
-            if (typeof value !== "string") return [];
-            const items = value
-                .split(",")
-                .map(x => x.trim())
-                .filter(Boolean);
-            return [...new Set(items)];
-        };
+        try {
+            let ast;
 
-        const A = parseSet(v.setA);
-        const B = parseSet(v.setB);
-        const U = parseSet(v.universal);
-        const operation = v.operation;
-
-        const hasA = A.length > 0;
-        const hasB = B.length > 0;
-
-        if (["union", "intersection", "differenceAB", "differenceBA", "symmetric", "cartesian"].includes(operation) && (!hasA || !hasB)) {
-            return errorMessage("Enter both Set A and Set B.");
-        }
-
-        if (["complementA", "complementB"].includes(operation) && (!hasA || !U.length)) {
-            return errorMessage("Enter the set and the Universal Set U.");
-        }
-
-        const intersection = A.filter(x => B.includes(x));
-        const union = [...new Set([...A, ...B])];
-        const differenceAB = A.filter(x => !B.includes(x));
-        const differenceBA = B.filter(x => !A.includes(x));
-        const symmetric = [...new Set([...differenceAB, ...differenceBA])];
-
-        let answer;
-        let working;
-
-        switch (operation) {
-            case "union":
-                answer = `{${union.join(", ")}}`;
-                working = `Combine all elements and remove duplicates:<br>{${union.join(", ")}}`;
-                break;
-            case "intersection":
-                answer = `{${intersection.join(", ")}}`;
-                working = `Common elements of A and B:<br>{${intersection.join(", ") || "empty set"}}`;
-                break;
-            case "differenceAB":
-                answer = `{${differenceAB.join(", ")}}`;
-                working = `Elements in A that are not in B:<br>{${differenceAB.join(", ") || "empty set"}}`;
-                break;
-            case "differenceBA":
-                answer = `{${differenceBA.join(", ")}}`;
-                working = `Elements in B that are not in A:<br>{${differenceBA.join(", ") || "empty set"}}`;
-                break;
-            case "symmetric":
-                answer = `{${symmetric.join(", ")}}`;
-                working = `Elements in A or B, but not in both:<br>{${symmetric.join(", ") || "empty set"}}`;
-                break;
-            case "complementA": {
-                const comp = U.filter(x => !A.includes(x));
-                answer = `{${comp.join(", ")}}`;
-                working = `A' = U - A:<br>{${comp.join(", ") || "empty set"}}`;
-                break;
+            if (method === "product") {
+                const u = (v.diffU || "").trim();
+                const vv = (v.diffV || "").trim();
+                if (!u || !vv) return errorMessage("Enter both u(x) and v(x) for the Product Rule.");
+                expression = `(${u})*(${vv})`;
+                ast = parseMathExpression(expression);
+            } else if (method === "quotient") {
+                const u = (v.diffU || "").trim();
+                const vv = (v.diffV || "").trim();
+                if (!u || !vv) return errorMessage("Enter both u(x) and v(x) for the Quotient Rule.");
+                expression = `(${u})/(${vv})`;
+                ast = parseMathExpression(expression);
+            } else if (method === "chain") {
+                const outer = (v.diffOuter || "").trim();
+                const inner = (v.diffInner || "").trim();
+                if (!outer || !inner) return errorMessage("Enter the outer function F(u) and inner function u(x) for the Chain Rule.");
+                if (!outer.includes("u")) return errorMessage("For Chain Rule, write the outer function using u, for example u^3, sin(u), or ln(u).");
+                expression = outer.replace(/\bu\b/g, `(${inner})`);
+                ast = parseMathExpression(expression);
+            } else {
+                if (!expression) return errorMessage("Enter an expression in x, for example 3x^2 + 2x - 5.");
+                ast = parseMathExpression(expression);
             }
-            case "complementB": {
-                const comp = U.filter(x => !B.includes(x));
-                answer = `{${comp.join(", ")}}`;
-                working = `B' = U - B:<br>{${comp.join(", ") || "empty set"}}`;
-                break;
+
+            const derivative = simplifyAst(derivativeAst(ast));
+            const derivativeText = astToString(derivative);
+
+            let evaluation = "";
+            if (mode === "with") {
+                if (v.diffX === "" || v.diffX === undefined) return errorMessage("Enter the x value for numerical evaluation.");
+                const x = Number(v.diffX);
+                if (!Number.isFinite(x)) return errorMessage("Enter a valid numerical x value.");
+                const value = evaluateAst(derivative, x);
+                if (!Number.isFinite(value)) return errorMessage("The derivative cannot be evaluated at that x value.");
+                evaluation = `<br><br><strong>At x = ${number(x)}:</strong> f'(x) = ${number(value, 6)}`;
             }
-            case "cardinalityA":
-                if (!hasA) return errorMessage("Enter Set A.");
-                answer = number(A.length, 0);
-                working = `n(A) = number of distinct elements in A = ${A.length}`;
-                break;
-            case "cardinalityB":
-                if (!hasB) return errorMessage("Enter Set B.");
-                answer = number(B.length, 0);
-                working = `n(B) = number of distinct elements in B = ${B.length}`;
-                break;
-            case "cartesian": {
-                const pairs = [];
-                A.forEach(a => B.forEach(b => pairs.push(`(${a}, ${b})`)));
-                answer = `{${pairs.join(", ")}}`;
-                working = `Each element of A is paired with every element of B.<br>Number of ordered pairs = ${A.length} * ${B.length} = ${A.length * B.length}`;
-                break;
+
+            const methodNote = {
+                general: "The automatic method applies the appropriate differentiation rule to the expression.",
+                power: "Power Rule: d/dx[x^n] = n x^(n-1).",
+                product: "Product Rule: (uv)' = u'v + uv'.",
+                quotient: "Quotient Rule: (u/v)' = (u'v - uv')/v^2.",
+                chain: "Chain Rule: d/dx F(u) = F'(u)u'."
+            }[method];
+
+            return resultTemplate(
+                "Differentiate with respect to x",
+                `<strong>Original expression:</strong> ${escapeHtml(expression)}<br><br>` +
+                `<strong>Method:</strong> ${methodNote}<br><br>` +
+                `<strong>Derivative:</strong> ${escapeHtml(derivativeText)}${evaluation}`,
+                mode === "with"
+                    ? `f'(x) = ${escapeHtml(derivativeText)}<br>Numerical value = ${evaluation.replace(/.*f'\(x\) = /, '').replace(/<br>.*/, '')}`
+                    : `f'(x) = ${escapeHtml(derivativeText)}`
+            );
+        } catch (error) {
+            return errorMessage(`Could not parse the expression. Use forms such as <strong>3x^2 + 2x - 5</strong>, <strong>(x+1)(x-2)</strong>, <strong>sin(x)</strong>, <strong>ln(x)</strong>, or <strong>sqrt(x)</strong>.`);
+        }
+    }
+
+},
+
+
+"integration": {
+
+    title: "Integration",
+
+    fields: [
+        ["integrationType", "Integral Type", "select"],
+        ["integrationExpression", "Expression in x", "text"],
+        ["integrationLower", "Lower Limit - for Definite Integral", "number"],
+        ["integrationUpper", "Upper Limit - for Definite Integral", "number"]
+    ],
+
+    options: {
+        integrationType: [
+            ["indefinite", "Indefinite Integral"],
+            ["definite", "Definite Integral"]
+        ]
+    },
+
+    formula:
+        "Indefinite: find a general antiderivative and add + C. Definite: evaluate F(upper) - F(lower).",
+
+    calculate(v) {
+        const type = v.integrationType || "indefinite";
+        const expression = (v.integrationExpression || "").trim();
+        if (!expression) return errorMessage("Enter an expression in x, for example 3x^2 + 2x + 1.");
+
+        try {
+            const ast = parseMathExpression(expression);
+            const integral = simplifyAst(integrateAst(ast));
+            const integralText = astToString(integral);
+
+            if (type === "indefinite") {
+                return resultTemplate(
+                    "âˆ« f(x) dx = F(x) + C",
+                    `<strong>Expression:</strong> ${escapeHtml(expression)}<br><br>` +
+                    `<strong>Antiderivative:</strong> ${escapeHtml(integralText)} + C<br><br>` +
+                    `<small>Indefinite integration gives a family of antiderivatives, so the constant of integration + C is required.</small>`,
+                    `${escapeHtml(integralText)} + C`
+                );
             }
-            default:
-                return errorMessage("Please select a valid set operation.");
+
+            if (v.integrationLower === "" || v.integrationUpper === "") {
+                return errorMessage("Enter both the lower and upper limits for a definite integral.");
+            }
+            const lower = Number(v.integrationLower);
+            const upper = Number(v.integrationUpper);
+            if (!Number.isFinite(lower) || !Number.isFinite(upper)) return errorMessage("Enter valid numerical limits.");
+            if (upper < lower) return errorMessage("Upper limit must be greater than or equal to the lower limit.");
+
+            if (containsSingularity(integral, lower, upper)) {
+                return errorMessage("The selected limits cross a point where the antiderivative is undefined.");
+            }
+
+            const upperValue = evaluateAst(integral, upper);
+            const lowerValue = evaluateAst(integral, lower);
+            const answer = upperValue - lowerValue;
+
+            if (!Number.isFinite(answer)) return errorMessage("The definite integral could not be evaluated for these limits.");
+
+            return resultTemplate(
+                "âˆ«â‚áµ‡ f(x) dx = F(b) - F(a)",
+                `<strong>Antiderivative:</strong> ${escapeHtml(integralText)}<br><br>` +
+                `F(${number(upper)}) = ${number(upperValue, 6)}<br>` +
+                `F(${number(lower)}) = ${number(lowerValue, 6)}<br><br>` +
+                `Integral = ${number(upperValue, 6)} - ${number(lowerValue, 6)}`,
+                number(answer, 6),
+                "A definite integral gives the signed net accumulation over the stated interval."
+            );
+        } catch (error) {
+            return errorMessage("This integration engine supports common forms such as polynomial terms, 1/x, sin(x), cos(x), and e^x. Check the expression format and try again.");
         }
-
-        return resultTemplate(
-            "Set operation",
-            working,
-            answer
-        );
     }
-},
 
-"differentiation-product": {
-
-    title: "Differentiation - Product Rule",
-
-    fields: [
-        ["u", "u(x)", "number"],
-        ["du", "u'(x)", "number"],
-        ["v", "v(x)", "number"],
-        ["dv", "v'(x)", "number"]
-    ],
-
-    formula: "d(uv)/dx = u(dv/dx) + v(du/dx)",
-
-    calculate(v) {
-        const u = getNumber(v, "u");
-        const du = getNumber(v, "du");
-        const vv = getNumber(v, "v");
-        const dv = getNumber(v, "dv");
-        const answer = u * dv + vv * du;
-
-        return resultTemplate(
-            "d(uv)/dx = u(dv/dx) + v(du/dx)",
-            `= (${u})(${dv}) + (${vv})(${du})<br><br>= ${number(answer)}`,
-            number(answer)
-        );
-    }
-},
-
-"differentiation-quotient": {
-
-    title: "Differentiation - Quotient Rule",
-
-    fields: [
-        ["u", "u(x)", "number"],
-        ["du", "u'(x)", "number"],
-        ["v", "v(x)", "number"],
-        ["dv", "v'(x)", "number"]
-    ],
-
-    formula: "d(u/v)/dx = [v(du/dx) - u(dv/dx)] / v2",
-
-    calculate(v) {
-        const u = getNumber(v, "u");
-        const du = getNumber(v, "du");
-        const vv = getNumber(v, "v");
-        const dv = getNumber(v, "dv");
-
-        if (vv === 0) return errorMessage("v(x) cannot be zero.");
-
-        const answer = (vv * du - u * dv) / Math.pow(vv, 2);
-
-        return resultTemplate(
-            "d(u/v)/dx = [v(du/dx) - u(dv/dx)] / v2",
-            `= [(${vv})(${du}) - (${u})(${dv})] / ${vv}2<br><br>= ${number(answer)}`,
-            number(answer)
-        );
-    }
-},
-
-"differentiation-chain": {
-
-    title: "Differentiation - Chain Rule",
-
-    fields: [
-        ["outerCoefficient", "Outer Coefficient (a)", "number"],
-        ["outerPower", "Outer Power (n)", "number"],
-        ["innerCoefficient", "Inner Coefficient (b)", "number"],
-        ["innerPower", "Inner Power (m)", "number"]
-    ],
-
-    formula: "d/dx[a(bxm)n] = an(bxm)n-1 * bm xm-1",
-
-    calculate(v) {
-        const a = getNumber(v, "outerCoefficient");
-        const n = getNumber(v, "outerPower");
-        const b = getNumber(v, "innerCoefficient");
-        const m = getNumber(v, "innerPower");
-
-        const coefficient = a * n * b * m;
-        const innerPower = n - 1;
-        const xPower = m - 1;
-
-        return resultTemplate(
-            "d/dx[a(bxm)n] = an(bxm)n-1 * bm xm-1",
-            `Coefficient = ${a} * ${n} * ${b} * ${m} = ${number(coefficient)}<br>` +
-            `Result = ${number(coefficient)}( ${b}x^${m} )^${innerPower}x^${xPower}`,
-            `${number(coefficient)}( ${b}x^${m} )^${innerPower}x^${xPower}`
-        );
-    }
-},
-
-"integration-definite": {
-
-    title: "Integration - Definite Integral",
-
-    fields: [
-        ["coefficient", "Coefficient (a)", "number"],
-        ["power", "Power (n)", "number"],
-        ["lower", "Lower Limit", "number"],
-        ["upper", "Upper Limit", "number"]
-    ],
-
-    formula: "integrallu axn dx = [a/(n+1)xn+1]lu, n != -1",
-
-    calculate(v) {
-        const a = getNumber(v, "coefficient");
-        const n = getNumber(v, "power");
-        const lower = getNumber(v, "lower");
-        const upper = getNumber(v, "upper");
-
-        if (n === -1) {
-            return errorMessage("For n = -1, use logarithmic integration.");
-        }
-        if (upper < lower) {
-            return errorMessage("Upper limit must be greater than or equal to the lower limit.");
-        }
-
-        const newPower = n + 1;
-        const coefficient = a / newPower;
-        const Fupper = coefficient * Math.pow(upper, newPower);
-        const Flower = coefficient * Math.pow(lower, newPower);
-        const answer = Fupper - Flower;
-
-        return resultTemplate(
-            "integrallu axn dx = [a/(n+1)xn+1]lu",
-            `Antiderivative = ${number(coefficient)}x^${number(newPower)}<br><br>` +
-            `F(${upper}) = ${number(Fupper)}<br>` +
-            `F(${lower}) = ${number(Flower)}<br><br>` +
-            `Integral = ${number(Fupper)} - ${number(Flower)}`,
-            number(answer)
-        );
-    }
-},
-
-"integration-log": {
-
-    title: "Integration - Logarithmic Form",
-
-    fields: [
-        ["coefficient", "Coefficient (a)", "number"]
-    ],
-
-    formula: "integral a/x dx = a ln|x| + C",
-
-    calculate(v) {
-        const a = getNumber(v, "coefficient");
-
-        return resultTemplate(
-            "integral a/x dx = a ln|x| + C",
-            `The coefficient remains outside the logarithm.<br>= ${number(a)} ln|x| + C`,
-            `${number(a)} ln|x| + C`
-        );
-    }
 },
 
 
@@ -4789,7 +4997,7 @@ const calculatorNames = {
             "Indices / Exponents",
 
         "logarithm":
-            "Logarithm",
+            "Logarithms",
 
         "percentage-change":
             "Percentage Change",
@@ -4818,26 +5026,14 @@ const calculatorNames = {
         "sets":
             "Sets",
 
-        "differentiation-power":
-            "Differentiation - Power Rule",
+        "differentiation":
+            "Differentiation",
 
-        "differentiation-product":
-            "Differentiation - Product Rule",
+        "integration":
+            "Integration",
 
-        "differentiation-quotient":
-            "Differentiation - Quotient Rule",
-
-        "differentiation-chain":
-            "Differentiation - Chain Rule",
-
-        "integration-power":
-            "Integration - Power Rule",
-
-        "integration-definite":
-            "Integration - Definite Integral",
-
-        "integration-log":
-            "Integration - Logarithmic Form",
+        "matrices":
+            "Matrices",
 
         "ap-gp":
             "Arithmetic & Geometric Progression"
@@ -5155,7 +5351,76 @@ function showCalculator(type) {
     }
 
 
-    if (
+    if (category === "mathematics" && ["differentiation", "integration", "logarithm", "matrices"].includes(type)) {
+
+        // Advanced mathematics has its own guided interface.
+        const addGroup = (label, id, inputType="text", options=[]) => {
+            const group=document.createElement("div");
+            group.className="input-group";
+            const lab=document.createElement("label"); lab.htmlFor=id; lab.textContent=label; group.appendChild(lab);
+            if(inputType==="select") {
+                const el=document.createElement("select"); el.id=id; el.name=id;
+                options.forEach(([value,text])=>{const o=document.createElement("option");o.value=value;o.textContent=text;el.appendChild(o);});
+                group.appendChild(el);
+            } else {
+                const el=document.createElement("input"); el.type=inputType; el.id=id; el.name=id; el.placeholder=label; if(inputType==="number") el.step="any"; group.appendChild(el);
+            }
+            calculatorForm.appendChild(group);
+            return document.getElementById(id);
+        };
+
+        if (type === "differentiation") {
+            const method=addGroup("Differentiation Method","diffMethod","select",calculator.options.diffMethod);
+            const mode=addGroup("Evaluation","diffMode","select",calculator.options.diffMode);
+            const expr=addGroup("Expression in x","diffExpression","text");
+            const u=addGroup("u(x) - Product/Quotient only","diffU","text");
+            const vv=addGroup("v(x) - Product/Quotient only","diffV","text");
+            const inner=addGroup("Inner function u(x) - Chain Rule only","diffInner","text");
+            const outer=addGroup("Outer function F(u) - Chain Rule only","diffOuter","text");
+            const x=addGroup("x value - With x value only","diffX","number");
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to use</strong><p>General/Power: enter one expression such as <strong>3x^2 + 2x - 5</strong>.<br>Product: enter u(x) and v(x).<br>Quotient: enter u(x) and v(x).<br>Chain: enter outer F(u), e.g. <strong>u^3</strong>, and inner u(x), e.g. <strong>2x+1</strong>.<br>Choose <strong>With x value</strong> when you want the numerical value of the derivative at a particular x.</p>`; calculatorForm.appendChild(note);
+            const refresh=()=>{
+                const m=method.value;
+                expr.parentElement.style.display=["general","power"].includes(m)?"block":"none";
+                u.parentElement.style.display=["product","quotient"].includes(m)?"block":"none";
+                vv.parentElement.style.display=["product","quotient"].includes(m)?"block":"none";
+                inner.parentElement.style.display=m==="chain"?"block":"none";
+                outer.parentElement.style.display=m==="chain"?"block":"none";
+                x.parentElement.style.display=mode.value==="with"?"block":"none";
+            };
+            method.addEventListener("change",refresh); mode.addEventListener("change",refresh); refresh();
+        } else if (type === "integration") {
+            const kind=addGroup("Integral Type","integrationType","select",calculator.options.integrationType);
+            const expr=addGroup("Expression in x","integrationExpression","text");
+            const lower=addGroup("Lower Limit","integrationLower","number");
+            const upper=addGroup("Upper Limit","integrationUpper","number");
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to use</strong><p><strong>Indefinite Integral:</strong> gives the general antiderivative and includes + C.<br><strong>Definite Integral:</strong> enter lower and upper limits to obtain F(upper) - F(lower).<br>Examples: <strong>3x^2 + 2x + 1</strong>, <strong>1/x</strong>, <strong>sin(x)</strong>.</p>`; calculatorForm.appendChild(note);
+            const refresh=()=>{ const show=kind.value==="definite"; lower.parentElement.style.display=show?"block":"none"; upper.parentElement.style.display=show?"block":"none"; };
+            kind.addEventListener("change",refresh); refresh();
+        } else if (type === "logarithm") {
+            const expr=addGroup("Logarithm Expression","logExpression","text");
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>Examples</strong><p>log_10(100)<br>log_2(8) + log_5(25)<br>log_5(2) + log_2(5)<br>You can use as many logarithms as needed and combine them with +, -, * and /.</p><p><small>Base &gt; 0, base â‰  1, and argument &gt; 0.</small></p>`; calculatorForm.appendChild(note);
+        } else if (type === "matrices") {
+            const op=addGroup("Matrix Operation","matrixOperation","select",calculator.options.matrixOperation);
+            const ra=addGroup("Rows of A","matrixRowsA","number"); const ca=addGroup("Columns of A","matrixColsA","number");
+            const rb=addGroup("Rows of B","matrixRowsB","number"); const cb=addGroup("Columns of B","matrixColsB","number");
+            const scalar=addGroup("Scalar - Scalar Multiplication only","matrixScalar","number");
+            const grid=document.createElement("div"); grid.id="matrixInputGrid"; calculatorForm.appendChild(grid);
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>Matrix guide</strong><p>Use dimensions from 1Ã—1 up to 3Ã—3. Addition/subtraction require equal dimensions. Multiplication requires columns of A = rows of B. Determinant and inverse require a square Matrix A.</p>`; calculatorForm.appendChild(note);
+            const build=()=>{
+                grid.innerHTML="";
+                const rA=clampInt(ra.value,1,3)||2, cA=clampInt(ca.value,1,3)||2, rB=clampInt(rb.value,1,3)||2, cB=clampInt(cb.value,1,3)||2;
+                const make=(prefix,r,c,title)=>{const h=document.createElement("h4");h.textContent=title;grid.appendChild(h);const wrap=document.createElement("div");wrap.style.display="grid";wrap.style.gridTemplateColumns=`repeat(${c}, minmax(55px, 1fr))`;wrap.style.gap="6px";for(let i=1;i<=r;i++)for(let j=1;j<=c;j++){const inp=document.createElement("input");inp.type="number";inp.step="any";inp.id=`${prefix}${i}${j}`;inp.placeholder=`${prefix.toUpperCase()}${i}${j}`;wrap.appendChild(inp);}grid.appendChild(wrap);};
+                make("a",rA,cA,"Matrix A"); make("b",rB,cB,"Matrix B");
+                const single=["transposeA","determinantA","inverseA","scalar"].includes(op.value); grid.querySelectorAll("h4:nth-of-type(2), h4:nth-of-type(2) ~ div").forEach(el=>{el.style.display=single?"none":"grid";});
+                scalar.parentElement.style.display=op.value==="scalar"?"block":"none";
+                rb.parentElement.style.display=["transposeA","determinantA","inverseA","scalar"].includes(op.value)?"none":"block";
+                cb.parentElement.style.display=["transposeA","determinantA","inverseA","scalar"].includes(op.value)?"none":"block";
+            };
+            [op,ra,ca,rb,cb].forEach(el=>el.addEventListener("change",build)); build();
+        }
+
+    } else if (
         category === "accounting" &&
         type === "reducing-balance"
     ) {
