@@ -1568,519 +1568,120 @@ accounting: {
 },
 
 
-"ifrs15-multiple-obligations": {
+"ifrs15-performance-obligations": {
 
-    title: "IFRS 15 — Multiple Performance Obligations",
+    title: "IFRS 15 Multiple Performance Obligations",
 
     fields: [
-        ["transactionPrice", "Transaction Price (₦)", "number"],
-
-        ["obligation1", "Performance Obligation 1 — Stand-alone Selling Price (₦)", "number"],
-        ["status1", "Performance Obligation 1 — Status", "select"],
-        ["percent1", "Performance Obligation 1 — Percentage Satisfied (%)", "number"],
-
-        ["obligation2", "Performance Obligation 2 — Stand-alone Selling Price (₦)", "number"],
-        ["status2", "Performance Obligation 2 — Status", "select"],
-        ["percent2", "Performance Obligation 2 — Percentage Satisfied (%)", "number"],
-
-        ["obligation3", "Performance Obligation 3 — Stand-alone Selling Price (₦)", "number"],
-        ["status3", "Performance Obligation 3 — Status", "select"],
-        ["percent3", "Performance Obligation 3 — Percentage Satisfied (%)", "number"]
+        ["transactionPrice", "Total Transaction Price (NGN)", "number"],
+        ["obligationCount", "Number of Performance Obligations", "select"],
+        ["ssp1", "Obligation 1 - Stand-Alone Selling Price (NGN)", "number"],
+        ["status1", "Obligation 1 - Status", "select"],
+        ["ssp2", "Obligation 2 - Stand-Alone Selling Price (NGN)", "number"],
+        ["status2", "Obligation 2 - Status", "select"],
+        ["ssp3", "Obligation 3 - Stand-Alone Selling Price (NGN)", "number"],
+        ["status3", "Obligation 3 - Status", "select"],
+        ["ssp4", "Obligation 4 - Stand-Alone Selling Price (NGN)", "number"],
+        ["status4", "Obligation 4 - Status", "select"],
+        ["ssp5", "Obligation 5 - Stand-Alone Selling Price (NGN)", "number"],
+        ["status5", "Obligation 5 - Status", "select"]
     ],
 
     options: {
-
-        status1: [
-            ["satisfied", "Satisfied"],
-            ["partial", "Partially Satisfied"],
-            ["not-satisfied", "Not Satisfied"]
+        obligationCount: [
+            ["2", "2 Obligations"],
+            ["3", "3 Obligations"],
+            ["4", "4 Obligations"],
+            ["5", "5 Obligations"]
         ],
-
-        status2: [
-            ["satisfied", "Satisfied"],
-            ["partial", "Partially Satisfied"],
-            ["not-satisfied", "Not Satisfied"]
-        ],
-
-        status3: [
-            ["satisfied", "Satisfied"],
-            ["partial", "Partially Satisfied"],
-            ["not-satisfied", "Not Satisfied"]
-        ]
+        status1: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status2: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status3: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status4: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status5: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]]
     },
 
     formula:
-        "Allocated Revenue = (Stand-alone Selling Price ÷ Total Stand-alone Selling Prices) × Transaction Price",
+        "Allocated Revenue = (Stand-Alone Selling Price / Total Stand-Alone Selling Prices) * Transaction Price",
 
     calculate(v) {
 
-        const transactionPrice =
-            getNumber(v, "transactionPrice");
+        const transactionPrice = getNumber(v, "transactionPrice");
+        const count = Number(v.obligationCount || 2);
 
-        const obligations = [1, 2, 3].map(i => ({
-
-            ssp:
-                getNumber(
-                    v,
-                    `obligation${i}`
-                ),
-
-            status:
-                v[`status${i}`] ||
-                "not-satisfied",
-
-            percentSatisfied:
-                v[`percent${i}`] === "" ||
-                v[`percent${i}`] === undefined
-                    ? 0
-                    : Number(v[`percent${i}`]),
-
-            number: i
-        }));
-
-
-        if (
-            !Number.isFinite(transactionPrice) ||
-            transactionPrice < 0
-        ) {
-
-            return errorMessage(
-                "Transaction price cannot be negative."
-            );
-
+        if (!Number.isFinite(transactionPrice) || transactionPrice < 0) {
+            return errorMessage("Enter a valid non-negative transaction price.");
         }
 
+        const rows = [];
+        let totalSSP = 0;
 
-        if (
-            obligations.some(
-                obligation =>
-                    !Number.isFinite(
-                        obligation.ssp
-                    ) ||
-                    obligation.ssp < 0
-            )
-        ) {
+        for (let i = 1; i <= count; i++) {
+            const ssp = Number(v[`ssp${i}`]);
+            const status = v[`status${i}`] || "not-satisfied";
 
-            return errorMessage(
-                "Stand-alone selling prices cannot be negative."
-            );
-
-        }
-
-
-        /*
-         * Determine percentage satisfied
-         * according to the selected status.
-         */
-
-        for (
-            const obligation of obligations
-        ) {
-
-            if (
-                obligation.status ===
-                "satisfied"
-            ) {
-
-                obligation.percentSatisfied =
-                    100;
-
+            if (!Number.isFinite(ssp) || ssp <= 0) {
+                return errorMessage(`Enter a valid stand-alone selling price for Obligation ${i}.`);
             }
 
-
-            else if (
-                obligation.status ===
-                "not-satisfied"
-            ) {
-
-                obligation.percentSatisfied =
-                    0;
-
-            }
-
-
-            else if (
-                obligation.status ===
-                "partial"
-            ) {
-
-                if (
-                    !Number.isFinite(
-                        obligation.percentSatisfied
-                    ) ||
-                    obligation.percentSatisfied < 0 ||
-                    obligation.percentSatisfied > 100
-                ) {
-
-                    return errorMessage(
-                        `Percentage satisfied for Performance Obligation ${obligation.number} must be between 0% and 100%.`
-                    );
-
-                }
-
-            }
-
+            totalSSP += ssp;
+            rows.push({ number: i, ssp, status });
         }
 
+        let recognised = 0;
+        let remaining = 0;
 
-        /*
-         * Calculate total stand-alone
-         * selling price.
-         */
+        rows.forEach(row => {
+            row.allocated = (row.ssp / totalSSP) * transactionPrice;
+            if (row.status === "satisfied") {
+                recognised += row.allocated;
+            } else {
+                remaining += row.allocated;
+            }
+        });
 
-        const totalSSP =
-            obligations.reduce(
-                (total, obligation) =>
-                    total +
-                    obligation.ssp,
-                0
-            );
-
-
-        if (totalSSP <= 0) {
-
-            return errorMessage(
-                "Total stand-alone selling price must be greater than zero."
-            );
-
-        }
-
-
-        let recognised =
-            0;
-
-        let unrecognised =
-            0;
-
-
-        /*
-         * Calculate allocation,
-         * recognised revenue and
-         * remaining revenue.
-         */
-
-        const rows =
-            obligations
-                .map(obligation => {
-
-                    const allocated =
-                        (
-                            obligation.ssp /
-                            totalSSP
-                        ) *
-                        transactionPrice;
-
-
-                    const revenueRecognised =
-                        allocated *
-                        (
-                            obligation
-                                .percentSatisfied /
-                            100
-                        );
-
-
-                    const remaining =
-                        allocated -
-                        revenueRecognised;
-
-
-                    recognised +=
-                        revenueRecognised;
-
-                    unrecognised +=
-                        remaining;
-
-
-                    let statusText;
-
-
-                    if (
-                        obligation.status ===
-                        "satisfied"
-                    ) {
-
-                        statusText =
-                            "Satisfied";
-
-                    }
-
-                    else if (
-                        obligation.status ===
-                        "partial"
-                    ) {
-
-                        statusText =
-                            "Partially Satisfied";
-
-                    }
-
-                    else {
-
-                        statusText =
-                            "Not Satisfied";
-
-                    }
-
-
-                    return `
-                        <tr>
-
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${obligation.number}
-                            </td>
-
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${money(obligation.ssp)}
-                            </td>
-
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${statusText}
-                            </td>
-
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${number(
-                                    obligation.percentSatisfied,
-                                    2
-                                )}%
-                            </td>
-
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${money(allocated)}
-                            </td>
-
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${money(revenueRecognised)}
-                            </td>
-
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${money(remaining)}
-                            </td>
-
-                        </tr>
-                    `;
-
-                })
-                .join("");
-
+        const tableRows = rows.map(row => `
+            <tr>
+                <td style="padding:8px; border:1px solid #999;">${row.number}</td>
+                <td style="padding:8px; border:1px solid #999;">${money(row.ssp)}</td>
+                <td style="padding:8px; border:1px solid #999;">${row.status === "satisfied" ? "Satisfied" : "Not Satisfied"}</td>
+                <td style="padding:8px; border:1px solid #999;">${money(row.allocated)}</td>
+            </tr>
+        `).join("");
 
         return resultTemplate(
-
-            "IFRS 15 — Relative Stand-alone Selling Price Allocation",
-
+            "Allocated Revenue = (SSP of Obligation / Total SSP) * Transaction Price",
             `
+            Total Transaction Price = ${money(transactionPrice)}<br>
+            Total Stand-Alone Selling Prices = ${money(totalSSP)}<br><br>
 
-            <strong>
-                1. Total Stand-alone Selling Prices
-            </strong>
-
-            <br>
-
-            ${obligations
-                .map(
-                    obligation =>
-                        money(obligation.ssp)
-                )
-                .join(" + ")}
-
-            =
-
-            <strong>
-                ${money(totalSSP)}
-            </strong>
-
-
-            <br><br>
-
-
-            <strong>
-                2. Transaction Price
-            </strong>
-
-            <br>
-
-            ${money(transactionPrice)}
-
-
-            <br><br>
-
-
-            <strong>
-                3. Revenue Allocation
-            </strong>
-
-            <br>
-
-            Allocated Revenue =
-            (SSP ÷ Total SSP) × Transaction Price
-
-
-            <br><br>
-
-
-            <strong>
-                4. Revenue Recognition
-            </strong>
-
-            <br>
-
-            Revenue Recognised =
-            Allocated Revenue × Percentage Satisfied
-
-
-            <br><br>
-
+            Each obligation receives:<br>
+            SSP / Total SSP * Transaction Price<br><br>
 
             <div style="overflow-x:auto;">
-
-                <table
-                    style="
-                        width:100%;
-                        border-collapse:collapse;
-                    "
-                >
-
+                <table style="width:100%; border-collapse:collapse; margin-top:10px;">
                     <thead>
-
                         <tr>
-
-                            <th
-                                style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                "
-                            >
-                                Obligation
-                            </th>
-
-                            <th
-                                style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                "
-                            >
-                                SSP
-                            </th>
-
-                            <th
-                                style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                "
-                            >
-                                Status
-                            </th>
-
-                            <th
-                                style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                "
-                            >
-                                % Satisfied
-                            </th>
-
-                            <th
-                                style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                "
-                            >
-                                Allocated Revenue
-                            </th>
-
-                            <th
-                                style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                "
-                            >
-                                Revenue Recognised
-                            </th>
-
-                            <th
-                                style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                "
-                            >
-                                Remaining
-                            </th>
-
+                            <th style="padding:8px; border:1px solid #999;">Obligation</th>
+                            <th style="padding:8px; border:1px solid #999;">SSP</th>
+                            <th style="padding:8px; border:1px solid #999;">Status</th>
+                            <th style="padding:8px; border:1px solid #999;">Allocated Revenue</th>
                         </tr>
-
                     </thead>
-
-
-                    <tbody>
-
-                        ${rows}
-
-                    </tbody>
-
+                    <tbody>${tableRows}</tbody>
                 </table>
-
             </div>
-
-            `,
-
-            `
-
-            Revenue Recognised =
-            ${money(recognised)}
-
-            <br><br>
-
-            Remaining Unrecognised Amount =
-            ${money(unrecognised)}
-
-            `,
-
-            `
-
-            Revenue is recognised according to the
-            satisfaction status of each performance obligation.
-
-            <br><br>
-
-            <strong>
-                Satisfied:
-            </strong>
-
-            100% of the allocated revenue is recognised.
-
             <br>
-
-            <strong>
-                Partially Satisfied:
-            </strong>
-
-            Only the entered percentage of the allocated
-            revenue is recognised.
-
-            <br>
-
-            <strong>
-                Not Satisfied:
-            </strong>
-
-            0% of the allocated revenue is recognised.
-
-            <br><br>
-
-            <small>
-
-            For example, if a two-year service obligation
-            has one year completed and the service is
-            satisfied evenly over time, enter 50% as the
-            percentage satisfied.
-
-            </small>
-
-            `
+            Revenue Recognised = ${money(recognised)}<br>
+            Revenue Not Yet Recognised = ${money(remaining)}
+            `,
+            `Recognised Revenue = ${money(recognised)}<br>Remaining Contract Revenue = ${money(remaining)}`,
+            "Revenue is recognised for the performance obligations marked Satisfied. The allocation is based on relative stand-alone selling prices."
         );
 
     }
+
+}
 },
 
 
