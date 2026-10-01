@@ -33,13 +33,13 @@ if (themeToggle) {
 
         if (isDark) {
 
-            themeToggle.textContent = "Sun Light Mode";
+            themeToggle.textContent = "💡Light Mode";
 
             localStorage.setItem("theme", "dark");
 
         } else {
 
-            themeToggle.textContent = "Moon Dark Mode";
+            themeToggle.textContent = "🌙 Dark Mode";
 
             localStorage.setItem("theme", "light");
 
@@ -2815,360 +2815,389 @@ mathematics: {
         }
 
         if (
-            ["complementA", "complementB"].includes(operation)
-            &&
-            (!hasA || U.length === 0)
-        ) {
+    ["complementA", "complementB"].includes(operation)
+    &&
+    (!hasA || U.length === 0)
+) {
+    return errorMessage(
+        "Enter the required set and the Universal Set U."
+    );
+}
+
+switch (operation) {
+
+    case "union":
+
+        return resultTemplate(
+            "A ∪ B",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            Combine all elements and remove duplicates:
+            <br><br>
+
+            ${formatSet(A)}
+            ∪
+            ${formatSet(B)}
+
+            =
+            ${formatSet(union)}
+            `,
+            `A ∪ B = ${formatSet(union)}`
+        );
+
+
+    case "intersection":
+
+        return resultTemplate(
+            "A ∩ B",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            Common elements in both sets:
+            <br><br>
+
+            ${formatSet(A)}
+            ∩
+            ${formatSet(B)}
+
+            =
+            ${formatSet(intersection)}
+            `,
+            `A ∩ B = ${formatSet(intersection)}`
+        );
+
+
+    case "differenceAB":
+
+        return resultTemplate(
+            "A − B",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            Elements in A that are not in B:
+            <br><br>
+
+            ${formatSet(A)}
+            −
+            ${formatSet(B)}
+
+            =
+            ${formatSet(differenceAB)}
+            `,
+            `A − B = ${formatSet(differenceAB)}`
+        );
+
+
+    case "differenceBA":
+
+        return resultTemplate(
+            "B − A",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            Elements in B that are not in A:
+            <br><br>
+
+            ${formatSet(B)}
+            −
+            ${formatSet(A)}
+
+            =
+            ${formatSet(differenceBA)}
+            `,
+            `B − A = ${formatSet(differenceBA)}`
+        );
+
+
+    case "symmetric":
+
+        return resultTemplate(
+            "A △ B",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            Elements that belong to A or B,
+            but not both:
+            <br><br>
+
+            ${formatSet(symmetricDifference)}
+            `,
+            `A △ B = ${formatSet(symmetricDifference)}`
+        );
+
+
+    case "complementA": {
+
+        const complementA =
+            U.filter(x => !A.includes(x));
+
+        return resultTemplate(
+            "A′ — Complement of A",
+            `
+            U = ${formatSet(U)}<br>
+            A = ${formatSet(A)}<br><br>
+
+            A′ = U − A
+            <br><br>
+
+            ${formatSet(U)}
+            −
+            ${formatSet(A)}
+
+            =
+            ${formatSet(complementA)}
+            `,
+            `A′ = ${formatSet(complementA)}`
+        );
+
+    }
+
+
+    case "complementB": {
+
+        const complementB =
+            U.filter(x => !B.includes(x));
+
+        return resultTemplate(
+            "B′ — Complement of B",
+            `
+            U = ${formatSet(U)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            B′ = U − B
+            <br><br>
+
+            ${formatSet(U)}
+            −
+            ${formatSet(B)}
+
+            =
+            ${formatSet(complementB)}
+            `,
+            `B′ = ${formatSet(complementB)}`
+        );
+
+    }
+
+
+    case "cardinalityA":
+
+        if (!hasA) {
             return errorMessage(
-                "Enter the required set and the Universal Set U."
+                "Enter Set A."
             );
         }
 
-        switch (operation) {
-
-            case "union":
-
-                return resultTemplate(
-                    "A âˆª B",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Combine all elements and remove duplicates:
-                    <br><br>
-
-                    ${formatSet(A)}
-                    âˆª
-                    ${formatSet(B)}
-
-                    =
-                    ${formatSet(union)}
-                    `,
-                    `A âˆª B = ${formatSet(union)}`
-                );
-
-
-            case "intersection":
-
-                return resultTemplate(
-                    "A âˆ© B",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Common elements:
-                    ${formatSet(intersection)}
-                    `,
-                    `A âˆ© B = ${formatSet(intersection)}`
-                );
-
-
-            case "differenceAB":
-
-                return resultTemplate(
-                    "A âˆ’ B",
-                    `
-                    Elements in A that are not in B:
-                    <br><br>
-                    ${formatSet(differenceAB)}
-                    `,
-                    `A âˆ’ B = ${formatSet(differenceAB)}`
-                );
-
-
-            case "differenceBA":
-
-                return resultTemplate(
-                    "B âˆ’ A",
-                    `
-                    Elements in B that are not in A:
-                    <br><br>
-                    ${formatSet(differenceBA)}
-                    `,
-                    `B âˆ’ A = ${formatSet(differenceBA)}`
-                );
-
-
-            case "symmetric":
-
-                return resultTemplate(
-                    "A â–³ B",
-                    `
-                    Elements that belong to A or B,
-                    but not both:
-                    <br><br>
-                    ${formatSet(symmetricDifference)}
-                    `,
-                    `A â–³ B = ${formatSet(symmetricDifference)}`
-                );
-
-
-            case "complementA": {
-
-                const complementA =
-                    U.filter(x => !A.includes(x));
-
-                return resultTemplate(
-                    "Aâ€² â€” Complement of A",
-                    `
-                    U = ${formatSet(U)}<br>
-                    A = ${formatSet(A)}<br><br>
-
-                    Aâ€² = U âˆ’ A
-                    <br><br>
-
-                    ${formatSet(U)}
-                    âˆ’
-                    ${formatSet(A)}
-                    =
-                    ${formatSet(complementA)}
-                    `,
-                    `Aâ€² = ${formatSet(complementA)}`
-                );
-
-            }
-
-
-            case "complementB": {
-
-                const complementB =
-                    U.filter(x => !B.includes(x));
-
-                return resultTemplate(
-                    "Bâ€² â€” Complement of B",
-                    `
-                    U = ${formatSet(U)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Bâ€² = U âˆ’ B
-                    <br><br>
-
-                    ${formatSet(U)}
-                    âˆ’
-                    ${formatSet(B)}
-                    =
-                    ${formatSet(complementB)}
-                    `,
-                    `Bâ€² = ${formatSet(complementB)}`
-                );
-
-            }
-
-
-            case "cardinalityA":
-
-                if (!hasA) {
-                    return errorMessage(
-                        "Enter Set A."
-                    );
-                }
-
-                return resultTemplate(
-                    "Cardinality of A",
-                    `
-                    A = ${formatSet(A)}<br><br>
-
-                    Count the distinct elements:
-                    <br>
-                    ${A.length} elements
-                    `,
-                    `n(A) = ${A.length}`
-                );
-
-
-            case "cardinalityB":
-
-                if (!hasB) {
-                    return errorMessage(
-                        "Enter Set B."
-                    );
-                }
-
-                return resultTemplate(
-                    "Cardinality of B",
-                    `
-                    B = ${formatSet(B)}<br><br>
-
-                    Count the distinct elements:
-                    <br>
-                    ${B.length} elements
-                    `,
-                    `n(B) = ${B.length}`
-                );
-
-
-            case "subset": {
-
-                const isSubset =
-                    A.every(x => B.includes(x));
-
-                return resultTemplate(
-                    "Subset Test",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Every element of A must also
-                    appear in B.
-                    `,
-                    isSubset
-                        ? "A  B ” YES"
-                        : "A  B ” NO"
-                );
-
-            }
-
-
-            case "properSubset": {
-
-                const isSubset =
-                    A.every(x => B.includes(x));
-
-                const isProper =
-                    isSubset &&
-                    A.length < B.length;
-
-                return resultTemplate(
-                    "Proper Subset Test",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    A must be a subset of B
-                    and A must contain fewer elements.
-                    `,
-                    isProper
-                        ? "A âŠ‚ B â€” YES"
-                        : "A âŠ‚ B â€” NO"
-                );
-
-            }
-
-
-            case "disjoint": {
-
-                const areDisjoint =
-                    intersection.length === 0;
-
-                return resultTemplate(
-                    "Disjoint Sets",
-                    `
-                    A âˆ© B =
-                    ${formatSet(intersection)}
-                    <br><br>
-
-                    Two sets are disjoint when
-                    their intersection is empty.
-                    `,
-                    areDisjoint
-                        ? "A and B are DISJOINT."
-                        : "A and B are NOT DISJOINT."
-                );
-
-            }
-
-
-            case "cartesian": {
-
-                const pairs = [];
-
-                A.forEach(a => {
-
-                    B.forEach(b => {
-
-                        pairs.push(
-                            `(${a}, ${b})`
-                        );
-
-                    });
-
-                });
-
-                return resultTemplate(
-                    "Cartesian Product",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Pair every element of A
-                    with every element of B.
-                    <br><br>
-
-                    Number of ordered pairs:
-                    ${A.length} Ã— ${B.length}
-                    =
-                    ${pairs.length}
-                    `,
-                    `A Ã— B = {${pairs.join(", ")}}`
-                );
-
-            }
-
-
-            case "powerSetA": {
-
-                if (!hasA) {
-                    return errorMessage(
-                        "Enter Set A."
-                    );
-                }
-
-                if (A.length > 10) {
-                    return errorMessage(
-                        "For practical use, the power set is limited to sets with 10 or fewer elements."
-                    );
-                }
-
-                const powerSet = [[]];
-
-                A.forEach(element => {
-
-                    const current =
-                        powerSet.map(
-                            subset => [
-                                ...subset,
-                                element
-                            ]
-                        );
-
-                    powerSet.push(...current);
-
-                });
-
-                const formatted =
-                    powerSet
-                        .map(
-                            subset =>
-                                subset.length === 0
-                                    ? "âˆ…"
-                                    : `{${subset.join(", ")}}`
-                        )
-                        .join(", ");
-
-                return resultTemplate(
-                    "Power Set P(A)",
-                    `
-                    A = ${formatSet(A)}<br><br>
-
-                    Number of subsets:
-                    2^${A.length}
-                    =
-                    ${powerSet.length}
-                    `,
-                    `P(A) = {${formatted}}`
-                );
-
-            }
-
-
-            default:
-
-                return errorMessage(
-                    "Please select a valid set operation."
-                );
+        return resultTemplate(
+            "Cardinality of A",
+            `
+            A = ${formatSet(A)}<br><br>
+
+            Count the distinct elements:
+            <br>
+            ${A.length} elements
+            `,
+            `n(A) = ${A.length}`
+        );
+
+
+    case "cardinalityB":
+
+        if (!hasB) {
+            return errorMessage(
+                "Enter Set B."
+            );
         }
+
+        return resultTemplate(
+            "Cardinality of B",
+            `
+            B = ${formatSet(B)}<br><br>
+
+            Count the distinct elements:
+            <br>
+            ${B.length} elements
+            `,
+            `n(B) = ${B.length}`
+        );
+
+
+    case "subset": {
+
+        const isSubset =
+            A.every(x => B.includes(x));
+
+        return resultTemplate(
+            "Subset Test",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            Every element of A must also
+            appear in B.
+            `,
+            isSubset
+                ? "A ⊆ B — YES"
+                : "A ⊆ B — NO"
+        );
+
     }
-},
+
+
+    case "properSubset": {
+
+        const isSubset =
+            A.every(x => B.includes(x));
+
+        const isProper =
+            isSubset &&
+            A.length < B.length;
+
+        return resultTemplate(
+            "Proper Subset Test",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            A must be a subset of B
+            and A must contain fewer elements.
+            `,
+            isProper
+                ? "A ⊂ B — YES"
+                : "A ⊂ B — NO"
+        );
+
+    }
+
+
+    case "disjoint": {
+
+        const areDisjoint =
+            intersection.length === 0;
+
+        return resultTemplate(
+            "Disjoint Sets",
+            `
+            A ∩ B =
+            ${formatSet(intersection)}
+            <br><br>
+
+            Two sets are disjoint when
+            their intersection is empty.
+            `,
+            areDisjoint
+                ? "A and B are DISJOINT."
+                : "A and B are NOT DISJOINT."
+        );
+
+    }
+
+
+    case "cartesian": {
+
+        const pairs = [];
+
+        A.forEach(a => {
+
+            B.forEach(b => {
+
+                pairs.push(
+                    `(${a}, ${b})`
+                );
+
+            });
+
+        });
+
+        return resultTemplate(
+            "Cartesian Product",
+            `
+            A = ${formatSet(A)}<br>
+            B = ${formatSet(B)}<br><br>
+
+            Pair every element of A
+            with every element of B.
+            <br><br>
+
+            Number of ordered pairs:
+            ${A.length} × ${B.length}
+            =
+            ${pairs.length}
+            `,
+            `A × B = {${pairs.join(", ")}}`
+        );
+
+    }
+
+
+    case "powerSetA": {
+
+        if (!hasA) {
+            return errorMessage(
+                "Enter Set A."
+            );
+        }
+
+        if (A.length > 10) {
+            return errorMessage(
+                "For practical use, the power set is limited to sets with 10 or fewer elements."
+            );
+        }
+
+        const powerSet = [[]];
+
+        A.forEach(element => {
+
+            const current =
+                powerSet.map(
+                    subset => [
+                        ...subset,
+                        element
+                    ]
+                );
+
+            powerSet.push(...current);
+
+        });
+
+        const formatted =
+            powerSet
+                .map(
+                    subset =>
+                        subset.length === 0
+                            ? "∅"
+                            : `{${subset.join(", ")}}`
+                )
+                .join(", ");
+
+        return resultTemplate(
+            "Power Set P(A)",
+            `
+            A = ${formatSet(A)}<br><br>
+
+            Number of subsets:
+            2^${A.length}
+            =
+            ${powerSet.length}
+            `,
+            `P(A) = {${formatted}}`
+        );
+
+    }
+
+
+    default:
+
+        return errorMessage(
+            "Please select a valid set operation."
+        );
+}
 
 "matrices": {
 
