@@ -1,4 +1,3 @@
-
 /* =========================================================
    KHID MULTIPURPOSE CALCULATOR
    ACCOUNTING + FINANCE + MATHEMATICS
@@ -20,7 +19,7 @@ if (themeToggle) {
 
         document.body.classList.add("dark-mode");
 
-        themeToggle.textContent = "â˜€ï¸ Light Mode";
+        themeToggle.textContent = "Sun Light Mode";
 
     }
 
@@ -34,13 +33,13 @@ if (themeToggle) {
 
         if (isDark) {
 
-            themeToggle.textContent = "â˜€ï¸ Light Mode";
+            themeToggle.textContent = "Sun Light Mode";
 
             localStorage.setItem("theme", "dark");
 
         } else {
 
-            themeToggle.textContent = "ðŸŒ™ Dark Mode";
+            themeToggle.textContent = "Moon Dark Mode";
 
             localStorage.setItem("theme", "light");
 
@@ -374,13 +373,13 @@ accounting: {
     title: "Straight-Line Depreciation",
 
     fields: [
-        ["cost", "Asset Cost (â‚¦)", "number"],
-        ["residual", "Residual Value (â‚¦)", "number"],
+        ["cost", "Asset Cost (NGN)", "number"],
+        ["residual", "Residual Value (NGN)", "number"],
         ["life", "Useful Life (Years)", "number"]
     ],
 
     formula:
-        "Annual Depreciation = (Cost âˆ’ Residual Value) Ã· Useful Life",
+        "Annual Depreciation = (Cost - Residual Value) / Useful Life",
 
     calculate(v) {
 
@@ -402,11 +401,11 @@ accounting: {
 
         return resultTemplate(
 
-            "Annual Depreciation = (Cost âˆ’ Residual Value) Ã· Useful Life",
+            "Annual Depreciation = (Cost - Residual Value) / Useful Life",
 
             `
-            = (${money(cost)} âˆ’ ${money(residual)})
-              Ã· ${life}<br><br>
+            = (${money(cost)} - ${money(residual)})
+              / ${life}<br><br>
 
             Annual Depreciation =
             ${money(annual)}<br><br>
@@ -430,13 +429,13 @@ accounting: {
 
     fields: [
         ["method", "Calculation Method", "select"],
-        ["cost", "Cost of Asset (â‚¦)", "number"],
-        ["residual", "Scrap / Residual Value (â‚¦)", "number"],
+        ["cost", "Cost of Asset (NGN)", "number"],
+        ["residual", "Scrap / Residual Value (NGN)", "number"],
         ["usefulLife", "Useful Life (Years)", "number"],
         ["rate", "Depreciation Rate (%)", "number"],
         ["startDate", "Start Date", "date"],
         ["endDate", "End Date", "date"],
-        ["openingAccumulated", "Opening Accumulated Depreciation (â‚¦) â€“ Optional", "number"]
+        ["openingAccumulated", "Opening Accumulated Depreciation (NGN) - Optional", "number"]
     ],
 
     options: {
@@ -480,16 +479,16 @@ accounting: {
 
             return resultTemplate(
 
-                "S = C(1 âˆ’ r)â¿<br><br>Therefore: r = 1 âˆ’ (S Ã· C)Â¹â„â¿",
+                "S = C(1 - r)n<br><br>Therefore: r = 1 - (S / C)1/n",
 
                 `
                 S = ${money(residual)}<br>
                 C = ${money(cost)}<br>
                 n = ${number(usefulLife)} years<br><br>
 
-                r = 1 âˆ’ (${money(residual)} Ã· ${money(cost)})<sup>1/${number(usefulLife)}</sup><br><br>
+                r = 1 - (${money(residual)} / ${money(cost)})<sup>1/${number(usefulLife)}</sup><br><br>
 
-                r = 1 âˆ’ ${number(Math.pow(residual / cost, 1 / usefulLife), 6)}<br><br>
+                r = 1 - ${number(Math.pow(residual / cost, 1 / usefulLife), 6)}<br><br>
 
                 r = ${number(rate * 100)}%
                 `,
@@ -697,13 +696,13 @@ accounting: {
 
         return resultTemplate(
 
-            "Depreciation = Opening Carrying Amount Ã— Rate Ã— Time Fraction<br><br>Closing Carrying Amount = Opening Carrying Amount âˆ’ Depreciation",
+            "Depreciation = Opening Carrying Amount * Rate * Time Fraction<br><br>Closing Carrying Amount = Opening Carrying Amount - Depreciation",
 
             `
             Cost = ${money(cost)}<br>
             Rate = ${percent(ratePercent)}<br>
             Opening Accumulated Depreciation = ${money(openingAccumulated)}<br>
-            Opening Carrying Amount = ${money(cost)} âˆ’ ${money(openingAccumulated)} = ${money(openingCarryingAmount)}<br><br>
+            Opening Carrying Amount = ${money(cost)} - ${money(openingAccumulated)} = ${money(openingCarryingAmount)}<br><br>
 
             Total Period = ${periodSummary}<br>
             Total Depreciation = ${money(totalDepreciation)}<br>
@@ -728,12 +727,12 @@ accounting: {
     title: "Book Value",
 
     fields: [
-        ["cost", "Original Cost (â‚¦)", "number"],
-        ["accumulated", "Accumulated Depreciation (â‚¦)", "number"]
+        ["cost", "Original Cost (NGN)", "number"],
+        ["accumulated", "Accumulated Depreciation (NGN)", "number"]
     ],
 
     formula:
-        "Book Value = Cost âˆ’ Accumulated Depreciation",
+        "Book Value = Cost - Accumulated Depreciation",
 
     calculate(v) {
 
@@ -746,11 +745,11 @@ accounting: {
 
         return resultTemplate(
 
-            "Book Value = Cost âˆ’ Accumulated Depreciation",
+            "Book Value = Cost - Accumulated Depreciation",
 
             `
             = ${money(cost)}
-              âˆ’ ${money(accumulated)}
+              - ${money(accumulated)}
             `,
 
             money(book)
@@ -766,12 +765,12 @@ accounting: {
     title: "Gross Profit",
 
     fields: [
-        ["sales", "Sales Revenue (â‚¦)", "number"],
-        ["cogs", "Cost of Goods Sold (â‚¦)", "number"]
+        ["sales", "Sales Revenue (NGN)", "number"],
+        ["cogs", "Cost of Goods Sold (NGN)", "number"]
     ],
 
     formula:
-        "Gross Profit = Sales âˆ’ Cost of Goods Sold",
+        "Gross Profit = Sales - Cost of Goods Sold",
 
     calculate(v) {
 
@@ -783,11 +782,11 @@ accounting: {
 
         return resultTemplate(
 
-            "Gross Profit = Sales âˆ’ COGS",
+            "Gross Profit = Sales - COGS",
 
             `
             = ${money(sales)}
-              âˆ’ ${money(cogs)}
+              - ${money(cogs)}
             `,
 
             money(profit)
@@ -803,12 +802,12 @@ accounting: {
     title: "Gross Profit Margin",
 
     fields: [
-        ["sales", "Sales Revenue (â‚¦)", "number"],
-        ["cogs", "Cost of Goods Sold (â‚¦)", "number"]
+        ["sales", "Sales Revenue (NGN)", "number"],
+        ["cogs", "Cost of Goods Sold (NGN)", "number"]
     ],
 
     formula:
-        "Gross Profit Margin = Gross Profit Ã· Sales Ã— 100",
+        "Gross Profit Margin = Gross Profit / Sales * 100",
 
     calculate(v) {
 
@@ -827,15 +826,15 @@ accounting: {
 
         return resultTemplate(
 
-            "Gross Profit Margin = (Gross Profit Ã· Sales) Ã— 100",
+            "Gross Profit Margin = (Gross Profit / Sales) * 100",
 
             `
             Gross Profit =
             ${money(grossProfit)}<br><br>
 
             = ${money(grossProfit)}
-              Ã· ${money(sales)}
-              Ã— 100
+              / ${money(sales)}
+              * 100
             `,
 
             percent(margin)
@@ -851,12 +850,12 @@ accounting: {
     title: "Net Profit",
 
     fields: [
-        ["revenue", "Revenue (â‚¦)", "number"],
-        ["expenses", "Total Expenses (â‚¦)", "number"]
+        ["revenue", "Revenue (NGN)", "number"],
+        ["expenses", "Total Expenses (NGN)", "number"]
     ],
 
     formula:
-        "Net Profit = Revenue âˆ’ Total Expenses",
+        "Net Profit = Revenue - Total Expenses",
 
     calculate(v) {
 
@@ -871,11 +870,11 @@ accounting: {
 
         return resultTemplate(
 
-            "Net Profit = Revenue âˆ’ Expenses",
+            "Net Profit = Revenue - Expenses",
 
             `
             = ${money(revenue)}
-              âˆ’ ${money(expenses)}
+              - ${money(expenses)}
             `,
 
             money(profit)
@@ -891,12 +890,12 @@ accounting: {
     title: "Net Profit Margin",
 
     fields: [
-        ["revenue", "Revenue (â‚¦)", "number"],
-        ["expenses", "Total Expenses (â‚¦)", "number"]
+        ["revenue", "Revenue (NGN)", "number"],
+        ["expenses", "Total Expenses (NGN)", "number"]
     ],
 
     formula:
-        "Net Profit Margin = Net Profit Ã· Revenue Ã— 100",
+        "Net Profit Margin = Net Profit / Revenue * 100",
 
     calculate(v) {
 
@@ -918,15 +917,15 @@ accounting: {
 
         return resultTemplate(
 
-            "Net Profit Margin = (Net Profit Ã· Revenue) Ã— 100",
+            "Net Profit Margin = (Net Profit / Revenue) * 100",
 
             `
             Net Profit =
             ${money(profit)}<br><br>
 
             = ${money(profit)}
-              Ã· ${money(revenue)}
-              Ã— 100
+              / ${money(revenue)}
+              * 100
             `,
 
             percent(margin)
@@ -942,12 +941,12 @@ accounting: {
     title: "Markup",
 
     fields: [
-        ["cost", "Cost (â‚¦)", "number"],
-        ["selling", "Selling Price (â‚¦)", "number"]
+        ["cost", "Cost (NGN)", "number"],
+        ["selling", "Selling Price (NGN)", "number"]
     ],
 
     formula:
-        "Markup % = (Selling Price âˆ’ Cost) Ã· Cost Ã— 100",
+        "Markup % = (Selling Price - Cost) / Cost * 100",
 
     calculate(v) {
 
@@ -963,15 +962,15 @@ accounting: {
 
         return resultTemplate(
 
-            "Markup % = (Selling Price âˆ’ Cost) Ã· Cost Ã— 100",
+            "Markup % = (Selling Price - Cost) / Cost * 100",
 
             `
             Markup =
             ${money(selling - cost)}<br><br>
 
             = ${money(selling - cost)}
-              Ã· ${money(cost)}
-              Ã— 100
+              / ${money(cost)}
+              * 100
             `,
 
             percent(markup)
@@ -987,13 +986,13 @@ accounting: {
     title: "Break-Even Point",
 
     fields: [
-        ["fixed", "Fixed Costs (â‚¦)", "number"],
-        ["selling", "Selling Price per Unit (â‚¦)", "number"],
-        ["variable", "Variable Cost per Unit (â‚¦)", "number"]
+        ["fixed", "Fixed Costs (NGN)", "number"],
+        ["selling", "Selling Price per Unit (NGN)", "number"],
+        ["variable", "Variable Cost per Unit (NGN)", "number"]
     ],
 
     formula:
-        "Break-Even Units = Fixed Costs Ã· (Selling Price âˆ’ Variable Cost)",
+        "Break-Even Units = Fixed Costs / (Selling Price - Variable Cost)",
 
     calculate(v) {
 
@@ -1015,14 +1014,14 @@ accounting: {
 
         return resultTemplate(
 
-            "Break-Even Units = Fixed Costs Ã· Contribution per Unit",
+            "Break-Even Units = Fixed Costs / Contribution per Unit",
 
             `
             Contribution per unit =
             ${money(contribution)}<br><br>
 
             = ${money(fixed)}
-              Ã· ${money(contribution)}
+              / ${money(contribution)}
             `,
 
             `${number(units)} units`
@@ -1038,12 +1037,12 @@ accounting: {
     title: "VAT Calculator",
 
     fields: [
-        ["amount", "Amount (â‚¦)", "number"],
+        ["amount", "Amount (NGN)", "number"],
         ["rate", "VAT Rate (%)", "number"]
     ],
 
     formula:
-        "VAT = Amount Ã— VAT Rate Ã· 100",
+        "VAT = Amount * VAT Rate / 100",
 
     calculate(v) {
 
@@ -1058,12 +1057,12 @@ accounting: {
 
         return resultTemplate(
 
-            "VAT = Amount Ã— VAT Rate Ã· 100",
+            "VAT = Amount * VAT Rate / 100",
 
             `
             VAT =
             ${money(amount)}
-            Ã— ${percent(rate)}
+            * ${percent(rate)}
             = ${money(vat)}<br><br>
 
             Total =
@@ -1086,12 +1085,12 @@ accounting: {
     title: "Bad Debt",
 
     fields: [
-        ["receivable", "Customer Receivable (â‚¦)", "number"],
-        ["bad", "Amount Irrecoverable (â‚¦)", "number"]
+        ["receivable", "Customer Receivable (NGN)", "number"],
+        ["bad", "Amount Irrecoverable (NGN)", "number"]
     ],
 
     formula:
-        "Remaining Receivable = Original Receivable âˆ’ Bad Debt",
+        "Remaining Receivable = Original Receivable - Bad Debt",
 
     calculate(v) {
 
@@ -1112,11 +1111,11 @@ accounting: {
 
         return resultTemplate(
 
-            "Remaining Receivable = Receivable âˆ’ Bad Debt",
+            "Remaining Receivable = Receivable - Bad Debt",
 
             `
             = ${money(receivable)}
-              âˆ’ ${money(bad)}
+              - ${money(bad)}
             `,
 
             `Bad Debt Expense: ${money(bad)}<br>
@@ -1133,13 +1132,13 @@ accounting: {
     title: "Cost of Goods Sold",
 
     fields: [
-        ["opening", "Opening Inventory (â‚¦)", "number"],
-        ["purchases", "Purchases (â‚¦)", "number"],
-        ["closing", "Closing Inventory (â‚¦)", "number"]
+        ["opening", "Opening Inventory (NGN)", "number"],
+        ["purchases", "Purchases (NGN)", "number"],
+        ["closing", "Closing Inventory (NGN)", "number"]
     ],
 
     formula:
-        "COGS = Opening Inventory + Purchases âˆ’ Closing Inventory",
+        "COGS = Opening Inventory + Purchases - Closing Inventory",
 
     calculate(v) {
 
@@ -1152,12 +1151,12 @@ accounting: {
 
         return resultTemplate(
 
-            "COGS = Opening Inventory + Purchases âˆ’ Closing Inventory",
+            "COGS = Opening Inventory + Purchases - Closing Inventory",
 
             `
             = ${money(opening)}
               + ${money(purchases)}
-              âˆ’ ${money(closing)}
+              - ${money(closing)}
             `,
 
             money(cogs)
@@ -1182,7 +1181,7 @@ finance: {
     title: "Simple Interest",
 
     fields: [
-        ["principal", "Principal (â‚¦)", "number"],
+        ["principal", "Principal (NGN)", "number"],
         ["rate", "Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"]
     ],
@@ -1204,12 +1203,12 @@ finance: {
 
         return resultTemplate(
 
-            "I = P Ã— R Ã— T",
+            "I = P * R * T",
 
             `
             = ${money(P)}
-              Ã— ${percent(R * 100)}
-              Ã— ${T}<br><br>
+              * ${percent(R * 100)}
+              * ${T}<br><br>
 
             Interest =
             ${money(interest)}
@@ -1229,7 +1228,7 @@ finance: {
     title: "Compound Interest",
 
     fields: [
-        ["principal", "Principal (â‚¦)", "number"],
+        ["principal", "Principal (NGN)", "number"],
         ["rate", "Annual Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"],
         ["frequency", "Compounding Frequency", "select"]
@@ -1264,7 +1263,7 @@ finance: {
 
             working =
                 `A = ${money(P)}
-                 Ã— e^(${r} Ã— ${t})`;
+                 * e^(${r} * ${t})`;
 
         } else {
 
@@ -1280,7 +1279,7 @@ finance: {
 
             working =
                 `A = ${money(P)}
-                 Ã— (1 + ${r}/${n})^(${n} Ã— ${t})`;
+                 * (1 + ${r}/${n})^(${n} * ${t})`;
 
         }
 
@@ -1292,7 +1291,7 @@ finance: {
             "Compound Amount = P(1 + r/n)^(nt)",
 
             `${working}<br><br>
-             Interest = Amount âˆ’ Principal =
+             Interest = Amount - Principal =
              ${money(interest)}`,
 
             `Amount: ${money(A)}<br>
@@ -1309,13 +1308,13 @@ finance: {
     title: "Present Value",
 
     fields: [
-        ["future", "Future Value (â‚¦)", "number"],
+        ["future", "Future Value (NGN)", "number"],
         ["rate", "Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"]
     ],
 
     formula:
-        "PV = FV Ã· (1 + r)^t",
+        "PV = FV / (1 + r)^t",
 
     calculate(v) {
 
@@ -1328,11 +1327,11 @@ finance: {
 
         return resultTemplate(
 
-            "PV = FV Ã· (1 + r)^t",
+            "PV = FV / (1 + r)^t",
 
             `
             = ${money(FV)}
-              Ã· (1 + ${r})^${t}
+              / (1 + ${r})^${t}
             `,
 
             money(PV)
@@ -1348,7 +1347,7 @@ finance: {
     title: "Future Value",
 
     fields: [
-        ["present", "Present Value (â‚¦)", "number"],
+        ["present", "Present Value (NGN)", "number"],
         ["rate", "Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"]
     ],
@@ -1371,7 +1370,7 @@ finance: {
 
             `
             = ${money(PV)}
-              Ã— (1 + ${r})^${t}
+              * (1 + ${r})^${t}
             `,
 
             money(FV)
@@ -1387,13 +1386,13 @@ finance: {
     title: "Future Value of an Annuity",
 
     fields: [
-        ["payment", "Periodic Payment (â‚¦)", "number"],
+        ["payment", "Periodic Payment (NGN)", "number"],
         ["rate", "Interest Rate per Period (%)", "number"],
         ["periods", "Number of Periods", "number"]
     ],
 
     formula:
-        "FV = PMT Ã— [(1 + r)^n âˆ’ 1] Ã· r",
+        "FV = PMT * [(1 + r)^n - 1] / r",
 
     calculate(v) {
 
@@ -1407,8 +1406,8 @@ finance: {
                 PMT * n;
 
             return resultTemplate(
-                "FV = PMT Ã— n when r = 0",
-                `${money(PMT)} Ã— ${n}`,
+                "FV = PMT * n when r = 0",
+                `${money(PMT)} * ${n}`,
                 money(FV)
             );
 
@@ -1420,12 +1419,12 @@ finance: {
 
         return resultTemplate(
 
-            "FV = PMT Ã— [(1 + r)^n âˆ’ 1] Ã· r",
+            "FV = PMT * [(1 + r)^n - 1] / r",
 
             `
             = ${money(PMT)}
-              Ã— [ (1 + ${r})^${n} âˆ’ 1 ]
-              Ã· ${r}
+              * [ (1 + ${r})^${n} - 1 ]
+              / ${r}
             `,
 
             money(FV)
@@ -1441,13 +1440,13 @@ finance: {
     title: "Loan Payment / Installment",
 
     fields: [
-        ["principal", "Loan Principal (â‚¦)", "number"],
+        ["principal", "Loan Principal (NGN)", "number"],
         ["rate", "Annual Interest Rate (%)", "number"],
         ["periods", "Number of Payments", "number"]
     ],
 
     formula:
-        "PMT = P[r(1+r)^n] Ã· [(1+r)^n âˆ’ 1]",
+        "PMT = P[r(1+r)^n] / [(1+r)^n - 1]",
 
     calculate(v) {
 
@@ -1461,8 +1460,8 @@ finance: {
                 P / n;
 
             return resultTemplate(
-                "Payment = Principal Ã· Number of Payments",
-                `${money(P)} Ã· ${n}`,
+                "Payment = Principal / Number of Payments",
+                `${money(P)} / ${n}`,
                 money(payment)
             );
 
@@ -1480,7 +1479,7 @@ finance: {
 
         return resultTemplate(
 
-            "PMT = P[r(1+r)^n] Ã· [(1+r)^n âˆ’ 1]",
+            "PMT = P[r(1+r)^n] / [(1+r)^n - 1]",
 
             `
             = ${money(payment)}
@@ -1500,13 +1499,13 @@ finance: {
     title: "Sinking Fund",
 
     fields: [
-        ["future", "Required Future Amount (â‚¦)", "number"],
+        ["future", "Required Future Amount (NGN)", "number"],
         ["rate", "Interest Rate per Period (%)", "number"],
         ["periods", "Number of Periods", "number"]
     ],
 
     formula:
-        "PMT = FV Ã— r Ã· [(1+r)^n âˆ’ 1]",
+        "PMT = FV * r / [(1+r)^n - 1]",
 
     calculate(v) {
 
@@ -1520,8 +1519,8 @@ finance: {
                 FV / n;
 
             return resultTemplate(
-                "PMT = FV Ã· n",
-                `${money(FV)} Ã· ${n}`,
+                "PMT = FV / n",
+                `${money(FV)} / ${n}`,
                 money(pmt)
             );
 
@@ -1536,12 +1535,12 @@ finance: {
 
         return resultTemplate(
 
-            "PMT = FV Ã— r Ã· [(1+r)^n âˆ’ 1]",
+            "PMT = FV * r / [(1+r)^n - 1]",
 
             `
             = ${money(FV)}
-              Ã— ${r}
-              Ã· [(1 + ${r})^${n} âˆ’ 1]
+              * ${r}
+              / [(1 + ${r})^${n} - 1]
             `,
 
             money(pmt)
@@ -1557,13 +1556,13 @@ finance: {
     title: "Loan Amortization",
 
     fields: [
-        ["principal", "Loan Principal (â‚¦)", "number"],
+        ["principal", "Loan Principal (NGN)", "number"],
         ["rate", "Interest Rate per Period (%)", "number"],
         ["periods", "Number of Periods", "number"]
     ],
 
     formula:
-        "Payment = P[r(1+r)^n] Ã· [(1+r)^n âˆ’ 1]",
+        "Payment = P[r(1+r)^n] / [(1+r)^n - 1]",
 
     calculate(v) {
 
@@ -1599,7 +1598,7 @@ finance: {
 
         return resultTemplate(
 
-            "Loan Payment = P[r(1+r)^n] Ã· [(1+r)^n âˆ’ 1]",
+            "Loan Payment = P[r(1+r)^n] / [(1+r)^n - 1]",
 
             `
             Periodic Payment =
@@ -1641,7 +1640,7 @@ mathematics: {
     ],
 
     formula:
-        "x = [-b Â± âˆš(bÂ² âˆ’ 4ac)] Ã· 2a",
+        "x = [-b +/- sqrt(b2 - 4ac)] / 2a",
 
     calculate(v) {
 
@@ -1660,7 +1659,7 @@ mathematics: {
 
             return resultTemplate(
 
-                "D = bÂ² âˆ’ 4ac",
+                "D = b2 - 4ac",
 
                 `D = ${number(D)}`,
 
@@ -1677,21 +1676,21 @@ mathematics: {
 
         return resultTemplate(
 
-            "x = [-b Â± âˆš(bÂ² âˆ’ 4ac)] Ã· 2a",
+            "x = [-b +/- sqrt(b2 - 4ac)] / 2a",
 
             `
             Discriminant =
             ${number(D)}<br><br>
 
-            xâ‚ =
+            x1 =
             ${number(x1)}<br><br>
 
-            xâ‚‚ =
+            x2 =
             ${number(x2)}
             `,
 
-            `xâ‚ = ${number(x1)}<br>
-             xâ‚‚ = ${number(x2)}`
+            `x1 = ${number(x1)}<br>
+             x2 = ${number(x2)}`
         );
 
     }
@@ -1709,7 +1708,7 @@ mathematics: {
     ],
 
     formula:
-        "ax + b = 0 â†’ x = âˆ’b/a",
+        "ax + b = 0 -> x = -b/a",
 
     calculate(v) {
 
@@ -1724,8 +1723,8 @@ mathematics: {
             -b / a;
 
         return resultTemplate(
-            "x = âˆ’b Ã· a",
-            `x = âˆ’${b} Ã· ${a}`,
+            "x = -b / a",
+            `x = -${b} / ${a}`,
             `x = ${number(x)}`
         );
 
@@ -1744,7 +1743,7 @@ mathematics: {
     ],
 
     formula:
-        "Percentage Change = (New âˆ’ Old) Ã· Old Ã— 100",
+        "Percentage Change = (New - Old) / Old * 100",
 
     calculate(v) {
 
@@ -1763,13 +1762,13 @@ mathematics: {
 
         return resultTemplate(
 
-            "(New âˆ’ Old) Ã· Old Ã— 100",
+            "(New - Old) / Old * 100",
 
             `
             = (${number(newValue)}
-              âˆ’ ${number(oldValue)})
-              Ã· ${number(oldValue)}
-              Ã— 100
+              - ${number(oldValue)})
+              / ${number(oldValue)}
+              * 100
             `,
 
             percent(change)
@@ -1790,7 +1789,7 @@ mathematics: {
     ],
 
     formula:
-        "nPr = n! Ã· (n âˆ’ r)!",
+        "nPr = n! / (n - r)!",
 
     calculate(v) {
 
@@ -1805,7 +1804,7 @@ mathematics: {
             !Number.isInteger(r)
         ) {
             return errorMessage(
-                "n and r must be whole numbers with n â‰¥ r."
+                "n and r must be whole numbers with n >= r."
             );
         }
 
@@ -1814,10 +1813,10 @@ mathematics: {
 
         return resultTemplate(
 
-            "nPr = n! Ã· (n âˆ’ r)!",
+            "nPr = n! / (n - r)!",
 
             `
-            = ${n}! Ã· (${n} âˆ’ ${r})!
+            = ${n}! / (${n} - ${r})!
             `,
 
             number(answer)
@@ -1838,7 +1837,7 @@ mathematics: {
     ],
 
     formula:
-        "nCr = n! Ã· [r!(n âˆ’ r)!]",
+        "nCr = n! / [r!(n - r)!]",
 
     calculate(v) {
 
@@ -1853,7 +1852,7 @@ mathematics: {
             !Number.isInteger(r)
         ) {
             return errorMessage(
-                "n and r must be whole numbers with n â‰¥ r."
+                "n and r must be whole numbers with n >= r."
             );
         }
 
@@ -1862,11 +1861,11 @@ mathematics: {
 
         return resultTemplate(
 
-            "nCr = n! Ã· [r!(n âˆ’ r)!]",
+            "nCr = n! / [r!(n - r)!]",
 
             `
-            = ${n}! Ã·
-              [${r}!(${n} âˆ’ ${r})!]
+            = ${n}! /
+              [${r}!(${n} - ${r})!]
             `,
 
             number(answer)
@@ -1882,14 +1881,14 @@ mathematics: {
     title: "Distance Between Two Points",
 
     fields: [
-        ["x1", "xâ‚", "number"],
-        ["y1", "yâ‚", "number"],
-        ["x2", "xâ‚‚", "number"],
-        ["y2", "yâ‚‚", "number"]
+        ["x1", "x1", "number"],
+        ["y1", "y1", "number"],
+        ["x2", "x2", "number"],
+        ["y2", "y2", "number"]
     ],
 
     formula:
-        "d = âˆš[(xâ‚‚ âˆ’ xâ‚)Â² + (yâ‚‚ âˆ’ yâ‚)Â²]",
+        "d = sqrt[(x2 - x1)2 + (y2 - y1)2]",
 
     calculate(v) {
 
@@ -1905,7 +1904,7 @@ mathematics: {
             );
 
         return resultTemplate(
-            "d = âˆš[(xâ‚‚ âˆ’ xâ‚)Â² + (yâ‚‚ âˆ’ yâ‚)Â²]",
+            "d = sqrt[(x2 - x1)2 + (y2 - y1)2]",
             `d = ${number(d)}`,
             number(d)
         );
@@ -1920,14 +1919,14 @@ mathematics: {
     title: "Midpoint",
 
     fields: [
-        ["x1", "xâ‚", "number"],
-        ["y1", "yâ‚", "number"],
-        ["x2", "xâ‚‚", "number"],
-        ["y2", "yâ‚‚", "number"]
+        ["x1", "x1", "number"],
+        ["y1", "y1", "number"],
+        ["x2", "x2", "number"],
+        ["y2", "y2", "number"]
     ],
 
     formula:
-        "M = ((xâ‚+xâ‚‚)/2, (yâ‚+yâ‚‚)/2)",
+        "M = ((x1+x2)/2, (y1+y2)/2)",
 
     calculate(v) {
 
@@ -1943,7 +1942,7 @@ mathematics: {
             (y1 + y2) / 2;
 
         return resultTemplate(
-            "M = ((xâ‚+xâ‚‚)/2, (yâ‚+yâ‚‚)/2)",
+            "M = ((x1+x2)/2, (y1+y2)/2)",
             `M = (${number(x)}, ${number(y)})`,
             `(${number(x)}, ${number(y)})`
         );
@@ -1958,14 +1957,14 @@ mathematics: {
     title: "Gradient",
 
     fields: [
-        ["x1", "xâ‚", "number"],
-        ["y1", "yâ‚", "number"],
-        ["x2", "xâ‚‚", "number"],
-        ["y2", "yâ‚‚", "number"]
+        ["x1", "x1", "number"],
+        ["y1", "y1", "number"],
+        ["x2", "x2", "number"],
+        ["y2", "y2", "number"]
     ],
 
     formula:
-        "m = (yâ‚‚ âˆ’ yâ‚) Ã· (xâ‚‚ âˆ’ xâ‚)",
+        "m = (y2 - y1) / (x2 - x1)",
 
     calculate(v) {
 
@@ -1976,7 +1975,7 @@ mathematics: {
 
         if (x2 === x1) {
             return errorMessage(
-                "The gradient is undefined because xâ‚‚ âˆ’ xâ‚ = 0."
+                "The gradient is undefined because x2 - x1 = 0."
             );
         }
 
@@ -1984,7 +1983,7 @@ mathematics: {
             (y2 - y1) / (x2 - x1);
 
         return resultTemplate(
-            "m = (yâ‚‚ âˆ’ yâ‚) Ã· (xâ‚‚ âˆ’ xâ‚)",
+            "m = (y2 - y1) / (x2 - x1)",
             `m = ${number(m)}`,
             number(m)
         );
@@ -2003,7 +2002,7 @@ mathematics: {
     ],
 
     formula:
-        "Area = Ï€rÂ²",
+        "Area = pir2",
 
     calculate(v) {
 
@@ -2014,8 +2013,8 @@ mathematics: {
             Math.PI * r * r;
 
         return resultTemplate(
-            "Area = Ï€rÂ²",
-            `Ï€ Ã— ${number(r)}Â²`,
+            "Area = pir2",
+            `pi * ${number(r)}2`,
             number(area)
         );
 
@@ -2068,7 +2067,7 @@ mathematics: {
 
         return resultTemplate(
 
-            `${v.ratio}(${angle}Â°)`,
+            `${v.ratio}(${angle} degrees)`,
 
             `Angle converted to radians:
              ${number(radians, 6)}`,
@@ -2091,7 +2090,7 @@ mathematics: {
     ],
 
     formula:
-        "aâ¿",
+        "an",
 
     calculate(v) {
 
@@ -2102,7 +2101,7 @@ mathematics: {
             Math.pow(a, n);
 
         return resultTemplate(
-            "aâ¿",
+            "an",
             `${number(a)}^${number(n)}`,
             number(answer)
         );
@@ -2122,7 +2121,7 @@ mathematics: {
     ],
 
     formula:
-        "logâ‚bâ‚Ž(x) = ln(x) Ã· ln(b)",
+        "log(b)(x) = ln(x) / ln(b)",
 
     calculate(v) {
 
@@ -2144,8 +2143,8 @@ mathematics: {
             Math.log(base);
 
         return resultTemplate(
-            "logâ‚bâ‚Ž(x) = ln(x) Ã· ln(b)",
-            `ln(${value}) Ã· ln(${base})`,
+            "log(b)(x) = ln(x) / ln(b)",
+            `ln(${value}) / ln(${base})`,
             number(answer)
         );
 
@@ -2159,16 +2158,16 @@ mathematics: {
     title: "Simultaneous Equations",
 
     fields: [
-        ["a1", "aâ‚", "number"],
-        ["b1", "bâ‚", "number"],
-        ["c1", "câ‚", "number"],
-        ["a2", "aâ‚‚", "number"],
-        ["b2", "bâ‚‚", "number"],
-        ["c2", "câ‚‚", "number"]
+        ["a1", "a1", "number"],
+        ["b1", "b1", "number"],
+        ["c1", "c1", "number"],
+        ["a2", "a2", "number"],
+        ["b2", "b2", "number"],
+        ["c2", "c2", "number"]
     ],
 
     formula:
-        "aâ‚x+bâ‚y=câ‚ and aâ‚‚x+bâ‚‚y=câ‚‚",
+        "a1x+b1y=c1 and a2x+b2y=c2",
 
     calculate(v) {
 
@@ -2214,7 +2213,7 @@ mathematics: {
 
 "differentiation-power": {
 
-    title: "Differentiation â€“ Power Rule",
+    title: "Differentiation - Power Rule",
 
     fields: [
         ["coefficient", "Coefficient", "number"],
@@ -2222,7 +2221,7 @@ mathematics: {
     ],
 
     formula:
-        "d/dx (axâ¿) = an xâ¿â»Â¹",
+        "d/dx (axn) = an xn-1",
 
     calculate(v) {
 
@@ -2239,9 +2238,9 @@ mathematics: {
             n - 1;
 
         return resultTemplate(
-            "d/dx(axâ¿) = anxâ¿â»Â¹",
+            "d/dx(axn) = anxn-1",
             `
-            = ${number(a)} Ã— ${number(n)}
+            = ${number(a)} * ${number(n)}
               x^(${number(newPower)})
             `,
             `${number(newCoefficient)}x^${number(newPower)}`
@@ -2254,7 +2253,7 @@ mathematics: {
 
 "integration-power": {
 
-    title: "Integration â€“ Power Rule",
+    title: "Integration - Power Rule",
 
     fields: [
         ["coefficient", "Coefficient", "number"],
@@ -2262,7 +2261,7 @@ mathematics: {
     ],
 
     formula:
-        "âˆ«axâ¿ dx = axâ¿âºÂ¹ Ã· (n+1) + C",
+        "integralaxn dx = axn+1 / (n+1) + C",
 
     calculate(v) {
 
@@ -2285,7 +2284,7 @@ mathematics: {
             a / newPower;
 
         return resultTemplate(
-            "âˆ«axâ¿ dx = axâ¿âºÂ¹ Ã· (n+1) + C",
+            "integralaxn dx = axn+1 / (n+1) + C",
             `
             = ${number(newCoefficient)}
               x^${number(newPower)} + C
@@ -2311,21 +2310,21 @@ mathematics: {
 
     options: {
         operation: [
-            ["union", "A âˆª B â€” Union"],
-            ["intersection", "A âˆ© B â€” Intersection"],
-            ["differenceAB", "A âˆ’ B â€” Difference"],
-            ["differenceBA", "B âˆ’ A â€” Difference"],
-            ["symmetric", "A â–³ B â€” Symmetric Difference"],
-            ["complementA", "Aâ€² â€” Complement of A"],
-            ["complementB", "Bâ€² â€” Complement of B"],
-            ["cardinalityA", "n(A) â€” Cardinality of A"],
-            ["cardinalityB", "n(B) â€” Cardinality of B"],
-            ["cartesian", "A Ã— B â€” Cartesian Product"]
+            ["union", "A U B - Union"],
+            ["intersection", "A intersection B - Intersection"],
+            ["differenceAB", "A - B - Difference"],
+            ["differenceBA", "B - A - Difference"],
+            ["symmetric", "A delta B - Symmetric Difference"],
+            ["complementA", "A' - Complement of A"],
+            ["complementB", "B' - Complement of B"],
+            ["cardinalityA", "n(A) - Cardinality of A"],
+            ["cardinalityB", "n(B) - Cardinality of B"],
+            ["cartesian", "A * B - Cartesian Product"]
         ]
     },
 
     formula:
-        "Set operations: A âˆª B, A âˆ© B, A âˆ’ B, Aâ€², n(A), A Ã— B",
+        "Set operations: A U B, A intersection B, A - B, A', n(A), A * B",
 
     calculate(v) {
 
@@ -2370,30 +2369,30 @@ mathematics: {
                 break;
             case "intersection":
                 answer = `{${intersection.join(", ")}}`;
-                working = `Common elements of A and B:<br>{${intersection.join(", ") || "âˆ…"}}`;
+                working = `Common elements of A and B:<br>{${intersection.join(", ") || "empty set"}}`;
                 break;
             case "differenceAB":
                 answer = `{${differenceAB.join(", ")}}`;
-                working = `Elements in A that are not in B:<br>{${differenceAB.join(", ") || "âˆ…"}}`;
+                working = `Elements in A that are not in B:<br>{${differenceAB.join(", ") || "empty set"}}`;
                 break;
             case "differenceBA":
                 answer = `{${differenceBA.join(", ")}}`;
-                working = `Elements in B that are not in A:<br>{${differenceBA.join(", ") || "âˆ…"}}`;
+                working = `Elements in B that are not in A:<br>{${differenceBA.join(", ") || "empty set"}}`;
                 break;
             case "symmetric":
                 answer = `{${symmetric.join(", ")}}`;
-                working = `Elements in A or B, but not in both:<br>{${symmetric.join(", ") || "âˆ…"}}`;
+                working = `Elements in A or B, but not in both:<br>{${symmetric.join(", ") || "empty set"}}`;
                 break;
             case "complementA": {
                 const comp = U.filter(x => !A.includes(x));
                 answer = `{${comp.join(", ")}}`;
-                working = `Aâ€² = U âˆ’ A:<br>{${comp.join(", ") || "âˆ…"}}`;
+                working = `A' = U - A:<br>{${comp.join(", ") || "empty set"}}`;
                 break;
             }
             case "complementB": {
                 const comp = U.filter(x => !B.includes(x));
                 answer = `{${comp.join(", ")}}`;
-                working = `Bâ€² = U âˆ’ B:<br>{${comp.join(", ") || "âˆ…"}}`;
+                working = `B' = U - B:<br>{${comp.join(", ") || "empty set"}}`;
                 break;
             }
             case "cardinalityA":
@@ -2410,7 +2409,7 @@ mathematics: {
                 const pairs = [];
                 A.forEach(a => B.forEach(b => pairs.push(`(${a}, ${b})`)));
                 answer = `{${pairs.join(", ")}}`;
-                working = `Each element of A is paired with every element of B.<br>Number of ordered pairs = ${A.length} Ã— ${B.length} = ${A.length * B.length}`;
+                working = `Each element of A is paired with every element of B.<br>Number of ordered pairs = ${A.length} * ${B.length} = ${A.length * B.length}`;
                 break;
             }
             default:
@@ -2427,13 +2426,13 @@ mathematics: {
 
 "differentiation-product": {
 
-    title: "Differentiation â€“ Product Rule",
+    title: "Differentiation - Product Rule",
 
     fields: [
         ["u", "u(x)", "number"],
-        ["du", "uâ€²(x)", "number"],
+        ["du", "u'(x)", "number"],
         ["v", "v(x)", "number"],
-        ["dv", "vâ€²(x)", "number"]
+        ["dv", "v'(x)", "number"]
     ],
 
     formula: "d(uv)/dx = u(dv/dx) + v(du/dx)",
@@ -2455,16 +2454,16 @@ mathematics: {
 
 "differentiation-quotient": {
 
-    title: "Differentiation â€“ Quotient Rule",
+    title: "Differentiation - Quotient Rule",
 
     fields: [
         ["u", "u(x)", "number"],
-        ["du", "uâ€²(x)", "number"],
+        ["du", "u'(x)", "number"],
         ["v", "v(x)", "number"],
-        ["dv", "vâ€²(x)", "number"]
+        ["dv", "v'(x)", "number"]
     ],
 
-    formula: "d(u/v)/dx = [v(du/dx) âˆ’ u(dv/dx)] Ã· vÂ²",
+    formula: "d(u/v)/dx = [v(du/dx) - u(dv/dx)] / v2",
 
     calculate(v) {
         const u = getNumber(v, "u");
@@ -2477,8 +2476,8 @@ mathematics: {
         const answer = (vv * du - u * dv) / Math.pow(vv, 2);
 
         return resultTemplate(
-            "d(u/v)/dx = [v(du/dx) âˆ’ u(dv/dx)] Ã· vÂ²",
-            `= [(${vv})(${du}) âˆ’ (${u})(${dv})] Ã· ${vv}Â²<br><br>= ${number(answer)}`,
+            "d(u/v)/dx = [v(du/dx) - u(dv/dx)] / v2",
+            `= [(${vv})(${du}) - (${u})(${dv})] / ${vv}2<br><br>= ${number(answer)}`,
             number(answer)
         );
     }
@@ -2486,7 +2485,7 @@ mathematics: {
 
 "differentiation-chain": {
 
-    title: "Differentiation â€“ Chain Rule",
+    title: "Differentiation - Chain Rule",
 
     fields: [
         ["outerCoefficient", "Outer Coefficient (a)", "number"],
@@ -2495,7 +2494,7 @@ mathematics: {
         ["innerPower", "Inner Power (m)", "number"]
     ],
 
-    formula: "d/dx[a(bxáµ)â¿] = an(bxáµ)â¿â»Â¹ Ã— bm xáµâ»Â¹",
+    formula: "d/dx[a(bxm)n] = an(bxm)n-1 * bm xm-1",
 
     calculate(v) {
         const a = getNumber(v, "outerCoefficient");
@@ -2508,8 +2507,8 @@ mathematics: {
         const xPower = m - 1;
 
         return resultTemplate(
-            "d/dx[a(bxáµ)â¿] = an(bxáµ)â¿â»Â¹ Ã— bm xáµâ»Â¹",
-            `Coefficient = ${a} Ã— ${n} Ã— ${b} Ã— ${m} = ${number(coefficient)}<br>` +
+            "d/dx[a(bxm)n] = an(bxm)n-1 * bm xm-1",
+            `Coefficient = ${a} * ${n} * ${b} * ${m} = ${number(coefficient)}<br>` +
             `Result = ${number(coefficient)}( ${b}x^${m} )^${innerPower}x^${xPower}`,
             `${number(coefficient)}( ${b}x^${m} )^${innerPower}x^${xPower}`
         );
@@ -2518,7 +2517,7 @@ mathematics: {
 
 "integration-definite": {
 
-    title: "Integration â€“ Definite Integral",
+    title: "Integration - Definite Integral",
 
     fields: [
         ["coefficient", "Coefficient (a)", "number"],
@@ -2527,7 +2526,7 @@ mathematics: {
         ["upper", "Upper Limit", "number"]
     ],
 
-    formula: "âˆ«â‚—áµ˜ axâ¿ dx = [a/(n+1)xâ¿âºÂ¹]â‚—áµ˜, n â‰  âˆ’1",
+    formula: "integrallu axn dx = [a/(n+1)xn+1]lu, n != -1",
 
     calculate(v) {
         const a = getNumber(v, "coefficient");
@@ -2536,7 +2535,7 @@ mathematics: {
         const upper = getNumber(v, "upper");
 
         if (n === -1) {
-            return errorMessage("For n = âˆ’1, use logarithmic integration.");
+            return errorMessage("For n = -1, use logarithmic integration.");
         }
         if (upper < lower) {
             return errorMessage("Upper limit must be greater than or equal to the lower limit.");
@@ -2549,11 +2548,11 @@ mathematics: {
         const answer = Fupper - Flower;
 
         return resultTemplate(
-            "âˆ«â‚—áµ˜ axâ¿ dx = [a/(n+1)xâ¿âºÂ¹]â‚—áµ˜",
+            "integrallu axn dx = [a/(n+1)xn+1]lu",
             `Antiderivative = ${number(coefficient)}x^${number(newPower)}<br><br>` +
             `F(${upper}) = ${number(Fupper)}<br>` +
             `F(${lower}) = ${number(Flower)}<br><br>` +
-            `Integral = ${number(Fupper)} âˆ’ ${number(Flower)}`,
+            `Integral = ${number(Fupper)} - ${number(Flower)}`,
             number(answer)
         );
     }
@@ -2561,19 +2560,19 @@ mathematics: {
 
 "integration-log": {
 
-    title: "Integration â€“ Logarithmic Form",
+    title: "Integration - Logarithmic Form",
 
     fields: [
         ["coefficient", "Coefficient (a)", "number"]
     ],
 
-    formula: "âˆ« a/x dx = a ln|x| + C",
+    formula: "integral a/x dx = a ln|x| + C",
 
     calculate(v) {
         const a = getNumber(v, "coefficient");
 
         return resultTemplate(
-            "âˆ« a/x dx = a ln|x| + C",
+            "integral a/x dx = a ln|x| + C",
             `The coefficient remains outside the logarithm.<br>= ${number(a)} ln|x| + C`,
             `${number(a)} ln|x| + C`
         );
@@ -2608,8 +2607,8 @@ mathematics: {
     },
 
     formula:
-        "AP: Tâ‚™ = a + (n âˆ’ 1)d, Sâ‚™ = n/2[2a + (n âˆ’ 1)d]<br>" +
-        "GP: Tâ‚™ = arâ¿â»Â¹, Sâ‚™ = a(râ¿ âˆ’ 1)/(r âˆ’ 1)",
+        "AP: Tn = a + (n - 1)d, Sn = n/2[2a + (n - 1)d]<br>" +
+        "GP: Tn = arn-1, Sn = a(rn - 1)/(r - 1)",
 
     calculate(v) {
 
@@ -2645,10 +2644,10 @@ mathematics: {
                     a + (n - 1) * d;
 
                 return resultTemplate(
-                    "Tâ‚™ = a + (n âˆ’ 1)d",
+                    "Tn = a + (n - 1)d",
                     `
-                    Tâ‚™ = ${a} + (${n} âˆ’ 1) Ã— ${d}<br><br>
-                    Tâ‚™ = ${number(term)}
+                    Tn = ${a} + (${n} - 1) * ${d}<br><br>
+                    Tn = ${number(term)}
                     `,
                     `The ${n}th term is ${number(term)}`
                 );
@@ -2661,10 +2660,10 @@ mathematics: {
                     (2 * a + (n - 1) * d);
 
                 return resultTemplate(
-                    "Sâ‚™ = n/2[2a + (n âˆ’ 1)d]",
+                    "Sn = n/2[2a + (n - 1)d]",
                     `
-                    Sâ‚™ = ${n}/2 [2(${a}) + (${n} âˆ’ 1)(${d})]<br><br>
-                    Sâ‚™ = ${number(sumValue)}
+                    Sn = ${n}/2 [2(${a}) + (${n} - 1)(${d})]<br><br>
+                    Sn = ${number(sumValue)}
                     `,
                     `Sum of the first ${n} terms = ${number(sumValue)}`
                 );
@@ -2687,10 +2686,10 @@ mathematics: {
                     a * Math.pow(r, n - 1);
 
                 return resultTemplate(
-                    "Tâ‚™ = arâ¿â»Â¹",
+                    "Tn = arn-1",
                     `
-                    Tâ‚™ = ${a} Ã— ${r}â½${n}â»Â¹â¾<br><br>
-                    Tâ‚™ = ${number(term)}
+                    Tn = ${a} * ${r}(${n}-1)<br><br>
+                    Tn = ${number(term)}
                     `,
                     `The ${n}th term is ${number(term)}`
                 );
@@ -2703,10 +2702,10 @@ mathematics: {
                     const sumValue = n * a;
 
                     return resultTemplate(
-                        "Sâ‚™ = na when r = 1",
+                        "Sn = na when r = 1",
                         `
-                        Sâ‚™ = ${n} Ã— ${a}<br><br>
-                        Sâ‚™ = ${number(sumValue)}
+                        Sn = ${n} * ${a}<br><br>
+                        Sn = ${number(sumValue)}
                         `,
                         `Sum of the first ${n} terms = ${number(sumValue)}`
                     );
@@ -2718,10 +2717,10 @@ mathematics: {
                     (r - 1);
 
                 return resultTemplate(
-                    "Sâ‚™ = a(râ¿ âˆ’ 1)/(r âˆ’ 1)",
+                    "Sn = a(rn - 1)/(r - 1)",
                     `
-                    Sâ‚™ = ${a} Ã— (${r}â¿ âˆ’ 1) Ã· (${r} âˆ’ 1)<br><br>
-                    Sâ‚™ = ${number(sumValue)}
+                    Sn = ${a} * (${r}n - 1) / (${r} - 1)<br><br>
+                    Sn = ${number(sumValue)}
                     `,
                     `Sum of the first ${n} terms = ${number(sumValue)}`
                 );
@@ -2754,7 +2753,7 @@ statistics: {
     ],
 
     formula:
-        "Mean = Î£x Ã· n",
+        "Mean = Sigmax / n",
 
     calculate(v) {
 
@@ -2772,15 +2771,15 @@ statistics: {
 
         return resultTemplate(
 
-            "Mean = Î£x Ã· n",
+            "Mean = Sigmax / n",
 
             `
-            Î£x = ${number(sum(data))}<br>
+            Sigmax = ${number(sum(data))}<br>
             n = ${data.length}<br><br>
 
             Mean =
             ${number(sum(data))}
-            Ã· ${data.length}
+            / ${data.length}
             `,
 
             number(mean)
@@ -2801,7 +2800,7 @@ statistics: {
     ],
 
     formula:
-        "Weighted Mean = Î£wx Ã· Î£w",
+        "Weighted Mean = Sigmawx / Sigmaw",
 
     calculate(v) {
 
@@ -2834,10 +2833,10 @@ statistics: {
             weightedTotal / weightTotal;
 
         return resultTemplate(
-            "Weighted Mean = Î£wx Ã· Î£w",
+            "Weighted Mean = Sigmawx / Sigmaw",
             `
-            Î£wx = ${number(weightedTotal)}<br>
-            Î£w = ${number(weightTotal)}
+            Sigmawx = ${number(weightedTotal)}<br>
+            Sigmaw = ${number(weightTotal)}
             `,
             number(answer)
         );
@@ -2963,7 +2962,7 @@ statistics: {
     ],
 
     formula:
-        "Range = Maximum âˆ’ Minimum",
+        "Range = Maximum - Minimum",
 
     calculate(v) {
 
@@ -2983,8 +2982,8 @@ statistics: {
             Math.max(...data);
 
         return resultTemplate(
-            "Range = Maximum âˆ’ Minimum",
-            `${number(max)} âˆ’ ${number(min)}`,
+            "Range = Maximum - Minimum",
+            `${number(max)} - ${number(min)}`,
             number(max - min)
         );
 
@@ -3002,7 +3001,7 @@ statistics: {
     ],
 
     formula:
-        "Population Variance = Î£(x âˆ’ xÌ„)Â² Ã· n",
+        "Population Variance = Sigma(x - x)2 / n",
 
     calculate(v) {
 
@@ -3027,7 +3026,7 @@ statistics: {
             ) / data.length;
 
         return resultTemplate(
-            "Variance = Î£(x âˆ’ xÌ„)Â² Ã· n",
+            "Variance = Sigma(x - x)2 / n",
             `Mean = ${number(mean)}`,
             number(variance)
         );
@@ -3046,7 +3045,7 @@ statistics: {
     ],
 
     formula:
-        "Standard Deviation = âˆšVariance",
+        "Standard Deviation = sqrtVariance",
 
     calculate(v) {
 
@@ -3074,7 +3073,7 @@ statistics: {
             Math.sqrt(variance);
 
         return resultTemplate(
-            "SD = âˆšVariance",
+            "SD = sqrtVariance",
             `Variance = ${number(variance)}`,
             number(sd)
         );
@@ -3094,7 +3093,7 @@ statistics: {
     ],
 
     formula:
-        "CV = SD Ã· Mean Ã— 100",
+        "CV = SD / Mean * 100",
 
     calculate(v) {
 
@@ -3114,8 +3113,8 @@ statistics: {
             (sd / mean) * 100;
 
         return resultTemplate(
-            "CV = SD Ã· Mean Ã— 100",
-            `${number(sd)} Ã· ${number(mean)} Ã— 100`,
+            "CV = SD / Mean * 100",
+            `${number(sd)} / ${number(mean)} * 100`,
             percent(cv)
         );
 
@@ -3135,7 +3134,7 @@ statistics: {
     ],
 
     formula:
-        "Skewness = (Mean âˆ’ Mode) Ã· SD",
+        "Skewness = (Mean - Mode) / SD",
 
     calculate(v) {
 
@@ -3158,8 +3157,8 @@ statistics: {
             (mean - mode) / sd;
 
         return resultTemplate(
-            "Skewness = (Mean âˆ’ Mode) Ã· SD",
-            `(${mean} âˆ’ ${mode}) Ã· ${sd}`,
+            "Skewness = (Mean - Mode) / SD",
+            `(${mean} - ${mode}) / ${sd}`,
             number(skew),
             interpretSkewness(skew)
         );
@@ -3179,7 +3178,7 @@ statistics: {
     ],
 
     formula:
-        "Î²â‚‚ = Î¼â‚„ Ã· Ïƒâ´",
+        "beta2 = mu4 / sigma4",
 
     calculate(v) {
 
@@ -3200,8 +3199,8 @@ statistics: {
             Math.pow(variance, 2);
 
         return resultTemplate(
-            "Î²â‚‚ = Î¼â‚„ Ã· Ïƒâ´",
-            `${number(m4)} Ã· ${number(variance)}Â²`,
+            "beta2 = mu4 / sigma4",
+            `${number(m4)} / ${number(variance)}2`,
             number(beta2),
             interpretKurtosis(beta2)
         );
@@ -3221,7 +3220,7 @@ statistics: {
     ],
 
     formula:
-        "r = Cov(X,Y) Ã· (ÏƒxÏƒy)",
+        "r = Cov(X,Y) / (sigmaxsigmay)",
 
     calculate(v) {
 
@@ -3277,7 +3276,7 @@ statistics: {
             numerator / denominator;
 
         return resultTemplate(
-            "r = Î£[(xâˆ’xÌ„)(yâˆ’È³)] Ã· âˆš[Î£(xâˆ’xÌ„)Â²Î£(yâˆ’È³)Â²]",
+            "r = Sigma[(x-x)(y-y-bar)] / sqrt[Sigma(x-x)2Sigma(y-y-bar)2]",
             `r = ${number(r, 4)}`,
             number(r, 4),
             interpretCorrelation(r)
@@ -3293,12 +3292,12 @@ statistics: {
     title: "Spearman Rank Correlation",
 
     fields: [
-        ["d2", "Î£dÂ²", "number"],
+        ["d2", "Sigmad2", "number"],
         ["n", "Number of Observations", "number"]
     ],
 
     formula:
-        "Ï = 1 âˆ’ [6Î£dÂ² Ã· n(nÂ²âˆ’1)]",
+        "rho = 1 - [6Sigmad2 / n(n2-1)]",
 
     calculate(v) {
 
@@ -3322,8 +3321,8 @@ statistics: {
             );
 
         return resultTemplate(
-            "Ï = 1 âˆ’ [6Î£dÂ² Ã· n(nÂ²âˆ’1)]",
-            `Ï = ${number(rho, 4)}`,
+            "rho = 1 - [6Sigmad2 / n(n2-1)]",
+            `rho = ${number(rho, 4)}`,
             number(rho, 4),
             interpretCorrelation(rho)
         );
@@ -3343,7 +3342,7 @@ statistics: {
     ],
 
     formula:
-        "Cov(X,Y) = Î£[(xâˆ’xÌ„)(yâˆ’È³)] Ã· n",
+        "Cov(X,Y) = Sigma[(x-x)(y-y-bar)] / n",
 
     calculate(v) {
 
@@ -3382,8 +3381,8 @@ statistics: {
             total / x.length;
 
         return resultTemplate(
-            "Cov(X,Y) = Î£[(xâˆ’xÌ„)(yâˆ’È³)] Ã· n",
-            `Î£ = ${number(total)}`,
+            "Cov(X,Y) = Sigma[(x-x)(y-y-bar)] / n",
+            `Sigma = ${number(total)}`,
             number(covariance)
         );
 
@@ -3402,7 +3401,7 @@ statistics: {
     ],
 
     formula:
-        "Moving Average = Sum of selected observations Ã· Number of observations",
+        "Moving Average = Sum of selected observations / Number of observations",
 
     calculate(v) {
 
@@ -3439,7 +3438,7 @@ statistics: {
         }
 
         return resultTemplate(
-            "Moving Average = Sum Ã· Number of observations",
+            "Moving Average = Sum / Number of observations",
             averages
                 .map(
                     (x, i) =>
@@ -3466,7 +3465,7 @@ statistics: {
     ],
 
     formula:
-        "WMA = Î£(Value Ã— Weight) Ã· Î£Weights",
+        "WMA = Sigma(Value * Weight) / SigmaWeights",
 
     calculate(v) {
 
@@ -3505,8 +3504,8 @@ statistics: {
             numerator / denominator;
 
         return resultTemplate(
-            "WMA = Î£(Value Ã— Weight) Ã· Î£Weights",
-            `${number(numerator)} Ã· ${number(denominator)}`,
+            "WMA = Sigma(Value * Weight) / SigmaWeights",
+            `${number(numerator)} / ${number(denominator)}`,
             number(answer)
         );
 
@@ -3619,7 +3618,7 @@ statistics: {
 
         return resultTemplate(
             "Y = a + bX",
-            `${a} + (${b} Ã— ${x})`,
+            `${a} + (${b} * ${x})`,
             number(forecast)
         );
 
@@ -3638,7 +3637,7 @@ statistics: {
     ],
 
     formula:
-        "Seasonal Index = Actual Ã· Average Ã— 100",
+        "Seasonal Index = Actual / Average * 100",
 
     calculate(v) {
 
@@ -3658,8 +3657,8 @@ statistics: {
             (actual / avg) * 100;
 
         return resultTemplate(
-            "Seasonal Index = Actual Ã· Average Ã— 100",
-            `${actual} Ã· ${avg} Ã— 100`,
+            "Seasonal Index = Actual / Average * 100",
+            `${actual} / ${avg} * 100`,
             percent(index)
         );
 
@@ -3689,7 +3688,7 @@ economics: {
     ],
 
     formula:
-        "PED = % Change in Quantity Demanded Ã· % Change in Price",
+        "PED = % Change in Quantity Demanded / % Change in Price",
 
     calculate(v) {
 
@@ -3734,7 +3733,7 @@ economics: {
 
         return resultTemplate(
 
-            "PED = %Î”Qd Ã· %Î”P",
+            "PED = %DeltaQd / %DeltaP",
 
             `
             % change in Qd =
@@ -3745,7 +3744,7 @@ economics: {
 
             PED =
             ${number(percentQ, 4)}
-            Ã·
+            /
             ${number(percentP, 4)}
             =
             ${number(absolutePED)}
@@ -3781,7 +3780,7 @@ economics: {
     ],
 
     formula:
-        "PES = % Change in Quantity Supplied Ã· % Change in Price",
+        "PES = % Change in Quantity Supplied / % Change in Price",
 
     calculate(v) {
 
@@ -3826,7 +3825,7 @@ economics: {
 
         return resultTemplate(
 
-            "PES = %Î”Qs Ã· %Î”P",
+            "PES = %DeltaQs / %DeltaP",
 
             `
             % change in Qs =
@@ -3861,7 +3860,7 @@ economics: {
     ],
 
     formula:
-        "YED = % Change in Quantity Ã· % Change in Income",
+        "YED = % Change in Quantity / % Change in Income",
 
     calculate(v) {
 
@@ -3892,10 +3891,10 @@ economics: {
             percentQ / percentY;
 
         return resultTemplate(
-            "YED = %Î”Q Ã· %Î”Y",
+            "YED = %DeltaQ / %DeltaY",
             `
-            %Î”Q = ${percent(percentQ)}<br>
-            %Î”Y = ${percent(percentY)}<br><br>
+            %DeltaQ = ${percent(percentQ)}<br>
+            %DeltaY = ${percent(percentY)}<br><br>
             YED = ${number(yed)}
             `,
             number(yed),
@@ -3919,7 +3918,7 @@ economics: {
     ],
 
     formula:
-        "XED = % Change in Quantity of X Ã· % Change in Price of Y",
+        "XED = % Change in Quantity of X / % Change in Price of Y",
 
     calculate(v) {
 
@@ -3950,10 +3949,10 @@ economics: {
             percentQ / percentP;
 
         return resultTemplate(
-            "XED = %Î”Qx Ã· %Î”Py",
+            "XED = %DeltaQx / %DeltaPy",
             `
-            %Î”Qx = ${percent(percentQ)}<br>
-            %Î”Py = ${percent(percentP)}<br><br>
+            %DeltaQx = ${percent(percentQ)}<br>
+            %DeltaPy = ${percent(percentP)}<br><br>
             XED = ${number(xed)}
             `,
             number(xed),
@@ -3977,7 +3976,7 @@ economics: {
     ],
 
     formula:
-        "Demand: Qd = a âˆ’ bP; Supply: Qs = c + dP",
+        "Demand: Qd = a - bP; Supply: Qs = c + dP",
 
     calculate(v) {
 
@@ -4001,8 +4000,8 @@ economics: {
         return resultTemplate(
             "At equilibrium: Qd = Qs",
             `
-            P = (${a} âˆ’ ${c})
-                Ã· (${b} + ${d})<br><br>
+            P = (${a} - ${c})
+                / (${b} + ${d})<br><br>
 
             P = ${number(price)}<br>
             Q = ${number(quantity)}
@@ -4021,12 +4020,12 @@ economics: {
     title: "Total Revenue",
 
     fields: [
-        ["price", "Price per Unit (â‚¦)", "number"],
+        ["price", "Price per Unit (NGN)", "number"],
         ["quantity", "Quantity Sold", "number"]
     ],
 
     formula:
-        "TR = P Ã— Q",
+        "TR = P * Q",
 
     calculate(v) {
 
@@ -4037,8 +4036,8 @@ economics: {
             P * Q;
 
         return resultTemplate(
-            "TR = P Ã— Q",
-            `${money(P)} Ã— ${number(Q)}`,
+            "TR = P * Q",
+            `${money(P)} * ${number(Q)}`,
             money(TR)
         );
 
@@ -4052,12 +4051,12 @@ economics: {
     title: "Average Revenue",
 
     fields: [
-        ["revenue", "Total Revenue (â‚¦)", "number"],
+        ["revenue", "Total Revenue (NGN)", "number"],
         ["quantity", "Quantity Sold", "number"]
     ],
 
     formula:
-        "AR = TR Ã· Q",
+        "AR = TR / Q",
 
     calculate(v) {
 
@@ -4077,8 +4076,8 @@ economics: {
             TR / Q;
 
         return resultTemplate(
-            "AR = TR Ã· Q",
-            `${money(TR)} Ã· ${number(Q)}`,
+            "AR = TR / Q",
+            `${money(TR)} / ${number(Q)}`,
             money(AR)
         );
 
@@ -4092,14 +4091,14 @@ economics: {
     title: "Marginal Revenue",
 
     fields: [
-        ["r1", "Previous Total Revenue (â‚¦)", "number"],
-        ["r2", "New Total Revenue (â‚¦)", "number"],
+        ["r1", "Previous Total Revenue (NGN)", "number"],
+        ["r2", "New Total Revenue (NGN)", "number"],
         ["q1", "Previous Quantity", "number"],
         ["q2", "New Quantity", "number"]
     ],
 
     formula:
-        "MR = Î”TR Ã· Î”Q",
+        "MR = DeltaTR / DeltaQ",
 
     calculate(v) {
 
@@ -4121,10 +4120,10 @@ economics: {
             (r2 - r1) / deltaQ;
 
         return resultTemplate(
-            "MR = Î”TR Ã· Î”Q",
+            "MR = DeltaTR / DeltaQ",
             `
-            Î”TR = ${money(r2 - r1)}<br>
-            Î”Q = ${number(deltaQ)}
+            DeltaTR = ${money(r2 - r1)}<br>
+            DeltaQ = ${number(deltaQ)}
             `,
             money(MR)
         );
@@ -4139,8 +4138,8 @@ economics: {
     title: "Total Cost",
 
     fields: [
-        ["fixed", "Fixed Cost (â‚¦)", "number"],
-        ["variable", "Variable Cost (â‚¦)", "number"]
+        ["fixed", "Fixed Cost (NGN)", "number"],
+        ["variable", "Variable Cost (NGN)", "number"]
     ],
 
     formula:
@@ -4173,12 +4172,12 @@ economics: {
     title: "Average Cost",
 
     fields: [
-        ["total", "Total Cost (â‚¦)", "number"],
+        ["total", "Total Cost (NGN)", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
     formula:
-        "AC = TC Ã· Q",
+        "AC = TC / Q",
 
     calculate(v) {
 
@@ -4198,8 +4197,8 @@ economics: {
             TC / Q;
 
         return resultTemplate(
-            "AC = TC Ã· Q",
-            `${money(TC)} Ã· ${number(Q)}`,
+            "AC = TC / Q",
+            `${money(TC)} / ${number(Q)}`,
             money(AC)
         );
 
@@ -4213,12 +4212,12 @@ economics: {
     title: "Average Fixed Cost",
 
     fields: [
-        ["fixed", "Fixed Cost (â‚¦)", "number"],
+        ["fixed", "Fixed Cost (NGN)", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
     formula:
-        "AFC = FC Ã· Q",
+        "AFC = FC / Q",
 
     calculate(v) {
 
@@ -4235,8 +4234,8 @@ economics: {
         }
 
         return resultTemplate(
-            "AFC = FC Ã· Q",
-            `${money(FC)} Ã· ${number(Q)}`,
+            "AFC = FC / Q",
+            `${money(FC)} / ${number(Q)}`,
             money(FC / Q)
         );
 
@@ -4250,12 +4249,12 @@ economics: {
     title: "Average Variable Cost",
 
     fields: [
-        ["variable", "Variable Cost (â‚¦)", "number"],
+        ["variable", "Variable Cost (NGN)", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
     formula:
-        "AVC = VC Ã· Q",
+        "AVC = VC / Q",
 
     calculate(v) {
 
@@ -4272,8 +4271,8 @@ economics: {
         }
 
         return resultTemplate(
-            "AVC = VC Ã· Q",
-            `${money(VC)} Ã· ${number(Q)}`,
+            "AVC = VC / Q",
+            `${money(VC)} / ${number(Q)}`,
             money(VC / Q)
         );
 
@@ -4287,12 +4286,12 @@ economics: {
     title: "Economic Profit",
 
     fields: [
-        ["revenue", "Total Revenue (â‚¦)", "number"],
-        ["cost", "Total Cost (â‚¦)", "number"]
+        ["revenue", "Total Revenue (NGN)", "number"],
+        ["cost", "Total Cost (NGN)", "number"]
     ],
 
     formula:
-        "Profit = Total Revenue âˆ’ Total Cost",
+        "Profit = Total Revenue - Total Cost",
 
     calculate(v) {
 
@@ -4306,8 +4305,8 @@ economics: {
             TR - TC;
 
         return resultTemplate(
-            "Profit = TR âˆ’ TC",
-            `${money(TR)} âˆ’ ${money(TC)}`,
+            "Profit = TR - TC",
+            `${money(TR)} - ${money(TC)}`,
             money(profit)
         );
 
@@ -4321,13 +4320,13 @@ economics: {
     title: "Consumer Surplus",
 
     fields: [
-        ["maximum", "Maximum Willingness to Pay (â‚¦)", "number"],
-        ["actual", "Actual Market Price (â‚¦)", "number"],
+        ["maximum", "Maximum Willingness to Pay (NGN)", "number"],
+        ["actual", "Actual Market Price (NGN)", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
     formula:
-        "Consumer Surplus = Â½ Ã— (Maximum Price âˆ’ Market Price) Ã— Quantity",
+        "Consumer Surplus = 1/2 * (Maximum Price - Market Price) * Quantity",
 
     calculate(v) {
 
@@ -4346,11 +4345,11 @@ economics: {
             Q;
 
         return resultTemplate(
-            "CS = Â½ Ã— (Maximum Price âˆ’ Market Price) Ã— Q",
+            "CS = 1/2 * (Maximum Price - Market Price) * Q",
             `
-            = Â½ Ã— (${money(max)}
-            âˆ’ ${money(price)})
-            Ã— ${number(Q)}
+            = 1/2 * (${money(max)}
+            - ${money(price)})
+            * ${number(Q)}
             `,
             money(CS)
         );
@@ -4365,13 +4364,13 @@ economics: {
     title: "Producer Surplus",
 
     fields: [
-        ["market", "Market Price (â‚¦)", "number"],
-        ["minimum", "Minimum Supply Price (â‚¦)", "number"],
+        ["market", "Market Price (NGN)", "number"],
+        ["minimum", "Minimum Supply Price (NGN)", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
     formula:
-        "Producer Surplus = Â½ Ã— (Market Price âˆ’ Minimum Price) Ã— Quantity",
+        "Producer Surplus = 1/2 * (Market Price - Minimum Price) * Quantity",
 
     calculate(v) {
 
@@ -4390,11 +4389,11 @@ economics: {
             Q;
 
         return resultTemplate(
-            "PS = Â½ Ã— (Market Price âˆ’ Minimum Price) Ã— Q",
+            "PS = 1/2 * (Market Price - Minimum Price) * Q",
             `
-            = Â½ Ã— (${money(market)}
-            âˆ’ ${money(minimum)})
-            Ã— ${number(Q)}
+            = 1/2 * (${money(market)}
+            - ${money(minimum)})
+            * ${number(Q)}
             `,
             money(PS)
         );
@@ -4441,7 +4440,7 @@ economics: {
     ],
 
     formula:
-        "AP = TP Ã· Labour",
+        "AP = TP / Labour",
 
     calculate(v) {
 
@@ -4458,8 +4457,8 @@ economics: {
         }
 
         return resultTemplate(
-            "AP = TP Ã· Labour",
-            `${number(TP)} Ã· ${number(L)}`,
+            "AP = TP / Labour",
+            `${number(TP)} / ${number(L)}`,
             number(TP / L)
         );
 
@@ -4480,7 +4479,7 @@ economics: {
     ],
 
     formula:
-        "MP = Î”TP Ã· Î”L",
+        "MP = DeltaTP / DeltaL",
 
     calculate(v) {
 
@@ -4509,10 +4508,10 @@ economics: {
             (q2 - q1) / deltaL;
 
         return resultTemplate(
-            "MP = Î”TP Ã· Î”L",
+            "MP = DeltaTP / DeltaL",
             `
-            Î”TP = ${number(q2 - q1)}<br>
-            Î”L = ${number(deltaL)}
+            DeltaTP = ${number(q2 - q1)}<br>
+            DeltaL = ${number(deltaL)}
             `,
             number(MP)
         );
@@ -4532,7 +4531,7 @@ economics: {
     ],
 
     formula:
-        "Inflation Rate = (New Index âˆ’ Old Index) Ã· Old Index Ã— 100",
+        "Inflation Rate = (New Index - Old Index) / Old Index * 100",
 
     calculate(v) {
 
@@ -4553,11 +4552,11 @@ economics: {
                 oldIndex) * 100;
 
         return resultTemplate(
-            "Inflation Rate = (New âˆ’ Old) Ã· Old Ã— 100",
+            "Inflation Rate = (New - Old) / Old * 100",
             `
-            (${newIndex} âˆ’ ${oldIndex})
-            Ã· ${oldIndex}
-            Ã— 100
+            (${newIndex} - ${oldIndex})
+            / ${oldIndex}
+            * 100
             `,
             percent(rate)
         );
@@ -4572,12 +4571,12 @@ economics: {
     title: "Per Capita Income",
 
     fields: [
-        ["income", "National Income (â‚¦)", "number"],
+        ["income", "National Income (NGN)", "number"],
         ["population", "Population", "number"]
     ],
 
     formula:
-        "Per Capita Income = National Income Ã· Population",
+        "Per Capita Income = National Income / Population",
 
     calculate(v) {
 
@@ -4597,8 +4596,8 @@ economics: {
             income / population;
 
         return resultTemplate(
-            "PCI = National Income Ã· Population",
-            `${money(income)} Ã· ${number(population)}`,
+            "PCI = National Income / Population",
+            `${money(income)} / ${number(population)}`,
             money(answer)
         );
 
@@ -4612,12 +4611,12 @@ economics: {
     title: "Real GDP from Nominal GDP",
 
     fields: [
-        ["nominal", "Nominal GDP (â‚¦)", "number"],
+        ["nominal", "Nominal GDP (NGN)", "number"],
         ["deflator", "GDP Deflator", "number"]
     ],
 
     formula:
-        "Real GDP = Nominal GDP Ã· GDP Deflator Ã— 100",
+        "Real GDP = Nominal GDP / GDP Deflator * 100",
 
     calculate(v) {
 
@@ -4637,11 +4636,11 @@ economics: {
             nominal / deflator * 100;
 
         return resultTemplate(
-            "Real GDP = Nominal GDP Ã· GDP Deflator Ã— 100",
+            "Real GDP = Nominal GDP / GDP Deflator * 100",
             `
             = ${money(nominal)}
-              Ã· ${number(deflator)}
-              Ã— 100
+              / ${number(deflator)}
+              * 100
             `,
             money(real)
         );
@@ -4656,12 +4655,12 @@ economics: {
     title: "GDP Deflator",
 
     fields: [
-        ["nominal", "Nominal GDP (â‚¦)", "number"],
-        ["real", "Real GDP (â‚¦)", "number"]
+        ["nominal", "Nominal GDP (NGN)", "number"],
+        ["real", "Real GDP (NGN)", "number"]
     ],
 
     formula:
-        "GDP Deflator = Nominal GDP Ã· Real GDP Ã— 100",
+        "GDP Deflator = Nominal GDP / Real GDP * 100",
 
     calculate(v) {
 
@@ -4681,11 +4680,11 @@ economics: {
             nominal / real * 100;
 
         return resultTemplate(
-            "GDP Deflator = Nominal GDP Ã· Real GDP Ã— 100",
+            "GDP Deflator = Nominal GDP / Real GDP * 100",
             `
             = ${money(nominal)}
-              Ã· ${money(real)}
-              Ã— 100
+              / ${money(real)}
+              * 100
             `,
             number(deflator)
         );
@@ -4820,25 +4819,25 @@ const calculatorNames = {
             "Sets",
 
         "differentiation-power":
-            "Differentiation â€“ Power Rule",
+            "Differentiation - Power Rule",
 
         "differentiation-product":
-            "Differentiation â€“ Product Rule",
+            "Differentiation - Product Rule",
 
         "differentiation-quotient":
-            "Differentiation â€“ Quotient Rule",
+            "Differentiation - Quotient Rule",
 
         "differentiation-chain":
-            "Differentiation â€“ Chain Rule",
+            "Differentiation - Chain Rule",
 
         "integration-power":
-            "Integration â€“ Power Rule",
+            "Integration - Power Rule",
 
         "integration-definite":
-            "Integration â€“ Definite Integral",
+            "Integration - Definite Integral",
 
         "integration-log":
-            "Integration â€“ Logarithmic Form",
+            "Integration - Logarithmic Form",
 
         "ap-gp":
             "Arithmetic & Geometric Progression"
@@ -5214,8 +5213,8 @@ function showCalculator(type) {
                 note.innerHTML = `
                     <strong>Formula</strong>
                     <p>
-                        S = C(1 âˆ’ r)<sup>n</sup><br><br>
-                        r = 1 âˆ’ (S Ã· C)<sup>1/n</sup>
+                        S = C(1 - r)<sup>n</sup><br><br>
+                        r = 1 - (S / C)<sup>1/n</sup>
                     </p>
                 `;
 
@@ -5255,8 +5254,8 @@ function showCalculator(type) {
                 note.innerHTML = `
                     <strong>Formula</strong>
                     <p>
-                        Depreciation = Opening Carrying Amount Ã— Rate Ã— Time Fraction<br><br>
-                        Closing Carrying Amount = Opening Carrying Amount âˆ’ Depreciation
+                        Depreciation = Opening Carrying Amount * Rate * Time Fraction<br><br>
+                        Closing Carrying Amount = Opening Carrying Amount - Depreciation
                     </p>
                 `;
 
