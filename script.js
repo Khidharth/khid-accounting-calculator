@@ -1,7 +1,7 @@
 /* =========================================================
    KHID MULTIPURPOSE CALCULATOR
    ACCOUNTING + FINANCE + MATHEMATICS
-   STATISTICS + ECONOMICS
+   STATISTICS + ECONOMICS + FINANCIAL ANALYSIS
 ========================================================= */
 
 
@@ -1570,29 +1570,25 @@ accounting: {
 
 "ifrs15-performance-obligations": {
     title: "IFRS 15 Multiple Performance Obligations",
+
     fields: [
         ["transactionPrice", "Total Transaction Price (NGN)", "number"],
         ["obligationCount", "Number of Performance Obligations", "select"],
 
         ["ssp1", "Obligation 1 - Stand-Alone Selling Price (NGN)", "number"],
         ["status1", "Obligation 1 - Status", "select"],
-        ["percent1", "Obligation 1 - Percentage Satisfied (%)", "number"],
 
         ["ssp2", "Obligation 2 - Stand-Alone Selling Price (NGN)", "number"],
         ["status2", "Obligation 2 - Status", "select"],
-        ["percent2", "Obligation 2 - Percentage Satisfied (%)", "number"],
 
         ["ssp3", "Obligation 3 - Stand-Alone Selling Price (NGN)", "number"],
         ["status3", "Obligation 3 - Status", "select"],
-        ["percent3", "Obligation 3 - Percentage Satisfied (%)", "number"],
 
         ["ssp4", "Obligation 4 - Stand-Alone Selling Price (NGN)", "number"],
         ["status4", "Obligation 4 - Status", "select"],
-        ["percent4", "Obligation 4 - Percentage Satisfied (%)", "number"],
 
         ["ssp5", "Obligation 5 - Stand-Alone Selling Price (NGN)", "number"],
-        ["status5", "Obligation 5 - Status", "select"],
-        ["percent5", "Obligation 5 - Percentage Satisfied (%)", "number"]
+        ["status5", "Obligation 5 - Status", "select"]
     ],
 
     options: {
@@ -1638,10 +1634,20 @@ accounting: {
         "Allocated Revenue = (Stand-Alone Selling Price / Total Stand-Alone Selling Prices) * Transaction Price",
 
     calculate(v) {
-        const transactionPrice = getNumber(v, "transactionPrice");
-        const count = Number(v.obligationCount || 2);
 
-        if (!Number.isFinite(transactionPrice) || transactionPrice < 0) {
+        const transactionPrice = getNumber(
+            v,
+            "transactionPrice"
+        );
+
+        const count = Number(
+            v.obligationCount || 2
+        );
+
+        if (
+            !Number.isFinite(transactionPrice) ||
+            transactionPrice < 0
+        ) {
             return errorMessage(
                 "Enter a valid non-negative transaction price."
             );
@@ -1652,33 +1658,50 @@ accounting: {
 
         for (let i = 1; i <= count; i++) {
 
-            const ssp = Number(v[`ssp${i}`]);
-            const status = v[`status${i}`] || "not-satisfied";
+            const ssp = Number(
+                v[`ssp${i}`]
+            );
 
-            let percentSatisfied;
+            const status =
+                v[`status${i}`] ||
+                "not-satisfied";
 
-            if (status === "satisfied") {
-                percentSatisfied = 100;
-            } else if (status === "partial") {
-                percentSatisfied = Number(v[`percent${i}`]);
-
-                if (
-                    !Number.isFinite(percentSatisfied) ||
-                    percentSatisfied < 0 ||
-                    percentSatisfied > 100
-                ) {
-                    return errorMessage(
-                        `Enter a percentage between 0% and 100% for Obligation ${i}.`
-                    );
-                }
-            } else {
-                percentSatisfied = 0;
-            }
-
-            if (!Number.isFinite(ssp) || ssp <= 0) {
+            if (
+                !Number.isFinite(ssp) ||
+                ssp <= 0
+            ) {
                 return errorMessage(
                     `Enter a valid stand-alone selling price for Obligation ${i}.`
                 );
+            }
+
+            let percentageSatisfied = 0;
+
+            if (status === "satisfied") {
+
+                percentageSatisfied = 100;
+
+            } else if (status === "partial") {
+
+                percentageSatisfied = Number(
+                    v[`percent${i}`]
+                );
+
+                if (
+                    !Number.isFinite(
+                        percentageSatisfied
+                    ) ||
+                    percentageSatisfied < 0 ||
+                    percentageSatisfied > 100
+                ) {
+                    return errorMessage(
+                        `Enter a percentage between 0 and 100 for Obligation ${i}.`
+                    );
+                }
+
+            } else {
+
+                percentageSatisfied = 0;
             }
 
             totalSSP += ssp;
@@ -1687,7 +1710,7 @@ accounting: {
                 number: i,
                 ssp,
                 status,
-                percentSatisfied
+                percentageSatisfied
             });
         }
 
@@ -1697,11 +1720,12 @@ accounting: {
         rows.forEach(row => {
 
             row.allocated =
-                (row.ssp / totalSSP) * transactionPrice;
+                (row.ssp / totalSSP) *
+                transactionPrice;
 
             row.recognised =
                 row.allocated *
-                (row.percentSatisfied / 100);
+                (row.percentageSatisfied / 100);
 
             row.remaining =
                 row.allocated -
@@ -1713,15 +1737,19 @@ accounting: {
 
         const tableRows = rows.map(row => {
 
-            const statusText =
-                row.status === "satisfied"
-                    ? "Satisfied"
-                    : row.status === "partial"
-                        ? "Partially Satisfied"
-                        : "Not Satisfied";
+            let statusText = "Not Satisfied";
+
+            if (row.status === "satisfied") {
+                statusText = "Satisfied";
+            }
+
+            if (row.status === "partial") {
+                statusText = "Partially Satisfied";
+            }
 
             return `
                 <tr>
+
                     <td style="padding:8px; border:1px solid #999;">
                         ${row.number}
                     </td>
@@ -1735,7 +1763,7 @@ accounting: {
                     </td>
 
                     <td style="padding:8px; border:1px solid #999;">
-                        ${number(row.percentSatisfied)}%
+                        ${row.percentageSatisfied}%
                     </td>
 
                     <td style="padding:8px; border:1px solid #999;">
@@ -1745,8 +1773,10 @@ accounting: {
                     <td style="padding:8px; border:1px solid #999;">
                         ${money(row.recognised)}
                     </td>
+
                 </tr>
             `;
+
         }).join("");
 
         return resultTemplate(
@@ -1757,7 +1787,7 @@ accounting: {
             Total Transaction Price =
             ${money(transactionPrice)}
 
-            <br><br>
+            <br>
 
             Total Stand-Alone Selling Prices =
             ${money(totalSSP)}
@@ -1765,12 +1795,14 @@ accounting: {
             <br><br>
 
             <strong>Allocation Formula</strong><br>
+
             Allocated Revenue =
             (SSP / Total SSP) × Transaction Price
 
             <br><br>
 
-            <strong>Recognition Formula</strong><br>
+            <strong>Revenue Recognition Formula</strong><br>
+
             Revenue Recognised =
             Allocated Revenue × Percentage Satisfied
 
@@ -1781,7 +1813,9 @@ accounting: {
                 <table style="width:100%; border-collapse:collapse; margin-top:10px;">
 
                     <thead>
+
                         <tr>
+
                             <th style="padding:8px; border:1px solid #999;">
                                 Obligation
                             </th>
@@ -1805,7 +1839,9 @@ accounting: {
                             <th style="padding:8px; border:1px solid #999;">
                                 Revenue Recognised
                             </th>
+
                         </tr>
+
                     </thead>
 
                     <tbody>
@@ -1818,7 +1854,7 @@ accounting: {
 
             <br>
 
-            Total Revenue Recognised =
+            Revenue Recognised =
             ${money(recognised)}
 
             <br>
@@ -1838,8 +1874,8 @@ accounting: {
             `,
 
             `
-            Revenue is recognised based on the extent to which each
-            performance obligation has been satisfied.
+            Revenue is recognised based on the extent to which
+            each performance obligation has been satisfied.
 
             <br><br>
 
@@ -1849,22 +1885,17 @@ accounting: {
             <br>
 
             <strong>Partially Satisfied:</strong>
-            The percentage entered is applied to the allocated revenue.
+            The specified percentage of the allocated revenue
+            is recognised.
 
             <br>
 
             <strong>Not Satisfied:</strong>
             0% of the allocated revenue is recognised.
-
-            <br><br>
-
-            For example, if a two-year service has been satisfied for
-            one year and the service is provided evenly over time,
-            the percentage satisfied would be 50%.
             `
         );
     }
-}
+},
 
 
 /* =========================================================
