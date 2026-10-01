@@ -1,3 +1,4 @@
+
 /* =========================================================
    KHID MULTIPURPOSE CALCULATOR
    ACCOUNTING + FINANCE + MATHEMATICS
@@ -19,7 +20,7 @@ if (themeToggle) {
 
         document.body.classList.add("dark-mode");
 
-        themeToggle.textContent = "Sun Light Mode";
+        themeToggle.textContent = "[LIGHT] Light Mode";
 
     }
 
@@ -33,13 +34,13 @@ if (themeToggle) {
 
         if (isDark) {
 
-            themeToggle.textContent = "Sun Light Mode";
+            themeToggle.textContent = "[LIGHT] Light Mode";
 
             localStorage.setItem("theme", "dark");
 
         } else {
 
-            themeToggle.textContent = "Moon Dark Mode";
+            themeToggle.textContent = "[DARK] Dark Mode";
 
             localStorage.setItem("theme", "light");
 
@@ -354,338 +355,6 @@ function interpretKurtosis(beta2) {
 }
 
 
-
-/* =========================================================
-   ADVANCED MATHEMATICS ENGINE
-========================================================= */
-
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-function clampInt(value, min, max) {
-    const n = Number(value);
-    if (!Number.isInteger(n) || n < min || n > max) return null;
-    return n;
-}
-
-function normalizeMathExpression(input) {
-    let s = String(input || "").trim()
-        .replace(/[âˆ’â€“â€”]/g, "-")
-        .replace(/Ï€/g, "pi")
-        .replace(/âˆš/g, "sqrt")
-        .replace(/\s+/g, "");
-
-    s = s.replace(/\bln\b/gi, "ln");
-    s = s.replace(/\bsin\b/gi, "sin");
-    s = s.replace(/\bcos\b/gi, "cos");
-    s = s.replace(/\btan\b/gi, "tan");
-    s = s.replace(/\bsqrt\b/gi, "sqrt");
-    s = s.replace(/\bexp\b/gi, "exp");
-
-    // Common implicit multiplication: 2x, 2(x+1), x(x+1), 2sin(x), etc.
-    s = s.replace(/(\d|x|pi|\))(?=(x|pi|\(|sin|cos|tan|ln|sqrt|exp))/g, "$1*");
-    s = s.replace(/(x|pi|\))(?=\d)/g, "$1*");
-    return s;
-}
-
-function tokenizeMath(s) {
-    const tokens = [];
-    let i = 0;
-    while (i < s.length) {
-        const ch = s[i];
-        if (/\d|\./.test(ch)) {
-            let j = i + 1;
-            while (j < s.length && /[\d.]/.test(s[j])) j++;
-            if (s[j] === "e" || s[j] === "E") {
-                j++;
-                if (s[j] === "+" || s[j] === "-") j++;
-                while (j < s.length && /\d/.test(s[j])) j++;
-            }
-            tokens.push({type:"number", value:s.slice(i,j)}); i=j; continue;
-        }
-        if (/[a-zA-Z]/.test(ch)) {
-            let j=i+1;
-            while (j<s.length && /[a-zA-Z]/.test(s[j])) j++;
-            tokens.push({type:"name", value:s.slice(i,j)}); i=j; continue;
-        }
-        if ("+-*/^(),".includes(ch)) { tokens.push({type:ch,value:ch}); i++; continue; }
-        throw new Error("Invalid character");
-    }
-    tokens.push({type:"EOF",value:""});
-    return tokens;
-}
-
-function parseMathExpression(input) {
-    const tokens = tokenizeMath(normalizeMathExpression(input));
-    let pos=0;
-    const peek=()=>tokens[pos];
-    const eat=(type)=>{ if(peek().type!==type) throw new Error("Expected "+type); return tokens[pos++]; };
-
-    function primary() {
-        const t=peek();
-        if(t.type==="number") { pos++; return {kind:"const",value:Number(t.value)}; }
-        if(t.type==="name") {
-            pos++;
-            const name=t.value;
-            if(name==="x") return {kind:"var"};
-            if(name==="pi") return {kind:"const",value:Math.PI};
-            if(name==="e") return {kind:"const",value:Math.E};
-            if(["sin","cos","tan","ln","sqrt","exp"].includes(name)) {
-                eat("("); const arg=expression(); eat(")"); return {kind:"func",name,arg};
-            }
-            throw new Error("Unknown name");
-        }
-        if(t.type==="(") { pos++; const n=expression(); eat(")"); return n; }
-        if(t.type==="-") { pos++; return {kind:"neg",arg:primary()}; }
-        if(t.type==="+") { pos++; return primary(); }
-        throw new Error("Expected primary");
-    }
-    function power() {
-        let left=primary();
-        if(peek().type==="^") { pos++; const right=power(); left={kind:"pow",left,right}; }
-        return left;
-    }
-    function term() {
-        let left=power();
-        while(peek().type==="*" || peek().type==="/") { const op=peek().type; pos++; const right=power(); left={kind:op,left,right}; }
-        return left;
-    }
-    function expression() {
-        let left=term();
-        while(peek().type==="+" || peek().type==="-") { const op=peek().type; pos++; const right=term(); left={kind:op,left,right}; }
-        return left;
-    }
-    const ast=expression();
-    if(peek().type!=="EOF") throw new Error("Unexpected token");
-    return ast;
-}
-
-function cloneAst(node) { return JSON.parse(JSON.stringify(node)); }
-function isConst(node) { return node && node.kind === "const"; }
-function constAst(v) { return {kind:"const",value:v}; }
-function addAst(a,b) { return {kind:"+",left:a,right:b}; }
-function mulAst(a,b) { return {kind:"*",left:a,right:b}; }
-
-function derivativeAst(n) {
-    switch(n.kind) {
-        case "const": return constAst(0);
-        case "var": return constAst(1);
-        case "neg": return {kind:"neg",arg:derivativeAst(n.arg)};
-        case "+": return addAst(derivativeAst(n.left),derivativeAst(n.right));
-        case "-": return {kind:"-",left:derivativeAst(n.left),right:derivativeAst(n.right)};
-        case "*": return {kind:"+",left:{kind:"*",left:derivativeAst(n.left),right:cloneAst(n.right)},right:{kind:"*",left:cloneAst(n.left),right:derivativeAst(n.right)}};
-        case "/": return {kind:"/",left:{kind:"-",left:{kind:"*",left:derivativeAst(n.left),right:cloneAst(n.right)},right:{kind:"*",left:cloneAst(n.left),right:derivativeAst(n.right)}},right:{kind:"pow",left:cloneAst(n.right),right:constAst(2)}};
-        case "pow":
-            if(isConst(n.right)) return {kind:"*",left:{kind:"*",left:cloneAst(n.right),right:{kind:"pow",left:cloneAst(n.left),right:constAst(n.right.value-1)}},right:derivativeAst(n.left)};
-            return {kind:"*",left:{kind:"pow",left:cloneAst(n.left),right:cloneAst(n.right)},right:{kind:"+",left:{kind:"*",left:derivativeAst(n.right),right:{kind:"func",name:"ln",arg:cloneAst(n.left)}},right:{kind:"/",left:{kind:"*",left:cloneAst(n.right),right:derivativeAst(n.left)},right:cloneAst(n.left)}}};
-        case "func": {
-            const d=derivativeAst(n.arg);
-            if(n.name==="sin") return mulAst({kind:"func",name:"cos",arg:cloneAst(n.arg)},d);
-            if(n.name==="cos") return mulAst({kind:"neg",arg:{kind:"func",name:"sin",arg:cloneAst(n.arg)}},d);
-            if(n.name==="tan") return mulAst({kind:"/",left:constAst(1),right:{kind:"pow",left:{kind:"func",name:"cos",arg:cloneAst(n.arg)},right:constAst(2)}},d);
-            if(n.name==="ln") return {kind:"/",left:d,right:cloneAst(n.arg)};
-            if(n.name==="exp") return mulAst({kind:"func",name:"exp",arg:cloneAst(n.arg)},d);
-            if(n.name==="sqrt") return {kind:"/",left:d,right:{kind:"*",left:constAst(2),right:{kind:"func",name:"sqrt",arg:cloneAst(n.arg)}}};
-            throw new Error("Unsupported function");
-        }
-        default: throw new Error("Unsupported node");
-    }
-}
-
-function integrateAst(n) {
-    switch(n.kind) {
-        case "const": return {kind:"*",left:constAst(n.value),right:{kind:"var"}};
-        case "var": return {kind:"/",left:{kind:"pow",left:{kind:"var"},right:constAst(2)},right:constAst(2)};
-        case "neg": return {kind:"neg",arg:integrateAst(n.arg)};
-        case "+": return {kind:"+",left:integrateAst(n.left),right:integrateAst(n.right)};
-        case "-": return {kind:"-",left:integrateAst(n.left),right:integrateAst(n.right)};
-        case "*": {
-            if(isConst(n.left)) return {kind:"*",left:cloneAst(n.left),right:integrateAst(n.right)};
-            if(isConst(n.right)) return {kind:"*",left:cloneAst(n.right),right:integrateAst(n.left)};
-            throw new Error("Only constant-coefficient products are directly integrated");
-        }
-        case "/": {
-            if(isConst(n.right)) return {kind:"/",left:integrateAst(n.left),right:cloneAst(n.right)};
-            if(n.right.kind==="var" && isConst(n.left)) return {kind:"*",left:cloneAst(n.left),right:{kind:"func",name:"ln",arg:{kind:"var"}}};
-            throw new Error("Unsupported quotient");
-        }
-        case "pow": {
-            if(n.left.kind!=="var" || !isConst(n.right)) throw new Error("Integration currently supports powers of x");
-            const p=n.right.value;
-            if(p===-1) return {kind:"func",name:"ln",arg:{kind:"var"}};
-            return {kind:"/",left:{kind:"pow",left:{kind:"var"},right:constAst(p+1)},right:constAst(p+1)};
-        }
-        case "func":
-            if(n.arg.kind!=="var") throw new Error("Integration of composed functions is not supported in this basic engine");
-            if(n.name==="sin") return {kind:"neg",arg:{kind:"func",name:"cos",arg:{kind:"var"}}};
-            if(n.name==="cos") return {kind:"func",name:"sin",arg:{kind:"var"}};
-            if(n.name==="exp") return {kind:"func",name:"exp",arg:{kind:"var"}};
-            if(n.name==="ln") return {kind:"-",left:{kind:"*",left:{kind:"var"},right:{kind:"func",name:"ln",arg:{kind:"var"}}},right:{kind:"var"}};
-            throw new Error("Unsupported function");
-        default: throw new Error("Unsupported integral");
-    }
-}
-
-function simplifyAst(n) {
-    if(!n) return n;
-    if(["+","-","*","/","pow"].includes(n.kind)) {
-        n.left=simplifyAst(n.left); n.right=simplifyAst(n.right);
-        if(isConst(n.left) && isConst(n.right)) {
-            if(n.kind==="+") return constAst(n.left.value+n.right.value);
-            if(n.kind==="-") return constAst(n.left.value-n.right.value);
-            if(n.kind==="*") return constAst(n.left.value*n.right.value);
-            if(n.kind==="/") return constAst(n.left.value/n.right.value);
-            if(n.kind==="pow") return constAst(Math.pow(n.left.value,n.right.value));
-        }
-        if(n.kind==="+") { if(isConst(n.left)&&n.left.value===0) return n.right; if(isConst(n.right)&&n.right.value===0) return n.left; }
-        if(n.kind==="-") { if(isConst(n.right)&&n.right.value===0) return n.left; }
-        if(n.kind==="*") { if(isConst(n.left)&&n.left.value===0) return constAst(0); if(isConst(n.right)&&n.right.value===0) return constAst(0); if(isConst(n.left)&&n.left.value===1) return n.right; if(isConst(n.right)&&n.right.value===1) return n.left; }
-        if(n.kind==="/") { if(isConst(n.left)&&n.left.value===0) return constAst(0); if(isConst(n.right)&&n.right.value===1) return n.left; }
-        if(n.kind==="pow") { if(isConst(n.right)&&n.right.value===1) return n.left; if(isConst(n.right)&&n.right.value===0) return constAst(1); }
-        return n;
-    }
-    if(n.kind==="neg") { n.arg=simplifyAst(n.arg); if(isConst(n.arg)) return constAst(-n.arg.value); if(n.arg.kind==="neg") return n.arg.arg; return n; }
-    if(n.kind==="func") { n.arg=simplifyAst(n.arg); return n; }
-    return n;
-}
-
-function astToString(n, parent=0) {
-    if(n.kind==="const") return Number.isInteger(n.value) ? String(n.value) : Number(n.value.toFixed(8)).toString();
-    if(n.kind==="var") return "x";
-    if(n.kind==="neg") return `-${needsParens(n.arg,3)?"("+astToString(n.arg)+")":astToString(n.arg)}`;
-    if(n.kind==="func") return `${n.name}(${astToString(n.arg)})`;
-    const prec={"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind];
-    let a=astToString(n.left,prec), b=astToString(n.right,prec);
-    if(n.kind==="pow") return `${wrapIf(n.left,n.kind)}^${wrapIf(n.right,n.kind)}`;
-    let out=`${a} ${n.kind} ${b}`;
-    if(prec<parent) out=`(${out})`;
-    return out;
-}
-function needsParens(n, p){ return n && ({"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind]||4)<p; }
-function wrapIf(n,kind){ const p={"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind]||4; return p<3?`(${astToString(n)})`:astToString(n); }
-
-function evaluateAst(n,x) {
-    switch(n.kind) {
-        case "const": return n.value;
-        case "var": return x;
-        case "neg": return -evaluateAst(n.arg,x);
-        case "+": return evaluateAst(n.left,x)+evaluateAst(n.right,x);
-        case "-": return evaluateAst(n.left,x)-evaluateAst(n.right,x);
-        case "*": return evaluateAst(n.left,x)*evaluateAst(n.right,x);
-        case "/": return evaluateAst(n.left,x)/evaluateAst(n.right,x);
-        case "pow": return Math.pow(evaluateAst(n.left,x),evaluateAst(n.right,x));
-        case "func": {
-            const a=evaluateAst(n.arg,x);
-            if(n.name==="sin") return Math.sin(a);
-            if(n.name==="cos") return Math.cos(a);
-            if(n.name==="tan") return Math.tan(a);
-            if(n.name==="ln") return Math.log(a);
-            if(n.name==="sqrt") return Math.sqrt(a);
-            if(n.name==="exp") return Math.exp(a);
-            throw new Error("Unsupported function");
-        }
-    }
-}
-
-function containsSingularity(ast, lower, upper) {
-    // ln(x), x^negative, and 1/x are undefined at x=0. Also reject any interval crossing 0 for these forms.
-    if(lower===0 || upper===0 || (lower<0 && upper>0)) {
-        let found=false;
-        (function walk(n){
-            if(!n||found) return;
-            if(n.kind==="func" && n.name==="ln") found=true;
-            if(n.kind==="/" && n.right.kind==="var") found=true;
-            if(n.kind==="pow" && isConst(n.right) && n.right.value<0) found=true;
-            if(n.left) walk(n.left); if(n.right) walk(n.right); if(n.arg) walk(n.arg);
-        })(ast);
-        return found;
-    }
-    return false;
-}
-
-function matrixHtml(M) {
-    return `<table style="border-collapse:collapse; margin:8px 0;"><tbody>` +
-        M.map(row => `<tr>${row.map(x => `<td style="border:1px solid #999; padding:8px; min-width:45px; text-align:center;">${number(x,4)}</td>`).join("")}</tr>`).join("") +
-        `</tbody></table>`;
-}
-function readMatrix(v,prefix,rows,cols) {
-    return Array.from({length:rows},(_,i)=>Array.from({length:cols},(_,j)=>{
-        const raw=v[`${prefix}${i+1}${j+1}`];
-        const n=Number(raw);
-        return Number.isFinite(n)?n:0;
-    }));
-}
-function determinant(M) {
-    const n=M.length;
-    if(n===1) return M[0][0];
-    if(n===2) return M[0][0]*M[1][1]-M[0][1]*M[1][0];
-    let d=0;
-    for(let j=0;j<n;j++) {
-        const minor=M.slice(1).map(r=>r.filter((_,k)=>k!==j));
-        d += (j%2===0?1:-1)*M[0][j]*determinant(minor);
-    }
-    return d;
-}
-function inverseMatrix(M) {
-    const n=M.length;
-    const aug=M.map((r,i)=>r.map(x=>x).concat(Array.from({length:n},(_,j)=>i===j?1:0)));
-    for(let i=0;i<n;i++) {
-        let pivot=i;
-        for(let r=i+1;r<n;r++) if(Math.abs(aug[r][i])>Math.abs(aug[pivot][i])) pivot=r;
-        if(Math.abs(aug[pivot][i])<1e-12) return null;
-        [aug[i],aug[pivot]]=[aug[pivot],aug[i]];
-        const div=aug[i][i];
-        for(let j=0;j<2*n;j++) aug[i][j]/=div;
-        for(let r=0;r<n;r++) if(r!==i) {
-            const factor=aug[r][i];
-            for(let j=0;j<2*n;j++) aug[r][j]-=factor*aug[i][j];
-        }
-    }
-    return aug.map(r=>r.slice(n));
-}
-
-function calculateLogExpression(raw) {
-    const input=(raw||"").trim();
-    if(!input) return errorMessage("Enter a logarithm expression, for example log_5(2) + log_2(5). You may use as many logarithms as you need.");
-
-    // Supported notation: log_5(2), log(5,2), ln(2), with ordinary + - * / and parentheses.
-    const original=input;
-    let s=input.replace(/\s+/g,"");
-    const terms=[];
-    const pattern=/log_?\(?([0-9.]+)\)?\(([-+]?\d*\.?\d+)\)/g;
-    // Convert log_5(2) -> log(5,2) before parsing.
-    s=s.replace(/log_([0-9.]+)\(([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>`log(${b},${a})`);
-    s=s.replace(/log\(([0-9.]+),([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>{ terms.push({base:Number(b),arg:Number(a)}); return `(${Math.log(Number(a))/Math.log(Number(b))})`; });
-
-    // Also allow log(b,a) anywhere in the expression.
-    const leftovers=/log\(/i.test(s);
-    if(leftovers) return errorMessage("Use log_base(argument), such as log_5(2), or log(base,argument). Base must be positive and not 1; argument must be positive.");
-
-    try {
-        if(!terms.length && /^ln\(/i.test(s)) {
-            return errorMessage("For this calculator, enter logarithms with an explicit base, such as log_10(100) or log_2(8).");
-        }
-        const value=Function(`"use strict"; return (${s});`)();
-        if(!Number.isFinite(value)) return errorMessage("The logarithm expression is undefined for the values entered.");
-        return resultTemplate(
-            "log_b(x) = ln(x) / ln(b)",
-            `<strong>Expression:</strong> ${escapeHtml(original)}<br><br>` +
-            terms.map((t,i)=>`log<sub>${number(t.base)}</sub>(${number(t.arg)}) = ${number(Math.log(t.arg)/Math.log(t.base),8)}`).join("<br>") +
-            `<br><br><strong>Numeric calculation:</strong> ${number(value,8)}`,
-            `<span style="font-size:1.05em;">${escapeHtml(original)}</span><br><strong>â‰ˆ ${number(value,8)}</strong>`,
-            "The symbolic expression is retained so expressions such as log_5(2) + log_2(5) are not forced into an inaccurate rounded exact form."
-        );
-    } catch(e) {
-        return errorMessage("Invalid logarithm expression. Use examples like log_10(100), log_2(8) + log_5(25), or log_5(2) + log_2(5).");
-    }
-}
-
 /* =========================================================
    CALCULATORS
 ========================================================= */
@@ -705,8 +374,8 @@ accounting: {
     title: "Straight-Line Depreciation",
 
     fields: [
-        ["cost", "Asset Cost (NGN)", "number"],
-        ["residual", "Residual Value (NGN)", "number"],
+        ["cost", "Asset Cost (NGN )", "number"],
+        ["residual", "Residual Value (NGN )", "number"],
         ["life", "Useful Life (Years)", "number"]
     ],
 
@@ -761,13 +430,13 @@ accounting: {
 
     fields: [
         ["method", "Calculation Method", "select"],
-        ["cost", "Cost of Asset (NGN)", "number"],
-        ["residual", "Scrap / Residual Value (NGN)", "number"],
+        ["cost", "Cost of Asset (NGN )", "number"],
+        ["residual", "Scrap / Residual Value (NGN )", "number"],
         ["usefulLife", "Useful Life (Years)", "number"],
         ["rate", "Depreciation Rate (%)", "number"],
         ["startDate", "Start Date", "date"],
         ["endDate", "End Date", "date"],
-        ["openingAccumulated", "Opening Accumulated Depreciation (NGN) - Optional", "number"]
+        ["openingAccumulated", "Opening Accumulated Depreciation (NGN ) - Optional", "number"]
     ],
 
     options: {
@@ -1059,8 +728,8 @@ accounting: {
     title: "Book Value",
 
     fields: [
-        ["cost", "Original Cost (NGN)", "number"],
-        ["accumulated", "Accumulated Depreciation (NGN)", "number"]
+        ["cost", "Original Cost (NGN )", "number"],
+        ["accumulated", "Accumulated Depreciation (NGN )", "number"]
     ],
 
     formula:
@@ -1097,8 +766,8 @@ accounting: {
     title: "Gross Profit",
 
     fields: [
-        ["sales", "Sales Revenue (NGN)", "number"],
-        ["cogs", "Cost of Goods Sold (NGN)", "number"]
+        ["sales", "Sales Revenue (NGN )", "number"],
+        ["cogs", "Cost of Goods Sold (NGN )", "number"]
     ],
 
     formula:
@@ -1134,8 +803,8 @@ accounting: {
     title: "Gross Profit Margin",
 
     fields: [
-        ["sales", "Sales Revenue (NGN)", "number"],
-        ["cogs", "Cost of Goods Sold (NGN)", "number"]
+        ["sales", "Sales Revenue (NGN )", "number"],
+        ["cogs", "Cost of Goods Sold (NGN )", "number"]
     ],
 
     formula:
@@ -1182,8 +851,8 @@ accounting: {
     title: "Net Profit",
 
     fields: [
-        ["revenue", "Revenue (NGN)", "number"],
-        ["expenses", "Total Expenses (NGN)", "number"]
+        ["revenue", "Revenue (NGN )", "number"],
+        ["expenses", "Total Expenses (NGN )", "number"]
     ],
 
     formula:
@@ -1222,8 +891,8 @@ accounting: {
     title: "Net Profit Margin",
 
     fields: [
-        ["revenue", "Revenue (NGN)", "number"],
-        ["expenses", "Total Expenses (NGN)", "number"]
+        ["revenue", "Revenue (NGN )", "number"],
+        ["expenses", "Total Expenses (NGN )", "number"]
     ],
 
     formula:
@@ -1273,8 +942,8 @@ accounting: {
     title: "Markup",
 
     fields: [
-        ["cost", "Cost (NGN)", "number"],
-        ["selling", "Selling Price (NGN)", "number"]
+        ["cost", "Cost (NGN )", "number"],
+        ["selling", "Selling Price (NGN )", "number"]
     ],
 
     formula:
@@ -1318,9 +987,9 @@ accounting: {
     title: "Break-Even Point",
 
     fields: [
-        ["fixed", "Fixed Costs (NGN)", "number"],
-        ["selling", "Selling Price per Unit (NGN)", "number"],
-        ["variable", "Variable Cost per Unit (NGN)", "number"]
+        ["fixed", "Fixed Costs (NGN )", "number"],
+        ["selling", "Selling Price per Unit (NGN )", "number"],
+        ["variable", "Variable Cost per Unit (NGN )", "number"]
     ],
 
     formula:
@@ -1369,7 +1038,7 @@ accounting: {
     title: "VAT Calculator",
 
     fields: [
-        ["amount", "Amount (NGN)", "number"],
+        ["amount", "Amount (NGN )", "number"],
         ["rate", "VAT Rate (%)", "number"]
     ],
 
@@ -1417,8 +1086,8 @@ accounting: {
     title: "Bad Debt",
 
     fields: [
-        ["receivable", "Customer Receivable (NGN)", "number"],
-        ["bad", "Amount Irrecoverable (NGN)", "number"]
+        ["receivable", "Customer Receivable (NGN )", "number"],
+        ["bad", "Amount Irrecoverable (NGN )", "number"]
     ],
 
     formula:
@@ -1464,9 +1133,9 @@ accounting: {
     title: "Cost of Goods Sold",
 
     fields: [
-        ["opening", "Opening Inventory (NGN)", "number"],
-        ["purchases", "Purchases (NGN)", "number"],
-        ["closing", "Closing Inventory (NGN)", "number"]
+        ["opening", "Opening Inventory (NGN )", "number"],
+        ["purchases", "Purchases (NGN )", "number"],
+        ["closing", "Closing Inventory (NGN )", "number"]
     ],
 
     formula:
@@ -1494,7 +1163,78 @@ accounting: {
             money(cogs)
         );
 
+    },
+
+
+"ias36-impairment": {
+    title: "IAS 36 - Impairment of Assets",
+    fields: [
+        ["carryingAmount", "Carrying Amount (NGN )", "number"],
+        ["fairValue", "Fair Value (NGN )", "number"],
+        ["costsDisposal", "Costs of Disposal (NGN )", "number"],
+        ["valueInUse", "Value in Use (NGN )", "number"]
+    ],
+    formula: "FVLCD = Fair Value - Costs of Disposal; Recoverable Amount = Higher of FVLCD and Value in Use",
+    calculate(v) {
+        const carrying = getNumber(v, "carryingAmount");
+        const fairValue = getNumber(v, "fairValue");
+        const costs = getNumber(v, "costsDisposal");
+        const valueInUse = getNumber(v, "valueInUse");
+        if ([carrying, fairValue, costs, valueInUse].some(x => x < 0)) return errorMessage("Amounts cannot be negative.");
+        const fvlcd = fairValue - costs;
+        if (fvlcd < 0) return errorMessage("Fair Value Less Costs of Disposal cannot be negative. Check Fair Value and Costs of Disposal.");
+        const recoverable = Math.max(fvlcd, valueInUse);
+        if (carrying > recoverable) {
+            const impairment = carrying - recoverable;
+            return resultTemplate(
+                "IAS 36 Impairment Test",
+                `<strong>1. Fair Value Less Costs of Disposal (FVLCD)</strong><br>Fair Value - Costs of Disposal<br>= ${money(fairValue)} - ${money(costs)} = <strong>${money(fvlcd)}</strong><br><br><strong>2. Recoverable Amount</strong><br>Higher of FVLCD and Value in Use<br>= Higher of ${money(fvlcd)} and ${money(valueInUse)}<br>= <strong>${money(recoverable)}</strong><br><br><strong>3. Impairment Test</strong><br>Carrying Amount - Recoverable Amount<br>= ${money(carrying)} - ${money(recoverable)} = <strong>${money(impairment)}</strong>`,
+                `Impairment Loss = ${money(impairment)}`,
+                `The asset is <strong>impaired</strong>.<br><br><strong>Journal entry:</strong><br>Dr Impairment Loss - ${money(impairment)}<br>Cr Accumulated Impairment Loss / Asset - ${money(impairment)}`
+            );
+        }
+        return resultTemplate(
+            "IAS 36 Impairment Test",
+            `<strong>1. Fair Value Less Costs of Disposal (FVLCD)</strong><br>${money(fairValue)} - ${money(costs)} = <strong>${money(fvlcd)}</strong><br><br><strong>2. Recoverable Amount</strong><br>Higher of ${money(fvlcd)} and ${money(valueInUse)} = <strong>${money(recoverable)}</strong><br><br><strong>3. Impairment Test</strong><br>Carrying Amount = ${money(carrying)}<br>Recoverable Amount = ${money(recoverable)}`,
+            "No impairment loss",
+            "The asset is <strong>not impaired</strong> because the carrying amount does not exceed the recoverable amount."
+        );
     }
+},
+
+"ifrs15-multiple-obligations": {
+    title: "IFRS 15 - Multiple Performance Obligations",
+    fields: [
+        ["transactionPrice", "Transaction Price (NGN )", "number"],
+        ["obligation1", "Performance Obligation 1 - Stand-alone Selling Price (NGN )", "number"],
+        ["status1", "Performance Obligation 1 - Status", "select"],
+        ["obligation2", "Performance Obligation 2 - Stand-alone Selling Price (NGN )", "number"],
+        ["status2", "Performance Obligation 2 - Status", "select"],
+        ["obligation3", "Performance Obligation 3 - Stand-alone Selling Price (NGN )", "number"],
+        ["status3", "Performance Obligation 3 - Status", "select"]
+    ],
+    options: {
+        status1: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status2: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status3: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]]
+    },
+    formula: "Allocated Revenue = (Stand-alone Selling Price / Total Stand-alone Selling Prices) * Transaction Price",
+    calculate(v) {
+        const transactionPrice = getNumber(v, "transactionPrice");
+        const obligations = [1,2,3].map(i => ({ssp:getNumber(v, `obligation${i}`), status:v[`status${i}`] || "not-satisfied", number:i}));
+        if (transactionPrice < 0 || obligations.some(o => o.ssp < 0)) return errorMessage("Transaction price and stand-alone selling prices cannot be negative.");
+        const totalSSP = obligations.reduce((a,o) => a + o.ssp, 0);
+        if (totalSSP <= 0) return errorMessage("Total stand-alone selling price must be greater than zero.");
+        let recognised=0, unrecognised=0;
+        const rows=obligations.map(o=>{const allocated=o.ssp/totalSSP*transactionPrice; if(o.status==="satisfied") recognised+=allocated; else unrecognised+=allocated; return `<tr><td style="padding:8px;border:1px solid #999;">${o.number}</td><td style="padding:8px;border:1px solid #999;">${money(o.ssp)}</td><td style="padding:8px;border:1px solid #999;">${o.status==="satisfied"?"Satisfied":"Not Satisfied"}</td><td style="padding:8px;border:1px solid #999;">${money(allocated)}</td></tr>`;}).join("");
+        return resultTemplate(
+            "IFRS 15 - Relative Stand-alone Selling Price Allocation",
+            `<strong>1. Total Stand-alone Selling Prices</strong><br>${obligations.map(o=>money(o.ssp)).join(" + ")} = <strong>${money(totalSSP)}</strong><br><br><strong>2. Transaction Price</strong><br>${money(transactionPrice)}<br><br><strong>3. Allocation</strong><br>Allocated Revenue = (SSP / Total SSP) * Transaction Price<br><br><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:8px;border:1px solid #999;">Obligation</th><th style="padding:8px;border:1px solid #999;">SSP</th><th style="padding:8px;border:1px solid #999;">Status</th><th style="padding:8px;border:1px solid #999;">Allocated Revenue</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+            `Revenue Recognised = ${money(recognised)}<br>Remaining Unrecognised Amount = ${money(unrecognised)}`,
+            `Revenue is recognised for obligations marked <strong>Satisfied</strong>. Amounts allocated to obligations marked <strong>Not Satisfied</strong> remain unrecognised.`
+        );
+    }
+}
 
 }
 
@@ -1513,7 +1253,7 @@ finance: {
     title: "Simple Interest",
 
     fields: [
-        ["principal", "Principal (NGN)", "number"],
+        ["principal", "Principal (NGN )", "number"],
         ["rate", "Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"]
     ],
@@ -1560,7 +1300,7 @@ finance: {
     title: "Compound Interest",
 
     fields: [
-        ["principal", "Principal (NGN)", "number"],
+        ["principal", "Principal (NGN )", "number"],
         ["rate", "Annual Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"],
         ["frequency", "Compounding Frequency", "select"]
@@ -1640,7 +1380,7 @@ finance: {
     title: "Present Value",
 
     fields: [
-        ["future", "Future Value (NGN)", "number"],
+        ["future", "Future Value (NGN )", "number"],
         ["rate", "Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"]
     ],
@@ -1679,7 +1419,7 @@ finance: {
     title: "Future Value",
 
     fields: [
-        ["present", "Present Value (NGN)", "number"],
+        ["present", "Present Value (NGN )", "number"],
         ["rate", "Interest Rate (%)", "number"],
         ["time", "Time (Years)", "number"]
     ],
@@ -1718,7 +1458,7 @@ finance: {
     title: "Future Value of an Annuity",
 
     fields: [
-        ["payment", "Periodic Payment (NGN)", "number"],
+        ["payment", "Periodic Payment (NGN )", "number"],
         ["rate", "Interest Rate per Period (%)", "number"],
         ["periods", "Number of Periods", "number"]
     ],
@@ -1772,7 +1512,7 @@ finance: {
     title: "Loan Payment / Installment",
 
     fields: [
-        ["principal", "Loan Principal (NGN)", "number"],
+        ["principal", "Loan Principal (NGN )", "number"],
         ["rate", "Annual Interest Rate (%)", "number"],
         ["periods", "Number of Payments", "number"]
     ],
@@ -1831,7 +1571,7 @@ finance: {
     title: "Sinking Fund",
 
     fields: [
-        ["future", "Required Future Amount (NGN)", "number"],
+        ["future", "Required Future Amount (NGN )", "number"],
         ["rate", "Interest Rate per Period (%)", "number"],
         ["periods", "Number of Periods", "number"]
     ],
@@ -1888,7 +1628,7 @@ finance: {
     title: "Loan Amortization",
 
     fields: [
-        ["principal", "Loan Principal (NGN)", "number"],
+        ["principal", "Loan Principal (NGN )", "number"],
         ["rate", "Interest Rate per Period (%)", "number"],
         ["periods", "Number of Periods", "number"]
     ],
@@ -2399,7 +2139,7 @@ mathematics: {
 
         return resultTemplate(
 
-            `${v.ratio}(${angle} degrees)`,
+            `${v.ratio}(${angle}deg)`,
 
             `Angle converted to radians:
              ${number(radians, 6)}`,
@@ -2445,17 +2185,41 @@ mathematics: {
 
 "logarithm": {
 
-    title: "Logarithms",
+    title: "Logarithm",
 
     fields: [
-        ["logExpression", "Logarithm Expression", "text"]
+        ["value", "Value", "number"],
+        ["base", "Base", "number"]
     ],
 
     formula:
-        "log_b(x) = ln(x) / ln(b). You can combine multiple logarithms using +, -, *, and /.",
+        "log(b)(x) = ln(x) / ln(b)",
 
     calculate(v) {
-        return calculateLogExpression(v.logExpression);
+
+        const value = getNumber(v, "value");
+        const base = getNumber(v, "base");
+
+        if (
+            value <= 0 ||
+            base <= 0 ||
+            base === 1
+        ) {
+            return errorMessage(
+                "Value must be positive, and base must be positive and not equal to 1."
+            );
+        }
+
+        const answer =
+            Math.log(value) /
+            Math.log(base);
+
+        return resultTemplate(
+            "log(b)(x) = ln(x) / ln(b)",
+            `ln(${value}) / ln(${base})`,
+            number(answer)
+        );
+
     }
 
 },
@@ -2518,739 +2282,373 @@ mathematics: {
 
 },
 
-   "sets": {
+
+"differentiation-power": {
+
+    title: "Differentiation - Power Rule",
+
+    fields: [
+        ["coefficient", "Coefficient", "number"],
+        ["power", "Power", "number"]
+    ],
+
+    formula:
+        "d/dx (axn) = an xn-1",
+
+    calculate(v) {
+
+        const a =
+            getNumber(v, "coefficient");
+
+        const n =
+            getNumber(v, "power");
+
+        const newCoefficient =
+            a * n;
+
+        const newPower =
+            n - 1;
+
+        return resultTemplate(
+            "d/dx(axn) = anxn-1",
+            `
+            = ${number(a)} * ${number(n)}
+              x^(${number(newPower)})
+            `,
+            `${number(newCoefficient)}x^${number(newPower)}`
+        );
+
+    }
+
+},
+
+
+"integration-power": {
+
+    title: "Integration - Power Rule",
+
+    fields: [
+        ["coefficient", "Coefficient", "number"],
+        ["power", "Power", "number"]
+    ],
+
+    formula:
+        "Integralaxn dx = axn+1 / (n+1) + C",
+
+    calculate(v) {
+
+        const a =
+            getNumber(v, "coefficient");
+
+        const n =
+            getNumber(v, "power");
+
+        if (n === -1) {
+            return errorMessage(
+                "For n = -1, use logarithmic integration."
+            );
+        }
+
+        const newPower =
+            n + 1;
+
+        const newCoefficient =
+            a / newPower;
+
+        return resultTemplate(
+            "Integralaxn dx = axn+1 / (n+1) + C",
+            `
+            = ${number(newCoefficient)}
+              x^${number(newPower)} + C
+            `,
+            `${number(newCoefficient)}x^${number(newPower)} + C`
+        );
+
+    }
+
+},
+
+
+"sets": {
 
     title: "Sets",
 
     fields: [
         ["operation", "Set Operation", "select"],
-        ["setA", "Set A (e.g. 1,2,3,4)", "text"],
-        ["setB", "Set B (e.g. 3,4,5,6)", "text"],
-        ["universal", "Universal Set U (for complements)", "text"]
+        ["setA", "Set A (comma separated)", "text"],
+        ["setB", "Set B (comma separated)", "text"],
+        ["universal", "Universal Set U (comma separated)", "text"]
     ],
 
     options: {
         operation: [
-            ["union", "A ∪ B — Union"],
-            ["intersection", "A ∩ B — Intersection"],
-            ["differenceAB", "A − B — Difference"],
-            ["differenceBA", "B − A — Difference"],
-            ["symmetric", "A △ B — Symmetric Difference"],
-            ["complementA", "A′ — Complement of A"],
-            ["complementB", "B′ — Complement of B"],
-            ["cardinalityA", "n(A) — Number of elements in A"],
-            ["cardinalityB", "n(B) — Number of elements in B"],
-            ["subset", "A ⊆ B — Is A a subset of B?"],
-            ["properSubset", "A ⊂ B — Is A a proper subset of B?"],
-            ["disjoint", "Are A and B disjoint?"],
-            ["cartesian", "A × B — Cartesian Product"],
-            ["powerSetA", "P(A) — Power Set of A"]
+            ["union", "A union B - Union"],
+            ["intersection", "A intersection B - Intersection"],
+            ["differenceAB", "A - B - Difference"],
+            ["differenceBA", "B - A - Difference"],
+            ["symmetric", "A triangle B - Symmetric Difference"],
+            ["complementA", "A' - Complement of A"],
+            ["complementB", "B' - Complement of B"],
+            ["cardinalityA", "n(A) - Cardinality of A"],
+            ["cardinalityB", "n(B) - Cardinality of B"],
+            ["cartesian", "A * B - Cartesian Product"]
         ]
     },
 
     formula:
-        "Set operations include union, intersection, difference, complement, subsets, cardinality and Cartesian product.",
+        "Set operations: A union B, A intersection B, A - B, A', n(A), A * B",
 
     calculate(v) {
 
-        function parseSet(value) {
-
-            if (
-                typeof value !== "string" ||
-                value.trim() === ""
-            ) {
-                return [];
-            }
-
-            return [
-                ...new Set(
-                    value
-                        .split(",")
-                        .map(item => item.trim())
-                        .filter(item => item !== "")
-                )
-            ];
-        }
+        const parseSet = (value) => {
+            if (typeof value !== "string") return [];
+            const items = value
+                .split(",")
+                .map(x => x.trim())
+                .filter(Boolean);
+            return [...new Set(items)];
+        };
 
         const A = parseSet(v.setA);
         const B = parseSet(v.setB);
         const U = parseSet(v.universal);
-
         const operation = v.operation;
 
         const hasA = A.length > 0;
         const hasB = B.length > 0;
 
-        const union = [
-            ...new Set([...A, ...B])
-        ];
-
-        const intersection =
-            A.filter(x => B.includes(x));
-
-        const differenceAB =
-            A.filter(x => !B.includes(x));
-
-        const differenceBA =
-            B.filter(x => !A.includes(x));
-
-        const symmetricDifference = [
-            ...new Set([
-                ...differenceAB,
-                ...differenceBA
-            ])
-        ];
-
-        function formatSet(set) {
-
-            if (!set || set.length === 0) {
-                return "∅";
-            }
-
-            return `{${set.join(", ")}}`;
+        if (["union", "intersection", "differenceAB", "differenceBA", "symmetric", "cartesian"].includes(operation) && (!hasA || !hasB)) {
+            return errorMessage("Enter both Set A and Set B.");
         }
 
-        if (
-            [
-                "union",
-                "intersection",
-                "differenceAB",
-                "differenceBA",
-                "symmetric",
-                "subset",
-                "properSubset",
-                "disjoint",
-                "cartesian"
-            ].includes(operation)
-            &&
-            (!hasA || !hasB)
-        ) {
-            return errorMessage(
-                "Enter both Set A and Set B."
-            );
+        if (["complementA", "complementB"].includes(operation) && (!hasA || !U.length)) {
+            return errorMessage("Enter the set and the Universal Set U.");
         }
 
-        if (
-            ["complementA", "complementB"].includes(operation)
-            &&
-            (!hasA || U.length === 0)
-        ) {
-            return errorMessage(
-                "Enter the required set and the Universal Set U."
-            );
-        }
-
-        switch (operation) {
-
-            case "union":
-
-                return resultTemplate(
-                    "A ∪ B",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Combine all elements and remove duplicates:
-                    <br><br>
-
-                    ${formatSet(A)}
-                    ∪
-                    ${formatSet(B)}
-
-                    =
-                    ${formatSet(union)}
-                    `,
-                    `A ∪ B = ${formatSet(union)}`
-                );
-
-
-            case "intersection":
-
-                return resultTemplate(
-                    "A ∩ B",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Common elements:
-                    ${formatSet(intersection)}
-                    `,
-                    `A ∩ B = ${formatSet(intersection)}`
-                );
-
-
-            case "differenceAB":
-
-                return resultTemplate(
-                    "A − B",
-                    `
-                    Elements in A that are not in B:
-                    <br><br>
-                    ${formatSet(differenceAB)}
-                    `,
-                    `A − B = ${formatSet(differenceAB)}`
-                );
-
-
-            case "differenceBA":
-
-                return resultTemplate(
-                    "B − A",
-                    `
-                    Elements in B that are not in A:
-                    <br><br>
-                    ${formatSet(differenceBA)}
-                    `,
-                    `B − A = ${formatSet(differenceBA)}`
-                );
-
-
-            case "symmetric":
-
-                return resultTemplate(
-                    "A △ B",
-                    `
-                    Elements that belong to A or B,
-                    but not both:
-                    <br><br>
-                    ${formatSet(symmetricDifference)}
-                    `,
-                    `A △ B = ${formatSet(symmetricDifference)}`
-                );
-
-
-            case "complementA": {
-
-                const complementA =
-                    U.filter(x => !A.includes(x));
-
-                return resultTemplate(
-                    "A′ — Complement of A",
-                    `
-                    U = ${formatSet(U)}<br>
-                    A = ${formatSet(A)}<br><br>
-
-                    A′ = U − A
-                    <br><br>
-
-                    ${formatSet(U)}
-                    −
-                    ${formatSet(A)}
-                    =
-                    ${formatSet(complementA)}
-                    `,
-                    `A′ = ${formatSet(complementA)}`
-                );
-
-            }
-
-
-            case "complementB": {
-
-                const complementB =
-                    U.filter(x => !B.includes(x));
-
-                return resultTemplate(
-                    "B′ — Complement of B",
-                    `
-                    U = ${formatSet(U)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    B′ = U − B
-                    <br><br>
-
-                    ${formatSet(U)}
-                    −
-                    ${formatSet(B)}
-                    =
-                    ${formatSet(complementB)}
-                    `,
-                    `B′ = ${formatSet(complementB)}`
-                );
-
-            }
-
-
-            case "cardinalityA":
-
-                if (!hasA) {
-                    return errorMessage(
-                        "Enter Set A."
-                    );
-                }
-
-                return resultTemplate(
-                    "Cardinality of A",
-                    `
-                    A = ${formatSet(A)}<br><br>
-
-                    Count the distinct elements:
-                    <br>
-                    ${A.length} elements
-                    `,
-                    `n(A) = ${A.length}`
-                );
-
-
-            case "cardinalityB":
-
-                if (!hasB) {
-                    return errorMessage(
-                        "Enter Set B."
-                    );
-                }
-
-                return resultTemplate(
-                    "Cardinality of B",
-                    `
-                    B = ${formatSet(B)}<br><br>
-
-                    Count the distinct elements:
-                    <br>
-                    ${B.length} elements
-                    `,
-                    `n(B) = ${B.length}`
-                );
-
-
-            case "subset": {
-
-                const isSubset =
-                    A.every(x => B.includes(x));
-
-                return resultTemplate(
-                    "Subset Test",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Every element of A must also
-                    appear in B.
-                    `,
-                    isSubset
-                        ? "A ⊆ B — YES"
-                        : "A ⊆ B — NO"
-                );
-
-            }
-
-
-            case "properSubset": {
-
-                const isSubset =
-                    A.every(x => B.includes(x));
-
-                const isProper =
-                    isSubset &&
-                    A.length < B.length;
-
-                return resultTemplate(
-                    "Proper Subset Test",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    A must be a subset of B
-                    and A must contain fewer elements.
-                    `,
-                    isProper
-                        ? "A ⊂ B — YES"
-                        : "A ⊂ B — NO"
-                );
-
-            }
-
-
-            case "disjoint": {
-
-                const areDisjoint =
-                    intersection.length === 0;
-
-                return resultTemplate(
-                    "Disjoint Sets",
-                    `
-                    A ∩ B =
-                    ${formatSet(intersection)}
-                    <br><br>
-
-                    Two sets are disjoint when
-                    their intersection is empty.
-                    `,
-                    areDisjoint
-                        ? "A and B are DISJOINT."
-                        : "A and B are NOT DISJOINT."
-                );
-
-            }
-
-
-            case "cartesian": {
-
-                const pairs = [];
-
-                A.forEach(a => {
-
-                    B.forEach(b => {
-
-                        pairs.push(
-                            `(${a}, ${b})`
-                        );
-
-                    });
-
-                });
-
-                return resultTemplate(
-                    "Cartesian Product",
-                    `
-                    A = ${formatSet(A)}<br>
-                    B = ${formatSet(B)}<br><br>
-
-                    Pair every element of A
-                    with every element of B.
-                    <br><br>
-
-                    Number of ordered pairs:
-                    ${A.length} × ${B.length}
-                    =
-                    ${pairs.length}
-                    `,
-                    `A × B = {${pairs.join(", ")}}`
-                );
-
-            }
-
-
-            case "powerSetA": {
-
-                if (!hasA) {
-                    return errorMessage(
-                        "Enter Set A."
-                    );
-                }
-
-                if (A.length > 10) {
-                    return errorMessage(
-                        "For practical use, the power set is limited to sets with 10 or fewer elements."
-                    );
-                }
-
-                const powerSet = [[]];
-
-                A.forEach(element => {
-
-                    const current =
-                        powerSet.map(
-                            subset => [
-                                ...subset,
-                                element
-                            ]
-                        );
-
-                    powerSet.push(...current);
-
-                });
-
-                const formatted =
-                    powerSet
-                        .map(
-                            subset =>
-                                subset.length === 0
-                                    ? "∅"
-                                    : `{${subset.join(", ")}}`
-                        )
-                        .join(", ");
-
-                return resultTemplate(
-                    "Power Set P(A)",
-                    `
-                    A = ${formatSet(A)}<br><br>
-
-                    Number of subsets:
-                    2^${A.length}
-                    =
-                    ${powerSet.length}
-                    `,
-                    `P(A) = {${formatted}}`
-                );
-
-            }
-
-
-            default:
-
-                return errorMessage(
-                    "Please select a valid set operation."
-                );
-        }
-    }
-},
-
-"matrices": {
-
-    title: "Matrices",
-
-    fields: [
-        ["matrixOperation", "Matrix Operation", "select"],
-        ["matrixRowsA", "Rows of Matrix A", "number"],
-        ["matrixColsA", "Columns of Matrix A", "number"],
-        ["matrixRowsB", "Rows of Matrix B", "number"],
-        ["matrixColsB", "Columns of Matrix B", "number"],
-        ["matrixScalar", "Scalar", "number"],
-        ...Array.from({length: 9}, (_, i) => [`a${Math.floor(i/3)+1}${(i%3)+1}`, `A${Math.floor(i/3)+1}${(i%3)+1}`, "number"]),
-        ...Array.from({length: 9}, (_, i) => [`b${Math.floor(i/3)+1}${(i%3)+1}`, `B${Math.floor(i/3)+1}${(i%3)+1}`, "number"])
-    ],
-
-    options: {
-        matrixOperation: [
-            ["add", "A + B"],
-            ["subtract", "A - B"],
-            ["multiply", "A Ã— B"],
-            ["scalar", "Scalar Multiplication"],
-            ["transposeA", "Transpose of A"],
-            ["determinantA", "Determinant of A"],
-            ["inverseA", "Inverse of A"]
-        ]
-    },
-
-    formula: "Matrix operations follow the dimensions and rules of the selected operation.",
-
-    calculate(v) {
-        const op = v.matrixOperation;
-        const ra = clampInt(v.matrixRowsA, 1, 3);
-        const ca = clampInt(v.matrixColsA, 1, 3);
-        const rb = clampInt(v.matrixRowsB, 1, 3);
-        const cb = clampInt(v.matrixColsB, 1, 3);
-
-        if (!ra || !ca || !rb || !cb) return errorMessage("Matrix dimensions must be whole numbers from 1 to 3.");
-
-        const A = readMatrix(v, "a", ra, ca);
-        const B = readMatrix(v, "b", rb, cb);
-
-        if (["add", "subtract"].includes(op) && (ra !== rb || ca !== cb)) {
-            return errorMessage("For addition or subtraction, Matrix A and Matrix B must have the same dimensions.");
-        }
-        if (op === "multiply" && ca !== rb) {
-            return errorMessage("For multiplication, the columns of A must equal the rows of B.");
-        }
-        if (["determinantA", "inverseA"].includes(op) && ra !== ca) {
-            return errorMessage("A determinant or inverse requires a square Matrix A.");
-        }
-
-        let resultMatrix;
+        const intersection = A.filter(x => B.includes(x));
+        const union = [...new Set([...A, ...B])];
+        const differenceAB = A.filter(x => !B.includes(x));
+        const differenceBA = B.filter(x => !A.includes(x));
+        const symmetric = [...new Set([...differenceAB, ...differenceBA])];
+
+        let answer;
         let working;
 
-        if (op === "add" || op === "subtract") {
-            resultMatrix = A.map((row, i) => row.map((x, j) => op === "add" ? x + B[i][j] : x - B[i][j]));
-            working = op === "add" ? "Add corresponding entries of A and B." : "Subtract corresponding entries of B from A.";
-        } else if (op === "multiply") {
-            resultMatrix = Array.from({length: ra}, () => Array(cb).fill(0));
-            for (let i=0;i<ra;i++) for (let j=0;j<cb;j++) for (let k=0;k<ca;k++) resultMatrix[i][j] += A[i][k] * B[k][j];
-            working = "Each entry is the dot product of a row of A and a column of B.";
-        } else if (op === "scalar") {
-            const scalar = Number(v.matrixScalar);
-            if (!Number.isFinite(scalar)) return errorMessage("Enter a valid scalar value.");
-            resultMatrix = A.map(row => row.map(x => x * scalar));
-            working = `Multiply every entry of A by ${number(scalar)}.`;
-        } else if (op === "transposeA") {
-            resultMatrix = A[0].map((_, j) => A.map(row => row[j]));
-            working = "Rows of A become columns of the transpose.";
-        } else if (op === "determinantA") {
-            const det = determinant(A);
-            return resultTemplate("det(A)", `A = ${matrixHtml(A)}<br><br>det(A) = ${number(det, 6)}`, number(det, 6));
-        } else if (op === "inverseA") {
-            const inv = inverseMatrix(A);
-            if (!inv) return errorMessage("Matrix A is singular, so it has no inverse.");
-            resultMatrix = inv;
-            working = "Use the inverse operation / Gauss-Jordan elimination to obtain Aâ»Â¹.";
-        } else {
-            return errorMessage("Select a valid matrix operation.");
+        switch (operation) {
+            case "union":
+                answer = `{${union.join(", ")}}`;
+                working = `Combine all elements and remove duplicates:<br>{${union.join(", ")}}`;
+                break;
+            case "intersection":
+                answer = `{${intersection.join(", ")}}`;
+                working = `Common elements of A and B:<br>{${intersection.join(", ") || "empty"}}`;
+                break;
+            case "differenceAB":
+                answer = `{${differenceAB.join(", ")}}`;
+                working = `Elements in A that are not in B:<br>{${differenceAB.join(", ") || "empty"}}`;
+                break;
+            case "differenceBA":
+                answer = `{${differenceBA.join(", ")}}`;
+                working = `Elements in B that are not in A:<br>{${differenceBA.join(", ") || "empty"}}`;
+                break;
+            case "symmetric":
+                answer = `{${symmetric.join(", ")}}`;
+                working = `Elements in A or B, but not in both:<br>{${symmetric.join(", ") || "empty"}}`;
+                break;
+            case "complementA": {
+                const comp = U.filter(x => !A.includes(x));
+                answer = `{${comp.join(", ")}}`;
+                working = `A' = U - A:<br>{${comp.join(", ") || "empty"}}`;
+                break;
+            }
+            case "complementB": {
+                const comp = U.filter(x => !B.includes(x));
+                answer = `{${comp.join(", ")}}`;
+                working = `B' = U - B:<br>{${comp.join(", ") || "empty"}}`;
+                break;
+            }
+            case "cardinalityA":
+                if (!hasA) return errorMessage("Enter Set A.");
+                answer = number(A.length, 0);
+                working = `n(A) = number of distinct elements in A = ${A.length}`;
+                break;
+            case "cardinalityB":
+                if (!hasB) return errorMessage("Enter Set B.");
+                answer = number(B.length, 0);
+                working = `n(B) = number of distinct elements in B = ${B.length}`;
+                break;
+            case "cartesian": {
+                const pairs = [];
+                A.forEach(a => B.forEach(b => pairs.push(`(${a}, ${b})`)));
+                answer = `{${pairs.join(", ")}}`;
+                working = `Each element of A is paired with every element of B.<br>Number of ordered pairs = ${A.length} * ${B.length} = ${A.length * B.length}`;
+                break;
+            }
+            default:
+                return errorMessage("Please select a valid set operation.");
         }
 
         return resultTemplate(
-            "Matrix calculation",
-            `${working}<br><br>Result:<br>${matrixHtml(resultMatrix)}`,
-            matrixHtml(resultMatrix)
+            "Set operation",
+            working,
+            answer
         );
     }
-
 },
 
-"differentiation": {
+"differentiation-product": {
 
-    title: "Differentiation",
+    title: "Differentiation - Product Rule",
 
     fields: [
-        ["diffMethod", "Differentiation Method", "select"],
-        ["diffMode", "Evaluation", "select"],
-        ["diffExpression", "Expression in x", "text"],
-        ["diffU", "u(x) - for Product/Quotient", "text"],
-        ["diffV", "v(x) - for Product/Quotient", "text"],
-        ["diffInner", "Inner function u(x) - for Chain Rule", "text"],
-        ["diffOuter", "Outer function F(u) - for Chain Rule", "text"],
-        ["diffX", "x value", "number"]
+        ["u", "u(x)", "number"],
+        ["du", "u'(x)", "number"],
+        ["v", "v(x)", "number"],
+        ["dv", "v'(x)", "number"]
     ],
 
-    options: {
-        diffMethod: [
-            ["general", "General / Automatic Rule"],
-            ["power", "Power Rule"],
-            ["product", "Product Rule"],
-            ["quotient", "Quotient Rule"],
-            ["chain", "Chain Rule"]
-        ],
-        diffMode: [
-            ["without", "Without x value - symbolic answer"],
-            ["with", "With x value - evaluate derivative"]
-        ]
-    },
-
-    formula:
-        "Differentiate the expression with respect to x using the selected rule.",
+    formula: "d(uv)/dx = u(dv/dx) + v(du/dx)",
 
     calculate(v) {
-        const method = v.diffMethod || "general";
-        const mode = v.diffMode || "without";
-        let expression = (v.diffExpression || "").trim();
+        const u = getNumber(v, "u");
+        const du = getNumber(v, "du");
+        const vv = getNumber(v, "v");
+        const dv = getNumber(v, "dv");
+        const answer = u * dv + vv * du;
 
-        try {
-            let ast;
-
-            if (method === "product") {
-                const u = (v.diffU || "").trim();
-                const vv = (v.diffV || "").trim();
-                if (!u || !vv) return errorMessage("Enter both u(x) and v(x) for the Product Rule.");
-                expression = `(${u})*(${vv})`;
-                ast = parseMathExpression(expression);
-            } else if (method === "quotient") {
-                const u = (v.diffU || "").trim();
-                const vv = (v.diffV || "").trim();
-                if (!u || !vv) return errorMessage("Enter both u(x) and v(x) for the Quotient Rule.");
-                expression = `(${u})/(${vv})`;
-                ast = parseMathExpression(expression);
-            } else if (method === "chain") {
-                const outer = (v.diffOuter || "").trim();
-                const inner = (v.diffInner || "").trim();
-                if (!outer || !inner) return errorMessage("Enter the outer function F(u) and inner function u(x) for the Chain Rule.");
-                if (!outer.includes("u")) return errorMessage("For Chain Rule, write the outer function using u, for example u^3, sin(u), or ln(u).");
-                expression = outer.replace(/\bu\b/g, `(${inner})`);
-                ast = parseMathExpression(expression);
-            } else {
-                if (!expression) return errorMessage("Enter an expression in x, for example 3x^2 + 2x - 5.");
-                ast = parseMathExpression(expression);
-            }
-
-            const derivative = simplifyAst(derivativeAst(ast));
-            const derivativeText = astToString(derivative);
-
-            let evaluation = "";
-            if (mode === "with") {
-                if (v.diffX === "" || v.diffX === undefined) return errorMessage("Enter the x value for numerical evaluation.");
-                const x = Number(v.diffX);
-                if (!Number.isFinite(x)) return errorMessage("Enter a valid numerical x value.");
-                const value = evaluateAst(derivative, x);
-                if (!Number.isFinite(value)) return errorMessage("The derivative cannot be evaluated at that x value.");
-                evaluation = `<br><br><strong>At x = ${number(x)}:</strong> f'(x) = ${number(value, 6)}`;
-            }
-
-            const methodNote = {
-                general: "The automatic method applies the appropriate differentiation rule to the expression.",
-                power: "Power Rule: d/dx[x^n] = n x^(n-1).",
-                product: "Product Rule: (uv)' = u'v + uv'.",
-                quotient: "Quotient Rule: (u/v)' = (u'v - uv')/v^2.",
-                chain: "Chain Rule: d/dx F(u) = F'(u)u'."
-            }[method];
-
-            return resultTemplate(
-                "Differentiate with respect to x",
-                `<strong>Original expression:</strong> ${escapeHtml(expression)}<br><br>` +
-                `<strong>Method:</strong> ${methodNote}<br><br>` +
-                `<strong>Derivative:</strong> ${escapeHtml(derivativeText)}${evaluation}`,
-                mode === "with"
-                    ? `f'(x) = ${escapeHtml(derivativeText)}<br>Numerical value = ${evaluation.replace(/.*f'\(x\) = /, '').replace(/<br>.*/, '')}`
-                    : `f'(x) = ${escapeHtml(derivativeText)}`
-            );
-        } catch (error) {
-            return errorMessage(`Could not parse the expression. Use forms such as <strong>3x^2 + 2x - 5</strong>, <strong>(x+1)(x-2)</strong>, <strong>sin(x)</strong>, <strong>ln(x)</strong>, or <strong>sqrt(x)</strong>.`);
-        }
+        return resultTemplate(
+            "d(uv)/dx = u(dv/dx) + v(du/dx)",
+            `= (${u})(${dv}) + (${vv})(${du})<br><br>= ${number(answer)}`,
+            number(answer)
+        );
     }
-
 },
 
+"differentiation-quotient": {
 
-"integration": {
-
-    title: "Integration",
+    title: "Differentiation - Quotient Rule",
 
     fields: [
-        ["integrationType", "Integral Type", "select"],
-        ["integrationExpression", "Expression in x", "text"],
-        ["integrationLower", "Lower Limit - for Definite Integral", "number"],
-        ["integrationUpper", "Upper Limit - for Definite Integral", "number"]
+        ["u", "u(x)", "number"],
+        ["du", "u'(x)", "number"],
+        ["v", "v(x)", "number"],
+        ["dv", "v'(x)", "number"]
     ],
 
-    options: {
-        integrationType: [
-            ["indefinite", "Indefinite Integral"],
-            ["definite", "Definite Integral"]
-        ]
-    },
-
-    formula:
-        "Indefinite: find a general antiderivative and add + C. Definite: evaluate F(upper) - F(lower).",
+    formula: "d(u/v)/dx = [v(du/dx) - u(dv/dx)] / v2",
 
     calculate(v) {
-        const type = v.integrationType || "indefinite";
-        const expression = (v.integrationExpression || "").trim();
-        if (!expression) return errorMessage("Enter an expression in x, for example 3x^2 + 2x + 1.");
+        const u = getNumber(v, "u");
+        const du = getNumber(v, "du");
+        const vv = getNumber(v, "v");
+        const dv = getNumber(v, "dv");
 
-        try {
-            const ast = parseMathExpression(expression);
-            const integral = simplifyAst(integrateAst(ast));
-            const integralText = astToString(integral);
+        if (vv === 0) return errorMessage("v(x) cannot be zero.");
 
-            if (type === "indefinite") {
-                return resultTemplate(
-                    "âˆ« f(x) dx = F(x) + C",
-                    `<strong>Expression:</strong> ${escapeHtml(expression)}<br><br>` +
-                    `<strong>Antiderivative:</strong> ${escapeHtml(integralText)} + C<br><br>` +
-                    `<small>Indefinite integration gives a family of antiderivatives, so the constant of integration + C is required.</small>`,
-                    `${escapeHtml(integralText)} + C`
-                );
-            }
+        const answer = (vv * du - u * dv) / Math.pow(vv, 2);
 
-            if (v.integrationLower === "" || v.integrationUpper === "") {
-                return errorMessage("Enter both the lower and upper limits for a definite integral.");
-            }
-            const lower = Number(v.integrationLower);
-            const upper = Number(v.integrationUpper);
-            if (!Number.isFinite(lower) || !Number.isFinite(upper)) return errorMessage("Enter valid numerical limits.");
-            if (upper < lower) return errorMessage("Upper limit must be greater than or equal to the lower limit.");
-
-            if (containsSingularity(integral, lower, upper)) {
-                return errorMessage("The selected limits cross a point where the antiderivative is undefined.");
-            }
-
-            const upperValue = evaluateAst(integral, upper);
-            const lowerValue = evaluateAst(integral, lower);
-            const answer = upperValue - lowerValue;
-
-            if (!Number.isFinite(answer)) return errorMessage("The definite integral could not be evaluated for these limits.");
-
-            return resultTemplate(
-                "âˆ«â‚áµ‡ f(x) dx = F(b) - F(a)",
-                `<strong>Antiderivative:</strong> ${escapeHtml(integralText)}<br><br>` +
-                `F(${number(upper)}) = ${number(upperValue, 6)}<br>` +
-                `F(${number(lower)}) = ${number(lowerValue, 6)}<br><br>` +
-                `Integral = ${number(upperValue, 6)} - ${number(lowerValue, 6)}`,
-                number(answer, 6),
-                "A definite integral gives the signed net accumulation over the stated interval."
-            );
-        } catch (error) {
-            return errorMessage("This integration engine supports common forms such as polynomial terms, 1/x, sin(x), cos(x), and e^x. Check the expression format and try again.");
-        }
+        return resultTemplate(
+            "d(u/v)/dx = [v(du/dx) - u(dv/dx)] / v2",
+            `= [(${vv})(${du}) - (${u})(${dv})] / ${vv}2<br><br>= ${number(answer)}`,
+            number(answer)
+        );
     }
+},
 
+"differentiation-chain": {
+
+    title: "Differentiation - Chain Rule",
+
+    fields: [
+        ["outerCoefficient", "Outer Coefficient (a)", "number"],
+        ["outerPower", "Outer Power (n)", "number"],
+        ["innerCoefficient", "Inner Coefficient (b)", "number"],
+        ["innerPower", "Inner Power (m)", "number"]
+    ],
+
+    formula: "d/dx[a(bxm)n] = an(bxm)n-1 * bm xm-1",
+
+    calculate(v) {
+        const a = getNumber(v, "outerCoefficient");
+        const n = getNumber(v, "outerPower");
+        const b = getNumber(v, "innerCoefficient");
+        const m = getNumber(v, "innerPower");
+
+        const coefficient = a * n * b * m;
+        const innerPower = n - 1;
+        const xPower = m - 1;
+
+        return resultTemplate(
+            "d/dx[a(bxm)n] = an(bxm)n-1 * bm xm-1",
+            `Coefficient = ${a} * ${n} * ${b} * ${m} = ${number(coefficient)}<br>` +
+            `Result = ${number(coefficient)}( ${b}x^${m} )^${innerPower}x^${xPower}`,
+            `${number(coefficient)}( ${b}x^${m} )^${innerPower}x^${xPower}`
+        );
+    }
+},
+
+"integration-definite": {
+
+    title: "Integration - Definite Integral",
+
+    fields: [
+        ["coefficient", "Coefficient (a)", "number"],
+        ["power", "Power (n)", "number"],
+        ["lower", "Lower Limit", "number"],
+        ["upper", "Upper Limit", "number"]
+    ],
+
+    formula: "Integrallu axn dx = [a/(n+1)xn+1]lu, n != -1",
+
+    calculate(v) {
+        const a = getNumber(v, "coefficient");
+        const n = getNumber(v, "power");
+        const lower = getNumber(v, "lower");
+        const upper = getNumber(v, "upper");
+
+        if (n === -1) {
+            return errorMessage("For n = -1, use logarithmic integration.");
+        }
+        if (upper < lower) {
+            return errorMessage("Upper limit must be greater than or equal to the lower limit.");
+        }
+
+        const newPower = n + 1;
+        const coefficient = a / newPower;
+        const Fupper = coefficient * Math.pow(upper, newPower);
+        const Flower = coefficient * Math.pow(lower, newPower);
+        const answer = Fupper - Flower;
+
+        return resultTemplate(
+            "Integrallu axn dx = [a/(n+1)xn+1]lu",
+            `Antiderivative = ${number(coefficient)}x^${number(newPower)}<br><br>` +
+            `F(${upper}) = ${number(Fupper)}<br>` +
+            `F(${lower}) = ${number(Flower)}<br><br>` +
+            `Integral = ${number(Fupper)} - ${number(Flower)}`,
+            number(answer)
+        );
+    }
+},
+
+"integration-log": {
+
+    title: "Integration - Logarithmic Form",
+
+    fields: [
+        ["coefficient", "Coefficient (a)", "number"]
+    ],
+
+    formula: "Integral a/x dx = a ln|x| + C",
+
+    calculate(v) {
+        const a = getNumber(v, "coefficient");
+
+        return resultTemplate(
+            "Integral a/x dx = a ln|x| + C",
+            `The coefficient remains outside the logarithm.<br>= ${number(a)} ln|x| + C`,
+            `${number(a)} ln|x| + C`
+        );
+    }
 },
 
 
@@ -4694,7 +4092,7 @@ economics: {
     title: "Total Revenue",
 
     fields: [
-        ["price", "Price per Unit (NGN)", "number"],
+        ["price", "Price per Unit (NGN )", "number"],
         ["quantity", "Quantity Sold", "number"]
     ],
 
@@ -4725,7 +4123,7 @@ economics: {
     title: "Average Revenue",
 
     fields: [
-        ["revenue", "Total Revenue (NGN)", "number"],
+        ["revenue", "Total Revenue (NGN )", "number"],
         ["quantity", "Quantity Sold", "number"]
     ],
 
@@ -4765,8 +4163,8 @@ economics: {
     title: "Marginal Revenue",
 
     fields: [
-        ["r1", "Previous Total Revenue (NGN)", "number"],
-        ["r2", "New Total Revenue (NGN)", "number"],
+        ["r1", "Previous Total Revenue (NGN )", "number"],
+        ["r2", "New Total Revenue (NGN )", "number"],
         ["q1", "Previous Quantity", "number"],
         ["q2", "New Quantity", "number"]
     ],
@@ -4812,8 +4210,8 @@ economics: {
     title: "Total Cost",
 
     fields: [
-        ["fixed", "Fixed Cost (NGN)", "number"],
-        ["variable", "Variable Cost (NGN)", "number"]
+        ["fixed", "Fixed Cost (NGN )", "number"],
+        ["variable", "Variable Cost (NGN )", "number"]
     ],
 
     formula:
@@ -4846,7 +4244,7 @@ economics: {
     title: "Average Cost",
 
     fields: [
-        ["total", "Total Cost (NGN)", "number"],
+        ["total", "Total Cost (NGN )", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
@@ -4886,7 +4284,7 @@ economics: {
     title: "Average Fixed Cost",
 
     fields: [
-        ["fixed", "Fixed Cost (NGN)", "number"],
+        ["fixed", "Fixed Cost (NGN )", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
@@ -4923,7 +4321,7 @@ economics: {
     title: "Average Variable Cost",
 
     fields: [
-        ["variable", "Variable Cost (NGN)", "number"],
+        ["variable", "Variable Cost (NGN )", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
@@ -4960,8 +4358,8 @@ economics: {
     title: "Economic Profit",
 
     fields: [
-        ["revenue", "Total Revenue (NGN)", "number"],
-        ["cost", "Total Cost (NGN)", "number"]
+        ["revenue", "Total Revenue (NGN )", "number"],
+        ["cost", "Total Cost (NGN )", "number"]
     ],
 
     formula:
@@ -4994,8 +4392,8 @@ economics: {
     title: "Consumer Surplus",
 
     fields: [
-        ["maximum", "Maximum Willingness to Pay (NGN)", "number"],
-        ["actual", "Actual Market Price (NGN)", "number"],
+        ["maximum", "Maximum Willingness to Pay (NGN )", "number"],
+        ["actual", "Actual Market Price (NGN )", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
@@ -5038,8 +4436,8 @@ economics: {
     title: "Producer Surplus",
 
     fields: [
-        ["market", "Market Price (NGN)", "number"],
-        ["minimum", "Minimum Supply Price (NGN)", "number"],
+        ["market", "Market Price (NGN )", "number"],
+        ["minimum", "Minimum Supply Price (NGN )", "number"],
         ["quantity", "Quantity", "number"]
     ],
 
@@ -5245,7 +4643,7 @@ economics: {
     title: "Per Capita Income",
 
     fields: [
-        ["income", "National Income (NGN)", "number"],
+        ["income", "National Income (NGN )", "number"],
         ["population", "Population", "number"]
     ],
 
@@ -5285,7 +4683,7 @@ economics: {
     title: "Real GDP from Nominal GDP",
 
     fields: [
-        ["nominal", "Nominal GDP (NGN)", "number"],
+        ["nominal", "Nominal GDP (NGN )", "number"],
         ["deflator", "GDP Deflator", "number"]
     ],
 
@@ -5329,8 +4727,8 @@ economics: {
     title: "GDP Deflator",
 
     fields: [
-        ["nominal", "Nominal GDP (NGN)", "number"],
-        ["real", "Real GDP (NGN)", "number"]
+        ["nominal", "Nominal GDP (NGN )", "number"],
+        ["real", "Real GDP (NGN )", "number"]
     ],
 
     formula:
@@ -5365,1082 +4763,361 @@ economics: {
 
     }
 
-}
-
-}
-
-};
+},
 
 
 /* =========================================================
    FINANCIAL ANALYSIS
 ========================================================= */
 
+
 "financial-analysis": {
 
     "current-ratio": {
-
         title: "Current Ratio",
-
         fields: [
-            ["currentAssets", "Current Assets (₦)", "number"],
-            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+            ["currentAssets", "Current Assets (NGN )", "number"],
+            ["currentLiabilities", "Current Liabilities (NGN )", "number"]
         ],
-
-        formula:
-            "Current Ratio = Current Assets ÷ Current Liabilities",
-
+        formula: "Current Ratio = Current Assets / Current Liabilities",
         calculate(v) {
-
-            const currentAssets =
-                getNumber(v, "currentAssets");
-
-            const currentLiabilities =
-                getNumber(v, "currentLiabilities");
-
-            if (currentLiabilities === 0) {
-                return errorMessage(
-                    "Current liabilities cannot be zero."
-                );
-            }
-
-            const ratio =
-                currentAssets / currentLiabilities;
-
-            return resultTemplate(
-                "Current Ratio = Current Assets ÷ Current Liabilities",
-
-                `
-                ${money(currentAssets)}
-                ÷ ${money(currentLiabilities)}
-                =
-                ${number(ratio)}
-                `,
-
-                `${number(ratio)} : 1`,
-
-                "Measures the business's ability to meet short-term obligations using current assets."
-            );
-
+            const a = getNumber(v, "currentAssets");
+            const l = getNumber(v, "currentLiabilities");
+            if (l === 0) return errorMessage("Current liabilities cannot be zero.");
+            const r = a / l;
+            return resultTemplate("Current Ratio = Current Assets / Current Liabilities", `${money(a)} / ${money(l)} = ${number(r)}`, `${number(r)} : 1`, "Measures the ability to meet short-term obligations using current assets.");
         }
-
     },
-
 
     "acid-test-ratio": {
-
         title: "Acid-Test / Quick Ratio",
-
         fields: [
-            ["currentAssets", "Current Assets (₦)", "number"],
-            ["inventory", "Inventory (₦)", "number"],
-            ["prepayments", "Prepayments (₦) - Optional", "number"],
-            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+            ["currentAssets", "Current Assets (NGN )", "number"],
+            ["inventory", "Inventory (NGN )", "number"],
+            ["prepayments", "Prepayments (NGN ) - Optional", "number"],
+            ["currentLiabilities", "Current Liabilities (NGN )", "number"]
         ],
-
-        formula:
-            "Quick Assets = Current Assets − Inventory − Prepayments<br>Acid-Test Ratio = Quick Assets ÷ Current Liabilities",
-
+        formula: "Quick Assets = Current Assets - Inventory - Prepayments<br>Acid-Test Ratio = Quick Assets / Current Liabilities",
         calculate(v) {
-
-            const currentAssets =
-                getNumber(v, "currentAssets");
-
-            const inventory =
-                getNumber(v, "inventory");
-
-            const prepayments =
-                Number(v.prepayments) || 0;
-
-            const currentLiabilities =
-                getNumber(v, "currentLiabilities");
-
-            if (currentLiabilities === 0) {
-                return errorMessage(
-                    "Current liabilities cannot be zero."
-                );
-            }
-
-            const quickAssets =
-                currentAssets -
-                inventory -
-                prepayments;
-
-            const ratio =
-                quickAssets / currentLiabilities;
-
-            return resultTemplate(
-                "Acid-Test Ratio = (Current Assets − Inventory − Prepayments) ÷ Current Liabilities",
-
-                `
-                Quick Assets =
-                ${money(currentAssets)}
-                − ${money(inventory)}
-                − ${money(prepayments)}
-                <br><br>
-
-                ${money(quickAssets)}
-                ÷ ${money(currentLiabilities)}
-                =
-                ${number(ratio)}
-                `,
-
-                `${number(ratio)} : 1`,
-
-                "Measures the ability to meet current liabilities using liquid current assets, excluding inventory and prepayments."
-            );
-
+            const a = getNumber(v, "currentAssets");
+            const i = getNumber(v, "inventory");
+            const p = Number(v.prepayments) || 0;
+            const l = getNumber(v, "currentLiabilities");
+            if (l === 0) return errorMessage("Current liabilities cannot be zero.");
+            const q = a - i - p;
+            const r = q / l;
+            return resultTemplate("Acid-Test Ratio = (Current Assets - Inventory - Prepayments) / Current Liabilities", `${money(a)} - ${money(i)} - ${money(p)} = ${money(q)}<br><br>${money(q)} / ${money(l)} = ${number(r)}`, `${number(r)} : 1`, "Measures short-term liquidity using liquid current assets, excluding inventory and prepayments.");
         }
-
     },
-
 
     "cash-ratio": {
-
         title: "Cash Ratio",
-
         fields: [
-            ["cash", "Cash and Cash Equivalents (₦)", "number"],
-            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+            ["cash", "Cash and Cash Equivalents (NGN )", "number"],
+            ["currentLiabilities", "Current Liabilities (NGN )", "number"]
         ],
-
-        formula:
-            "Cash Ratio = Cash and Cash Equivalents ÷ Current Liabilities",
-
+        formula: "Cash Ratio = Cash and Cash Equivalents / Current Liabilities",
         calculate(v) {
-
-            const cash =
-                getNumber(v, "cash");
-
-            const currentLiabilities =
-                getNumber(v, "currentLiabilities");
-
-            if (currentLiabilities === 0) {
-                return errorMessage(
-                    "Current liabilities cannot be zero."
-                );
-            }
-
-            const ratio =
-                cash / currentLiabilities;
-
-            return resultTemplate(
-                "Cash Ratio = Cash and Cash Equivalents ÷ Current Liabilities",
-
-                `
-                ${money(cash)}
-                ÷ ${money(currentLiabilities)}
-                =
-                ${number(ratio)}
-                `,
-
-                `${number(ratio)} : 1`,
-
-                "Measures the ability to meet current liabilities using cash and cash equivalents."
-            );
-
+            const c = getNumber(v, "cash");
+            const l = getNumber(v, "currentLiabilities");
+            if (l === 0) return errorMessage("Current liabilities cannot be zero.");
+            const r = c / l;
+            return resultTemplate("Cash Ratio = Cash and Cash Equivalents / Current Liabilities", `${money(c)} / ${money(l)} = ${number(r)}`, `${number(r)} : 1`, "Measures the ability to meet current liabilities using cash and cash equivalents.");
         }
-
     },
-
 
     "working-capital": {
-
         title: "Working Capital",
-
         fields: [
-            ["currentAssets", "Current Assets (₦)", "number"],
-            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+            ["currentAssets", "Current Assets (NGN )", "number"],
+            ["currentLiabilities", "Current Liabilities (NGN )", "number"]
         ],
-
-        formula:
-            "Working Capital = Current Assets − Current Liabilities",
-
+        formula: "Working Capital = Current Assets - Current Liabilities",
         calculate(v) {
-
-            const currentAssets =
-                getNumber(v, "currentAssets");
-
-            const currentLiabilities =
-                getNumber(v, "currentLiabilities");
-
-            const workingCapital =
-                currentAssets -
-                currentLiabilities;
-
-            return resultTemplate(
-                "Working Capital = Current Assets − Current Liabilities",
-
-                `
-                ${money(currentAssets)}
-                − ${money(currentLiabilities)}
-                =
-                ${money(workingCapital)}
-                `,
-
-                money(workingCapital),
-
-                workingCapital >= 0
-                    ? "The business has positive working capital."
-                    : "The business has negative working capital."
-            );
-
+            const a = getNumber(v, "currentAssets");
+            const l = getNumber(v, "currentLiabilities");
+            const r = a - l;
+            return resultTemplate("Working Capital = Current Assets - Current Liabilities", `${money(a)} - ${money(l)} = ${money(r)}`, money(r), r >= 0 ? "The business has positive working capital." : "The business has negative working capital.");
         }
-
     },
-
 
     "inventory-turnover": {
-
         title: "Inventory Turnover",
-
         fields: [
-            ["cogs", "Cost of Goods Sold (₦)", "number"],
-            ["averageInventory", "Average Inventory (₦)", "number"]
+            ["cogs", "Cost of Goods Sold (NGN )", "number"],
+            ["averageInventory", "Average Inventory (NGN )", "number"]
         ],
-
-        formula:
-            "Inventory Turnover = Cost of Goods Sold ÷ Average Inventory",
-
+        formula: "Inventory Turnover = COGS / Average Inventory",
         calculate(v) {
-
-            const cogs =
-                getNumber(v, "cogs");
-
-            const averageInventory =
-                getNumber(v, "averageInventory");
-
-            if (averageInventory === 0) {
-                return errorMessage(
-                    "Average inventory cannot be zero."
-                );
-            }
-
-            const ratio =
-                cogs / averageInventory;
-
-            return resultTemplate(
-                "Inventory Turnover = COGS ÷ Average Inventory",
-
-                `
-                ${money(cogs)}
-                ÷ ${money(averageInventory)}
-                =
-                ${number(ratio)}
-                times
-                `,
-
-                `${number(ratio)} times`,
-
-                "Measures how many times inventory is sold or used during the period."
-            );
-
+            const c = getNumber(v, "cogs");
+            const i = getNumber(v, "averageInventory");
+            if (i === 0) return errorMessage("Average inventory cannot be zero.");
+            const r = c / i;
+            return resultTemplate("Inventory Turnover = COGS / Average Inventory", `${money(c)} / ${money(i)} = ${number(r)} times`, `${number(r)} times`, "Measures how many times inventory is sold or used during the period.");
         }
-
     },
-
 
     "receivables-turnover": {
-
         title: "Receivables Turnover",
-
         fields: [
-            ["creditSales", "Credit Sales (₦)", "number"],
-            ["averageReceivables", "Average Trade Receivables (₦)", "number"]
+            ["creditSales", "Credit Sales (NGN )", "number"],
+            ["averageReceivables", "Average Trade Receivables (NGN )", "number"]
         ],
-
-        formula:
-            "Receivables Turnover = Credit Sales ÷ Average Trade Receivables",
-
+        formula: "Receivables Turnover = Credit Sales / Average Trade Receivables",
         calculate(v) {
-
-            const creditSales =
-                getNumber(v, "creditSales");
-
-            const averageReceivables =
-                getNumber(v, "averageReceivables");
-
-            if (averageReceivables === 0) {
-                return errorMessage(
-                    "Average receivables cannot be zero."
-                );
-            }
-
-            const ratio =
-                creditSales / averageReceivables;
-
-            return resultTemplate(
-                "Receivables Turnover = Credit Sales ÷ Average Trade Receivables",
-
-                `
-                ${money(creditSales)}
-                ÷ ${money(averageReceivables)}
-                =
-                ${number(ratio)}
-                times
-                `,
-
-                `${number(ratio)} times`,
-
-                "Measures how efficiently the business collects money owed by customers."
-            );
-
+            const s = getNumber(v, "creditSales");
+            const rcv = getNumber(v, "averageReceivables");
+            if (rcv === 0) return errorMessage("Average receivables cannot be zero.");
+            const r = s / rcv;
+            return resultTemplate("Receivables Turnover = Credit Sales / Average Trade Receivables", `${money(s)} / ${money(rcv)} = ${number(r)} times`, `${number(r)} times`, "Measures how efficiently the business collects money owed by customers.");
         }
-
     },
-
 
     "payables-turnover": {
-
         title: "Payables Turnover",
-
         fields: [
-            ["creditPurchases", "Credit Purchases (₦)", "number"],
-            ["averagePayables", "Average Trade Payables (₦)", "number"]
+            ["creditPurchases", "Credit Purchases (NGN )", "number"],
+            ["averagePayables", "Average Trade Payables (NGN )", "number"]
         ],
-
-        formula:
-            "Payables Turnover = Credit Purchases ÷ Average Trade Payables",
-
+        formula: "Payables Turnover = Credit Purchases / Average Trade Payables",
         calculate(v) {
-
-            const creditPurchases =
-                getNumber(v, "creditPurchases");
-
-            const averagePayables =
-                getNumber(v, "averagePayables");
-
-            if (averagePayables === 0) {
-                return errorMessage(
-                    "Average payables cannot be zero."
-                );
-            }
-
-            const ratio =
-                creditPurchases / averagePayables;
-
-            return resultTemplate(
-                "Payables Turnover = Credit Purchases ÷ Average Trade Payables",
-
-                `
-                ${money(creditPurchases)}
-                ÷ ${money(averagePayables)}
-                =
-                ${number(ratio)}
-                times
-                `,
-
-                `${number(ratio)} times`,
-
-                "Measures how frequently the business pays its suppliers."
-            );
-
+            const p = getNumber(v, "creditPurchases");
+            const ap = getNumber(v, "averagePayables");
+            if (ap === 0) return errorMessage("Average payables cannot be zero.");
+            const r = p / ap;
+            return resultTemplate("Payables Turnover = Credit Purchases / Average Trade Payables", `${money(p)} / ${money(ap)} = ${number(r)} times`, `${number(r)} times`, "Measures how frequently the business pays its suppliers.");
         }
-
     },
-
 
     "total-asset-turnover": {
-
         title: "Total Asset Turnover",
-
         fields: [
-            ["revenue", "Revenue / Sales (₦)", "number"],
-            ["averageAssets", "Average Total Assets (₦)", "number"]
+            ["revenue", "Revenue / Sales (NGN )", "number"],
+            ["averageAssets", "Average Total Assets (NGN )", "number"]
         ],
-
-        formula:
-            "Total Asset Turnover = Revenue ÷ Average Total Assets",
-
+        formula: "Total Asset Turnover = Revenue / Average Total Assets",
         calculate(v) {
-
-            const revenue =
-                getNumber(v, "revenue");
-
-            const averageAssets =
-                getNumber(v, "averageAssets");
-
-            if (averageAssets === 0) {
-                return errorMessage(
-                    "Average total assets cannot be zero."
-                );
-            }
-
-            const ratio =
-                revenue / averageAssets;
-
-            return resultTemplate(
-                "Total Asset Turnover = Revenue ÷ Average Total Assets",
-
-                `
-                ${money(revenue)}
-                ÷ ${money(averageAssets)}
-                =
-                ${number(ratio)}
-                times
-                `,
-
-                `${number(ratio)} times`,
-
-                "Measures how efficiently the business uses its assets to generate revenue."
-            );
-
+            const s = getNumber(v, "revenue");
+            const a = getNumber(v, "averageAssets");
+            if (a === 0) return errorMessage("Average total assets cannot be zero.");
+            const r = s / a;
+            return resultTemplate("Total Asset Turnover = Revenue / Average Total Assets", `${money(s)} / ${money(a)} = ${number(r)} times`, `${number(r)} times`, "Measures how efficiently the business uses assets to generate revenue.");
         }
-
     },
-
 
     "inventory-days": {
-
         title: "Inventory Days",
-
         fields: [
-            ["averageInventory", "Average Inventory (₦)", "number"],
-            ["cogs", "Cost of Goods Sold (₦)", "number"]
+            ["averageInventory", "Average Inventory (NGN )", "number"],
+            ["cogs", "Cost of Goods Sold (NGN )", "number"]
         ],
-
-        formula:
-            "Inventory Days = (Average Inventory ÷ COGS) × 365",
-
+        formula: "Inventory Days = (Average Inventory / COGS) * 365",
         calculate(v) {
-
-            const averageInventory =
-                getNumber(v, "averageInventory");
-
-            const cogs =
-                getNumber(v, "cogs");
-
-            if (cogs === 0) {
-                return errorMessage(
-                    "COGS cannot be zero."
-                );
-            }
-
-            const days =
-                (averageInventory / cogs) * 365;
-
-            return resultTemplate(
-                "Inventory Days = (Average Inventory ÷ COGS) × 365",
-
-                `
-                (${money(averageInventory)}
-                ÷ ${money(cogs)})
-                × 365
-                =
-                ${number(days)}
-                days
-                `,
-
-                `${number(days)} days`,
-
-                "Measures the average number of days inventory remains before being sold or used."
-            );
-
+            const i = getNumber(v, "averageInventory");
+            const c = getNumber(v, "cogs");
+            if (c === 0) return errorMessage("COGS cannot be zero.");
+            const d = (i / c) * 365;
+            return resultTemplate("Inventory Days = (Average Inventory / COGS) * 365", `(${money(i)} / ${money(c)}) * 365 = ${number(d)} days`, `${number(d)} days`, "Measures the average number of days inventory remains before being sold or used.");
         }
-
     },
-
 
     "receivable-days": {
-
         title: "Receivable Days",
-
         fields: [
-            ["averageReceivables", "Average Trade Receivables (₦)", "number"],
-            ["creditSales", "Credit Sales (₦)", "number"]
+            ["averageReceivables", "Average Trade Receivables (NGN )", "number"],
+            ["creditSales", "Credit Sales (NGN )", "number"]
         ],
-
-        formula:
-            "Receivable Days = (Average Receivables ÷ Credit Sales) × 365",
-
+        formula: "Receivable Days = (Average Receivables / Credit Sales) * 365",
         calculate(v) {
-
-            const averageReceivables =
-                getNumber(v, "averageReceivables");
-
-            const creditSales =
-                getNumber(v, "creditSales");
-
-            if (creditSales === 0) {
-                return errorMessage(
-                    "Credit sales cannot be zero."
-                );
-            }
-
-            const days =
-                (averageReceivables / creditSales) * 365;
-
-            return resultTemplate(
-                "Receivable Days = (Average Receivables ÷ Credit Sales) × 365",
-
-                `
-                (${money(averageReceivables)}
-                ÷ ${money(creditSales)})
-                × 365
-                =
-                ${number(days)}
-                days
-                `,
-
-                `${number(days)} days`,
-
-                "Measures the average number of days customers take to pay amounts owed."
-            );
-
+            const rcv = getNumber(v, "averageReceivables");
+            const s = getNumber(v, "creditSales");
+            if (s === 0) return errorMessage("Credit sales cannot be zero.");
+            const d = (rcv / s) * 365;
+            return resultTemplate("Receivable Days = (Average Receivables / Credit Sales) * 365", `(${money(rcv)} / ${money(s)}) * 365 = ${number(d)} days`, `${number(d)} days`, "Measures the average number of days customers take to pay amounts owed.");
         }
-
     },
-
 
     "payable-days": {
-
         title: "Payable Days",
-
         fields: [
-            ["averagePayables", "Average Trade Payables (₦)", "number"],
-            ["creditPurchases", "Credit Purchases (₦)", "number"]
+            ["averagePayables", "Average Trade Payables (NGN )", "number"],
+            ["creditPurchases", "Credit Purchases (NGN )", "number"]
         ],
-
-        formula:
-            "Payable Days = (Average Payables ÷ Credit Purchases) × 365",
-
+        formula: "Payable Days = (Average Payables / Credit Purchases) * 365",
         calculate(v) {
-
-            const averagePayables =
-                getNumber(v, "averagePayables");
-
-            const creditPurchases =
-                getNumber(v, "creditPurchases");
-
-            if (creditPurchases === 0) {
-                return errorMessage(
-                    "Credit purchases cannot be zero."
-                );
-            }
-
-            const days =
-                (averagePayables / creditPurchases) * 365;
-
-            return resultTemplate(
-                "Payable Days = (Average Payables ÷ Credit Purchases) × 365",
-
-                `
-                (${money(averagePayables)}
-                ÷ ${money(creditPurchases)})
-                × 365
-                =
-                ${number(days)}
-                days
-                `,
-
-                `${number(days)} days`,
-
-                "Measures the average number of days the business takes to pay its suppliers."
-            );
-
+            const ap = getNumber(v, "averagePayables");
+            const p = getNumber(v, "creditPurchases");
+            if (p === 0) return errorMessage("Credit purchases cannot be zero.");
+            const d = (ap / p) * 365;
+            return resultTemplate("Payable Days = (Average Payables / Credit Purchases) * 365", `(${money(ap)} / ${money(p)}) * 365 = ${number(d)} days`, `${number(d)} days`, "Measures the average number of days the business takes to pay suppliers.");
         }
-
     },
-
 
     "debt-ratio": {
-
         title: "Debt Ratio",
-
         fields: [
-            ["totalLiabilities", "Total Liabilities (₦)", "number"],
-            ["totalAssets", "Total Assets (₦)", "number"]
+            ["totalLiabilities", "Total Liabilities (NGN )", "number"],
+            ["totalAssets", "Total Assets (NGN )", "number"]
         ],
-
-        formula:
-            "Debt Ratio = (Total Liabilities ÷ Total Assets) × 100",
-
+        formula: "Debt Ratio = (Total Liabilities / Total Assets) * 100",
         calculate(v) {
-
-            const liabilities =
-                getNumber(v, "totalLiabilities");
-
-            const assets =
-                getNumber(v, "totalAssets");
-
-            if (assets === 0) {
-                return errorMessage(
-                    "Total assets cannot be zero."
-                );
-            }
-
-            const ratio =
-                (liabilities / assets) * 100;
-
-            return resultTemplate(
-                "Debt Ratio = (Total Liabilities ÷ Total Assets) × 100",
-
-                `
-                (${money(liabilities)}
-                ÷ ${money(assets)})
-                × 100
-                =
-                ${percent(ratio)}
-                `,
-
-                percent(ratio),
-
-                "Shows the proportion of the business's assets financed by liabilities."
-            );
-
+            const l = getNumber(v, "totalLiabilities");
+            const a = getNumber(v, "totalAssets");
+            if (a === 0) return errorMessage("Total assets cannot be zero.");
+            const r = (l / a) * 100;
+            return resultTemplate("Debt Ratio = (Total Liabilities / Total Assets) * 100", `(${money(l)} / ${money(a)}) * 100 = ${percent(r)}`, percent(r), "Shows the proportion of assets financed by liabilities.");
         }
-
     },
-
 
     "debt-to-equity": {
-
         title: "Debt-to-Equity Ratio",
-
         fields: [
-            ["totalLiabilities", "Total Liabilities (₦)", "number"],
-            ["totalEquity", "Total Equity (₦)", "number"]
+            ["totalLiabilities", "Total Liabilities (NGN )", "number"],
+            ["totalEquity", "Total Equity (NGN )", "number"]
         ],
-
-        formula:
-            "Debt-to-Equity Ratio = Total Liabilities ÷ Total Equity",
-
+        formula: "Debt-to-Equity Ratio = Total Liabilities / Total Equity",
         calculate(v) {
-
-            const liabilities =
-                getNumber(v, "totalLiabilities");
-
-            const equity =
-                getNumber(v, "totalEquity");
-
-            if (equity === 0) {
-                return errorMessage(
-                    "Total equity cannot be zero."
-                );
-            }
-
-            const ratio =
-                liabilities / equity;
-
-            return resultTemplate(
-                "Debt-to-Equity Ratio = Total Liabilities ÷ Total Equity",
-
-                `
-                ${money(liabilities)}
-                ÷ ${money(equity)}
-                =
-                ${number(ratio)}
-                `,
-
-                `${number(ratio)} : 1`,
-
-                "Compares financing provided by creditors with financing provided by owners."
-            );
-
+            const l = getNumber(v, "totalLiabilities");
+            const e = getNumber(v, "totalEquity");
+            if (e === 0) return errorMessage("Total equity cannot be zero.");
+            const r = l / e;
+            return resultTemplate("Debt-to-Equity Ratio = Total Liabilities / Total Equity", `${money(l)} / ${money(e)} = ${number(r)}`, `${number(r)} : 1`, "Compares creditor financing with owners' equity financing.");
         }
-
     },
-
 
     "equity-ratio": {
-
         title: "Equity Ratio",
-
         fields: [
-            ["totalEquity", "Total Equity (₦)", "number"],
-            ["totalAssets", "Total Assets (₦)", "number"]
+            ["totalEquity", "Total Equity (NGN )", "number"],
+            ["totalAssets", "Total Assets (NGN )", "number"]
         ],
-
-        formula:
-            "Equity Ratio = (Total Equity ÷ Total Assets) × 100",
-
+        formula: "Equity Ratio = (Total Equity / Total Assets) * 100",
         calculate(v) {
-
-            const equity =
-                getNumber(v, "totalEquity");
-
-            const assets =
-                getNumber(v, "totalAssets");
-
-            if (assets === 0) {
-                return errorMessage(
-                    "Total assets cannot be zero."
-                );
-            }
-
-            const ratio =
-                (equity / assets) * 100;
-
-            return resultTemplate(
-                "Equity Ratio = (Total Equity ÷ Total Assets) × 100",
-
-                `
-                (${money(equity)}
-                ÷ ${money(assets)})
-                × 100
-                =
-                ${percent(ratio)}
-                `,
-
-                percent(ratio),
-
-                "Shows the proportion of the business's assets financed by owners' equity."
-            );
-
+            const e = getNumber(v, "totalEquity");
+            const a = getNumber(v, "totalAssets");
+            if (a === 0) return errorMessage("Total assets cannot be zero.");
+            const r = (e / a) * 100;
+            return resultTemplate("Equity Ratio = (Total Equity / Total Assets) * 100", `(${money(e)} / ${money(a)}) * 100 = ${percent(r)}`, percent(r), "Shows the proportion of assets financed by owners' equity.");
         }
-
     },
-
 
     "interest-coverage": {
-
         title: "Interest Coverage Ratio",
-
         fields: [
-            ["ebit", "EBIT / Operating Profit (₦)", "number"],
-            ["interest", "Interest Expense (₦)", "number"]
+            ["ebit", "EBIT / Operating Profit (NGN )", "number"],
+            ["interest", "Interest Expense (NGN )", "number"]
         ],
-
-        formula:
-            "Interest Coverage Ratio = EBIT ÷ Interest Expense",
-
+        formula: "Interest Coverage Ratio = EBIT / Interest Expense",
         calculate(v) {
-
-            const ebit =
-                getNumber(v, "ebit");
-
-            const interest =
-                getNumber(v, "interest");
-
-            if (interest === 0) {
-                return errorMessage(
-                    "Interest expense cannot be zero."
-                );
-            }
-
-            const ratio =
-                ebit / interest;
-
-            return resultTemplate(
-                "Interest Coverage Ratio = EBIT ÷ Interest Expense",
-
-                `
-                ${money(ebit)}
-                ÷ ${money(interest)}
-                =
-                ${number(ratio)}
-                times
-                `,
-
-                `${number(ratio)} times`,
-
-                "Indicates how many times operating profit can cover interest expense."
-            );
-
+            const e = getNumber(v, "ebit");
+            const i = getNumber(v, "interest");
+            if (i === 0) return errorMessage("Interest expense cannot be zero.");
+            const r = e / i;
+            return resultTemplate("Interest Coverage Ratio = EBIT / Interest Expense", `${money(e)} / ${money(i)} = ${number(r)} times`, `${number(r)} times`, "Indicates how many times operating profit can cover interest expense.");
         }
-
     },
-
 
     "return-on-assets": {
-
         title: "Return on Assets (ROA)",
-
         fields: [
-            ["netProfit", "Net Profit (₦)", "number"],
-            ["averageAssets", "Average Total Assets (₦)", "number"]
+            ["netProfit", "Net Profit (NGN )", "number"],
+            ["averageAssets", "Average Total Assets (NGN )", "number"]
         ],
-
-        formula:
-            "ROA = (Net Profit ÷ Average Total Assets) × 100",
-
+        formula: "ROA = (Net Profit / Average Total Assets) * 100",
         calculate(v) {
-
-            const profit =
-                getNumber(v, "netProfit");
-
-            const assets =
-                getNumber(v, "averageAssets");
-
-            if (assets === 0) {
-                return errorMessage(
-                    "Average total assets cannot be zero."
-                );
-            }
-
-            const roa =
-                (profit / assets) * 100;
-
-            return resultTemplate(
-                "ROA = (Net Profit ÷ Average Total Assets) × 100",
-
-                `
-                (${money(profit)}
-                ÷ ${money(assets)})
-                × 100
-                =
-                ${percent(roa)}
-                `,
-
-                percent(roa),
-
-                "Measures the return generated from the assets employed by the business."
-            );
-
+            const p = getNumber(v, "netProfit");
+            const a = getNumber(v, "averageAssets");
+            if (a === 0) return errorMessage("Average total assets cannot be zero.");
+            const r = (p / a) * 100;
+            return resultTemplate("ROA = (Net Profit / Average Total Assets) * 100", `(${money(p)} / ${money(a)}) * 100 = ${percent(r)}`, percent(r), "Measures the return generated from assets employed by the business.");
         }
-
     },
-
 
     "return-on-equity": {
-
         title: "Return on Equity (ROE)",
-
         fields: [
-            ["netProfit", "Net Profit (₦)", "number"],
-            ["averageEquity", "Average Equity (₦)", "number"]
+            ["netProfit", "Net Profit (NGN )", "number"],
+            ["averageEquity", "Average Equity (NGN )", "number"]
         ],
-
-        formula:
-            "ROE = (Net Profit ÷ Average Equity) × 100",
-
+        formula: "ROE = (Net Profit / Average Equity) * 100",
         calculate(v) {
-
-            const profit =
-                getNumber(v, "netProfit");
-
-            const equity =
-                getNumber(v, "averageEquity");
-
-            if (equity === 0) {
-                return errorMessage(
-                    "Average equity cannot be zero."
-                );
-            }
-
-            const roe =
-                (profit / equity) * 100;
-
-            return resultTemplate(
-                "ROE = (Net Profit ÷ Average Equity) × 100",
-
-                `
-                (${money(profit)}
-                ÷ ${money(equity)})
-                × 100
-                =
-                ${percent(roe)}
-                `,
-
-                percent(roe),
-
-                "Measures the return generated on owners' equity."
-            );
-
+            const p = getNumber(v, "netProfit");
+            const e = getNumber(v, "averageEquity");
+            if (e === 0) return errorMessage("Average equity cannot be zero.");
+            const r = (p / e) * 100;
+            return resultTemplate("ROE = (Net Profit / Average Equity) * 100", `(${money(p)} / ${money(e)}) * 100 = ${percent(r)}`, percent(r), "Measures the return generated on owners' equity.");
         }
-
     },
-
 
     "earnings-per-share": {
-
         title: "Earnings Per Share (EPS)",
-
         fields: [
-            ["profit", "Profit Attributable to Ordinary Shareholders (₦)", "number"],
+            ["profit", "Profit Attributable to Ordinary Shareholders (NGN )", "number"],
             ["shares", "Number of Ordinary Shares", "number"]
         ],
-
-        formula:
-            "EPS = Profit Attributable to Ordinary Shareholders ÷ Number of Ordinary Shares",
-
+        formula: "EPS = Profit Attributable to Ordinary Shareholders / Number of Ordinary Shares",
         calculate(v) {
-
-            const profit =
-                getNumber(v, "profit");
-
-            const shares =
-                getNumber(v, "shares");
-
-            if (shares === 0) {
-                return errorMessage(
-                    "Number of ordinary shares cannot be zero."
-                );
-            }
-
-            const eps =
-                profit / shares;
-
-            return resultTemplate(
-                "EPS = Profit Attributable to Ordinary Shareholders ÷ Number of Ordinary Shares",
-
-                `
-                ${money(profit)}
-                ÷ ${number(shares, 0)}
-                =
-                ${money(eps)}
-                per share
-                `,
-
-                `${money(eps)} per share`,
-
-                "Shows the amount of profit attributable to each ordinary share."
-            );
-
+            const p = getNumber(v, "profit");
+            const s = getNumber(v, "shares");
+            if (s === 0) return errorMessage("Number of ordinary shares cannot be zero.");
+            const r = p / s;
+            return resultTemplate("EPS = Profit Attributable to Ordinary Shareholders / Number of Ordinary Shares", `${money(p)} / ${number(s, 0)} = ${money(r)} per share`, `${money(r)} per share`, "Shows profit attributable to each ordinary share.");
         }
-
     },
-
 
     "pe-ratio": {
-
         title: "P/E Ratio",
-
         fields: [
-            ["marketPrice", "Market Price per Share (₦)", "number"],
-            ["eps", "Earnings Per Share (₦)", "number"]
+            ["marketPrice", "Market Price per Share (NGN )", "number"],
+            ["eps", "Earnings Per Share (NGN )", "number"]
         ],
-
-        formula:
-            "P/E Ratio = Market Price per Share ÷ Earnings Per Share",
-
+        formula: "P/E Ratio = Market Price per Share / EPS",
         calculate(v) {
-
-            const price =
-                getNumber(v, "marketPrice");
-
-            const eps =
-                getNumber(v, "eps");
-
-            if (eps === 0) {
-                return errorMessage(
-                    "EPS cannot be zero."
-                );
-            }
-
-            const ratio =
-                price / eps;
-
-            return resultTemplate(
-                "P/E Ratio = Market Price per Share ÷ EPS",
-
-                `
-                ${money(price)}
-                ÷ ${money(eps)}
-                =
-                ${number(ratio)}
-                times
-                `,
-
-                `${number(ratio)} times`,
-
-                "Compares the market price of a share with its earnings per share."
-            );
-
+            const p = getNumber(v, "marketPrice");
+            const e = getNumber(v, "eps");
+            if (e === 0) return errorMessage("EPS cannot be zero.");
+            const r = p / e;
+            return resultTemplate("P/E Ratio = Market Price per Share / EPS", `${money(p)} / ${money(e)} = ${number(r)} times`, `${number(r)} times`, "Compares the market price of a share with its earnings per share.");
         }
-
     },
-
 
     "dividend-per-share": {
-
         title: "Dividend Per Share",
-
         fields: [
-            ["dividends", "Total Ordinary Dividends (₦)", "number"],
+            ["dividends", "Total Ordinary Dividends (NGN )", "number"],
             ["shares", "Number of Ordinary Shares", "number"]
         ],
-
-        formula:
-            "Dividend Per Share = Total Ordinary Dividends ÷ Number of Ordinary Shares",
-
+        formula: "Dividend Per Share = Total Ordinary Dividends / Number of Ordinary Shares",
         calculate(v) {
-
-            const dividends =
-                getNumber(v, "dividends");
-
-            const shares =
-                getNumber(v, "shares");
-
-            if (shares === 0) {
-                return errorMessage(
-                    "Number of ordinary shares cannot be zero."
-                );
-            }
-
-            const dps =
-                dividends / shares;
-
-            return resultTemplate(
-                "Dividend Per Share = Total Ordinary Dividends ÷ Number of Ordinary Shares",
-
-                `
-                ${money(dividends)}
-                ÷ ${number(shares, 0)}
-                =
-                ${money(dps)}
-                `,
-
-                money(dps),
-
-                "Represents the dividend attributable to each ordinary share."
-            );
-
+            const d = getNumber(v, "dividends");
+            const s = getNumber(v, "shares");
+            if (s === 0) return errorMessage("Number of ordinary shares cannot be zero.");
+            const r = d / s;
+            return resultTemplate("Dividend Per Share = Total Ordinary Dividends / Number of Ordinary Shares", `${money(d)} / ${number(s, 0)} = ${money(r)}`, money(r), "Represents the dividend attributable to each ordinary share.");
         }
-
     },
 
-
     "dividend-yield": {
-
         title: "Dividend Yield",
-
         fields: [
-            ["dps", "Dividend Per Share (₦)", "number"],
-            ["marketPrice", "Market Price per Share (₦)", "number"]
+            ["dps", "Dividend Per Share (NGN )", "number"],
+            ["marketPrice", "Market Price per Share (NGN )", "number"]
         ],
-
-        formula:
-            "Dividend Yield = (Dividend Per Share ÷ Market Price per Share) × 100",
-
+        formula: "Dividend Yield = (Dividend Per Share / Market Price per Share) * 100",
         calculate(v) {
-
-            const dps =
-                getNumber(v, "dps");
-
-            const marketPrice =
-                getNumber(v, "marketPrice");
-
-            if (marketPrice === 0) {
-                return errorMessage(
-                    "Market price per share cannot be zero."
-                );
-            }
-
-            const yieldValue =
-                (dps / marketPrice) * 100;
-
-            return resultTemplate(
-                "Dividend Yield = (Dividend Per Share ÷ Market Price per Share) × 100",
-
-                `
-                (${money(dps)}
-                ÷ ${money(marketPrice)})
-                × 100
-                =
-                ${percent(yieldValue)}
-                `,
-
-                percent(yieldValue),
-
-                "Measures the dividend return relative to the market price of the share."
-            );
-
+            const d = getNumber(v, "dps");
+            const p = getNumber(v, "marketPrice");
+            if (p === 0) return errorMessage("Market price per share cannot be zero.");
+            const r = (d / p) * 100;
+            return resultTemplate("Dividend Yield = (Dividend Per Share / Market Price per Share) * 100", `(${money(d)} / ${money(p)}) * 100 = ${percent(r)}`, percent(r), "Measures dividend return relative to the market price of the share.");
         }
-
     }
 
 },
+
+}
+
+};
 
 
 /* =========================================================
@@ -6485,7 +5162,40 @@ const calculatorNames = {
             "Bad Debt",
 
         "cogs":
-            "Cost of Goods Sold"
+            "Cost of Goods Sold",
+
+        "ias36-impairment":
+            "IAS 36 - Impairment of Assets",
+
+        "ifrs15-multiple-obligations":
+            "IFRS 15 - Multiple Performance Obligations"
+
+    },
+
+
+    "financial-analysis": {
+
+        "current-ratio": "Current Ratio",
+        "acid-test-ratio": "Acid-Test / Quick Ratio",
+        "cash-ratio": "Cash Ratio",
+        "working-capital": "Working Capital",
+        "inventory-turnover": "Inventory Turnover",
+        "receivables-turnover": "Receivables Turnover",
+        "payables-turnover": "Payables Turnover",
+        "total-asset-turnover": "Total Asset Turnover",
+        "inventory-days": "Inventory Days",
+        "receivable-days": "Receivable Days",
+        "payable-days": "Payable Days",
+        "debt-ratio": "Debt Ratio",
+        "debt-to-equity": "Debt-to-Equity Ratio",
+        "equity-ratio": "Equity Ratio",
+        "interest-coverage": "Interest Coverage Ratio",
+        "return-on-assets": "Return on Assets (ROA)",
+        "return-on-equity": "Return on Equity (ROE)",
+        "earnings-per-share": "Earnings Per Share (EPS)",
+        "pe-ratio": "P/E Ratio",
+        "dividend-per-share": "Dividend Per Share",
+        "dividend-yield": "Dividend Yield"
 
     },
 
@@ -6534,7 +5244,7 @@ const calculatorNames = {
             "Indices / Exponents",
 
         "logarithm":
-            "Logarithms",
+            "Logarithm",
 
         "percentage-change":
             "Percentage Change",
@@ -6563,14 +5273,26 @@ const calculatorNames = {
         "sets":
             "Sets",
 
-        "differentiation":
-            "Differentiation",
+        "differentiation-power":
+            "Differentiation - Power Rule",
 
-        "integration":
-            "Integration",
+        "differentiation-product":
+            "Differentiation - Product Rule",
 
-        "matrices":
-            "Matrices",
+        "differentiation-quotient":
+            "Differentiation - Quotient Rule",
+
+        "differentiation-chain":
+            "Differentiation - Chain Rule",
+
+        "integration-power":
+            "Integration - Power Rule",
+
+        "integration-definite":
+            "Integration - Definite Integral",
+
+        "integration-log":
+            "Integration - Logarithmic Form",
 
         "ap-gp":
             "Arithmetic & Geometric Progression"
@@ -6708,74 +5430,6 @@ const calculatorNames = {
     }
 
 };
-
-
-financial-analysis: {
-
-    "current-ratio":
-        "Current Ratio",
-
-    "acid-test-ratio":
-        "Acid-Test / Quick Ratio",
-
-    "cash-ratio":
-        "Cash Ratio",
-
-    "working-capital":
-        "Working Capital",
-
-    "inventory-turnover":
-        "Inventory Turnover",
-
-    "receivables-turnover":
-        "Receivables Turnover",
-
-    "payables-turnover":
-        "Payables Turnover",
-
-    "total-asset-turnover":
-        "Total Asset Turnover",
-
-    "inventory-days":
-        "Inventory Days",
-
-    "receivable-days":
-        "Receivable Days",
-
-    "payable-days":
-        "Payable Days",
-
-    "debt-ratio":
-        "Debt Ratio",
-
-    "debt-to-equity":
-        "Debt-to-Equity Ratio",
-
-    "equity-ratio":
-        "Equity Ratio",
-
-    "interest-coverage":
-        "Interest Coverage Ratio",
-
-    "return-on-assets":
-        "Return on Assets (ROA)",
-
-    "return-on-equity":
-        "Return on Equity (ROE)",
-
-    "earnings-per-share":
-        "Earnings Per Share (EPS)",
-
-    "pe-ratio":
-        "P/E Ratio",
-
-    "dividend-per-share":
-        "Dividend Per Share",
-
-    "dividend-yield":
-        "Dividend Yield"
-
-}
 
 
 /* =========================================================
@@ -6956,76 +5610,7 @@ function showCalculator(type) {
     }
 
 
-    if (category === "mathematics" && ["differentiation", "integration", "logarithm", "matrices"].includes(type)) {
-
-        // Advanced mathematics has its own guided interface.
-        const addGroup = (label, id, inputType="text", options=[]) => {
-            const group=document.createElement("div");
-            group.className="input-group";
-            const lab=document.createElement("label"); lab.htmlFor=id; lab.textContent=label; group.appendChild(lab);
-            if(inputType==="select") {
-                const el=document.createElement("select"); el.id=id; el.name=id;
-                options.forEach(([value,text])=>{const o=document.createElement("option");o.value=value;o.textContent=text;el.appendChild(o);});
-                group.appendChild(el);
-            } else {
-                const el=document.createElement("input"); el.type=inputType; el.id=id; el.name=id; el.placeholder=label; if(inputType==="number") el.step="any"; group.appendChild(el);
-            }
-            calculatorForm.appendChild(group);
-            return document.getElementById(id);
-        };
-
-        if (type === "differentiation") {
-            const method=addGroup("Differentiation Method","diffMethod","select",calculator.options.diffMethod);
-            const mode=addGroup("Evaluation","diffMode","select",calculator.options.diffMode);
-            const expr=addGroup("Expression in x","diffExpression","text");
-            const u=addGroup("u(x) - Product/Quotient only","diffU","text");
-            const vv=addGroup("v(x) - Product/Quotient only","diffV","text");
-            const inner=addGroup("Inner function u(x) - Chain Rule only","diffInner","text");
-            const outer=addGroup("Outer function F(u) - Chain Rule only","diffOuter","text");
-            const x=addGroup("x value - With x value only","diffX","number");
-            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to use</strong><p>General/Power: enter one expression such as <strong>3x^2 + 2x - 5</strong>.<br>Product: enter u(x) and v(x).<br>Quotient: enter u(x) and v(x).<br>Chain: enter outer F(u), e.g. <strong>u^3</strong>, and inner u(x), e.g. <strong>2x+1</strong>.<br>Choose <strong>With x value</strong> when you want the numerical value of the derivative at a particular x.</p>`; calculatorForm.appendChild(note);
-            const refresh=()=>{
-                const m=method.value;
-                expr.parentElement.style.display=["general","power"].includes(m)?"block":"none";
-                u.parentElement.style.display=["product","quotient"].includes(m)?"block":"none";
-                vv.parentElement.style.display=["product","quotient"].includes(m)?"block":"none";
-                inner.parentElement.style.display=m==="chain"?"block":"none";
-                outer.parentElement.style.display=m==="chain"?"block":"none";
-                x.parentElement.style.display=mode.value==="with"?"block":"none";
-            };
-            method.addEventListener("change",refresh); mode.addEventListener("change",refresh); refresh();
-        } else if (type === "integration") {
-            const kind=addGroup("Integral Type","integrationType","select",calculator.options.integrationType);
-            const expr=addGroup("Expression in x","integrationExpression","text");
-            const lower=addGroup("Lower Limit","integrationLower","number");
-            const upper=addGroup("Upper Limit","integrationUpper","number");
-            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to use</strong><p><strong>Indefinite Integral:</strong> gives the general antiderivative and includes + C.<br><strong>Definite Integral:</strong> enter lower and upper limits to obtain F(upper) - F(lower).<br>Examples: <strong>3x^2 + 2x + 1</strong>, <strong>1/x</strong>, <strong>sin(x)</strong>.</p>`; calculatorForm.appendChild(note);
-            const refresh=()=>{ const show=kind.value==="definite"; lower.parentElement.style.display=show?"block":"none"; upper.parentElement.style.display=show?"block":"none"; };
-            kind.addEventListener("change",refresh); refresh();
-        } else if (type === "logarithm") {
-            const expr=addGroup("Logarithm Expression","logExpression","text");
-            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>Examples</strong><p>log_10(100)<br>log_2(8) + log_5(25)<br>log_5(2) + log_2(5)<br>You can use as many logarithms as needed and combine them with +, -, * and /.</p><p><small>Base &gt; 0, base â‰  1, and argument &gt; 0.</small></p>`; calculatorForm.appendChild(note);
-        } else if (type === "matrices") {
-            const op=addGroup("Matrix Operation","matrixOperation","select",calculator.options.matrixOperation);
-            const ra=addGroup("Rows of A","matrixRowsA","number"); const ca=addGroup("Columns of A","matrixColsA","number");
-            const rb=addGroup("Rows of B","matrixRowsB","number"); const cb=addGroup("Columns of B","matrixColsB","number");
-            const scalar=addGroup("Scalar - Scalar Multiplication only","matrixScalar","number");
-            const grid=document.createElement("div"); grid.id="matrixInputGrid"; calculatorForm.appendChild(grid);
-            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>Matrix guide</strong><p>Use dimensions from 1Ã—1 up to 3Ã—3. Addition/subtraction require equal dimensions. Multiplication requires columns of A = rows of B. Determinant and inverse require a square Matrix A.</p>`; calculatorForm.appendChild(note);
-            const build=()=>{
-                grid.innerHTML="";
-                const rA=clampInt(ra.value,1,3)||2, cA=clampInt(ca.value,1,3)||2, rB=clampInt(rb.value,1,3)||2, cB=clampInt(cb.value,1,3)||2;
-                const make=(prefix,r,c,title)=>{const h=document.createElement("h4");h.textContent=title;grid.appendChild(h);const wrap=document.createElement("div");wrap.style.display="grid";wrap.style.gridTemplateColumns=`repeat(${c}, minmax(55px, 1fr))`;wrap.style.gap="6px";for(let i=1;i<=r;i++)for(let j=1;j<=c;j++){const inp=document.createElement("input");inp.type="number";inp.step="any";inp.id=`${prefix}${i}${j}`;inp.placeholder=`${prefix.toUpperCase()}${i}${j}`;wrap.appendChild(inp);}grid.appendChild(wrap);};
-                make("a",rA,cA,"Matrix A"); make("b",rB,cB,"Matrix B");
-                const single=["transposeA","determinantA","inverseA","scalar"].includes(op.value); grid.querySelectorAll("h4:nth-of-type(2), h4:nth-of-type(2) ~ div").forEach(el=>{el.style.display=single?"none":"grid";});
-                scalar.parentElement.style.display=op.value==="scalar"?"block":"none";
-                rb.parentElement.style.display=["transposeA","determinantA","inverseA","scalar"].includes(op.value)?"none":"block";
-                cb.parentElement.style.display=["transposeA","determinantA","inverseA","scalar"].includes(op.value)?"none":"block";
-            };
-            [op,ra,ca,rb,cb].forEach(el=>el.addEventListener("change",build)); build();
-        }
-
-    } else if (
+    if (
         category === "accounting" &&
         type === "reducing-balance"
     ) {
