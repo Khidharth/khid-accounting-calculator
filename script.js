@@ -1569,22 +1569,30 @@ accounting: {
 
 
 "ifrs15-performance-obligations": {
-
     title: "IFRS 15 Multiple Performance Obligations",
-
     fields: [
         ["transactionPrice", "Total Transaction Price (NGN)", "number"],
         ["obligationCount", "Number of Performance Obligations", "select"],
+
         ["ssp1", "Obligation 1 - Stand-Alone Selling Price (NGN)", "number"],
         ["status1", "Obligation 1 - Status", "select"],
+        ["percent1", "Obligation 1 - Percentage Satisfied (%)", "number"],
+
         ["ssp2", "Obligation 2 - Stand-Alone Selling Price (NGN)", "number"],
         ["status2", "Obligation 2 - Status", "select"],
+        ["percent2", "Obligation 2 - Percentage Satisfied (%)", "number"],
+
         ["ssp3", "Obligation 3 - Stand-Alone Selling Price (NGN)", "number"],
         ["status3", "Obligation 3 - Status", "select"],
+        ["percent3", "Obligation 3 - Percentage Satisfied (%)", "number"],
+
         ["ssp4", "Obligation 4 - Stand-Alone Selling Price (NGN)", "number"],
         ["status4", "Obligation 4 - Status", "select"],
+        ["percent4", "Obligation 4 - Percentage Satisfied (%)", "number"],
+
         ["ssp5", "Obligation 5 - Stand-Alone Selling Price (NGN)", "number"],
-        ["status5", "Obligation 5 - Status", "select"]
+        ["status5", "Obligation 5 - Status", "select"],
+        ["percent5", "Obligation 5 - Percentage Satisfied (%)", "number"]
     ],
 
     options: {
@@ -1594,95 +1602,269 @@ accounting: {
             ["4", "4 Obligations"],
             ["5", "5 Obligations"]
         ],
-        status1: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status2: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status3: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status4: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status5: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]]
+
+        status1: [
+            ["satisfied", "Satisfied"],
+            ["partial", "Partially Satisfied"],
+            ["not-satisfied", "Not Satisfied"]
+        ],
+
+        status2: [
+            ["satisfied", "Satisfied"],
+            ["partial", "Partially Satisfied"],
+            ["not-satisfied", "Not Satisfied"]
+        ],
+
+        status3: [
+            ["satisfied", "Satisfied"],
+            ["partial", "Partially Satisfied"],
+            ["not-satisfied", "Not Satisfied"]
+        ],
+
+        status4: [
+            ["satisfied", "Satisfied"],
+            ["partial", "Partially Satisfied"],
+            ["not-satisfied", "Not Satisfied"]
+        ],
+
+        status5: [
+            ["satisfied", "Satisfied"],
+            ["partial", "Partially Satisfied"],
+            ["not-satisfied", "Not Satisfied"]
+        ]
     },
 
     formula:
         "Allocated Revenue = (Stand-Alone Selling Price / Total Stand-Alone Selling Prices) * Transaction Price",
 
     calculate(v) {
-
         const transactionPrice = getNumber(v, "transactionPrice");
         const count = Number(v.obligationCount || 2);
 
         if (!Number.isFinite(transactionPrice) || transactionPrice < 0) {
-            return errorMessage("Enter a valid non-negative transaction price.");
+            return errorMessage(
+                "Enter a valid non-negative transaction price."
+            );
         }
 
         const rows = [];
         let totalSSP = 0;
 
         for (let i = 1; i <= count; i++) {
+
             const ssp = Number(v[`ssp${i}`]);
             const status = v[`status${i}`] || "not-satisfied";
 
+            let percentSatisfied;
+
+            if (status === "satisfied") {
+                percentSatisfied = 100;
+            } else if (status === "partial") {
+                percentSatisfied = Number(v[`percent${i}`]);
+
+                if (
+                    !Number.isFinite(percentSatisfied) ||
+                    percentSatisfied < 0 ||
+                    percentSatisfied > 100
+                ) {
+                    return errorMessage(
+                        `Enter a percentage between 0% and 100% for Obligation ${i}.`
+                    );
+                }
+            } else {
+                percentSatisfied = 0;
+            }
+
             if (!Number.isFinite(ssp) || ssp <= 0) {
-                return errorMessage(`Enter a valid stand-alone selling price for Obligation ${i}.`);
+                return errorMessage(
+                    `Enter a valid stand-alone selling price for Obligation ${i}.`
+                );
             }
 
             totalSSP += ssp;
-            rows.push({ number: i, ssp, status });
+
+            rows.push({
+                number: i,
+                ssp,
+                status,
+                percentSatisfied
+            });
         }
 
         let recognised = 0;
         let remaining = 0;
 
         rows.forEach(row => {
-            row.allocated = (row.ssp / totalSSP) * transactionPrice;
-            if (row.status === "satisfied") {
-                recognised += row.allocated;
-            } else {
-                remaining += row.allocated;
-            }
+
+            row.allocated =
+                (row.ssp / totalSSP) * transactionPrice;
+
+            row.recognised =
+                row.allocated *
+                (row.percentSatisfied / 100);
+
+            row.remaining =
+                row.allocated -
+                row.recognised;
+
+            recognised += row.recognised;
+            remaining += row.remaining;
         });
 
-        const tableRows = rows.map(row => `
-            <tr>
-                <td style="padding:8px; border:1px solid #999;">${row.number}</td>
-                <td style="padding:8px; border:1px solid #999;">${money(row.ssp)}</td>
-                <td style="padding:8px; border:1px solid #999;">${row.status === "satisfied" ? "Satisfied" : "Not Satisfied"}</td>
-                <td style="padding:8px; border:1px solid #999;">${money(row.allocated)}</td>
-            </tr>
-        `).join("");
+        const tableRows = rows.map(row => {
+
+            const statusText =
+                row.status === "satisfied"
+                    ? "Satisfied"
+                    : row.status === "partial"
+                        ? "Partially Satisfied"
+                        : "Not Satisfied";
+
+            return `
+                <tr>
+                    <td style="padding:8px; border:1px solid #999;">
+                        ${row.number}
+                    </td>
+
+                    <td style="padding:8px; border:1px solid #999;">
+                        ${money(row.ssp)}
+                    </td>
+
+                    <td style="padding:8px; border:1px solid #999;">
+                        ${statusText}
+                    </td>
+
+                    <td style="padding:8px; border:1px solid #999;">
+                        ${number(row.percentSatisfied)}%
+                    </td>
+
+                    <td style="padding:8px; border:1px solid #999;">
+                        ${money(row.allocated)}
+                    </td>
+
+                    <td style="padding:8px; border:1px solid #999;">
+                        ${money(row.recognised)}
+                    </td>
+                </tr>
+            `;
+        }).join("");
 
         return resultTemplate(
-            "Allocated Revenue = (SSP of Obligation / Total SSP) * Transaction Price",
-            `
-            Total Transaction Price = ${money(transactionPrice)}<br>
-            Total Stand-Alone Selling Prices = ${money(totalSSP)}<br><br>
 
-            Each obligation receives:<br>
-            SSP / Total SSP * Transaction Price<br><br>
+            "Allocated Revenue = (SSP of Obligation / Total SSP) * Transaction Price",
+
+            `
+            Total Transaction Price =
+            ${money(transactionPrice)}
+
+            <br><br>
+
+            Total Stand-Alone Selling Prices =
+            ${money(totalSSP)}
+
+            <br><br>
+
+            <strong>Allocation Formula</strong><br>
+            Allocated Revenue =
+            (SSP / Total SSP) × Transaction Price
+
+            <br><br>
+
+            <strong>Recognition Formula</strong><br>
+            Revenue Recognised =
+            Allocated Revenue × Percentage Satisfied
+
+            <br><br>
 
             <div style="overflow-x:auto;">
+
                 <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+
                     <thead>
                         <tr>
-                            <th style="padding:8px; border:1px solid #999;">Obligation</th>
-                            <th style="padding:8px; border:1px solid #999;">SSP</th>
-                            <th style="padding:8px; border:1px solid #999;">Status</th>
-                            <th style="padding:8px; border:1px solid #999;">Allocated Revenue</th>
+                            <th style="padding:8px; border:1px solid #999;">
+                                Obligation
+                            </th>
+
+                            <th style="padding:8px; border:1px solid #999;">
+                                SSP
+                            </th>
+
+                            <th style="padding:8px; border:1px solid #999;">
+                                Status
+                            </th>
+
+                            <th style="padding:8px; border:1px solid #999;">
+                                % Satisfied
+                            </th>
+
+                            <th style="padding:8px; border:1px solid #999;">
+                                Allocated Revenue
+                            </th>
+
+                            <th style="padding:8px; border:1px solid #999;">
+                                Revenue Recognised
+                            </th>
                         </tr>
                     </thead>
-                    <tbody>${tableRows}</tbody>
+
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+
                 </table>
+
             </div>
+
             <br>
-            Revenue Recognised = ${money(recognised)}<br>
-            Revenue Not Yet Recognised = ${money(remaining)}
+
+            Total Revenue Recognised =
+            ${money(recognised)}
+
+            <br>
+
+            Revenue Not Yet Recognised =
+            ${money(remaining)}
             `,
-            `Recognised Revenue = ${money(recognised)}<br>Remaining Contract Revenue = ${money(remaining)}`,
-            "Revenue is recognised for the performance obligations marked Satisfied. The allocation is based on relative stand-alone selling prices."
+
+            `
+            Recognised Revenue =
+            ${money(recognised)}
+
+            <br>
+
+            Remaining Contract Revenue =
+            ${money(remaining)}
+            `,
+
+            `
+            Revenue is recognised based on the extent to which each
+            performance obligation has been satisfied.
+
+            <br><br>
+
+            <strong>Satisfied:</strong>
+            100% of the allocated revenue is recognised.
+
+            <br>
+
+            <strong>Partially Satisfied:</strong>
+            The percentage entered is applied to the allocated revenue.
+
+            <br>
+
+            <strong>Not Satisfied:</strong>
+            0% of the allocated revenue is recognised.
+
+            <br><br>
+
+            For example, if a two-year service has been satisfied for
+            one year and the service is provided evenly over time,
+            the percentage satisfied would be 50%.
+            `
         );
-
     }
-
 }
-},
 
 
 /* =========================================================
