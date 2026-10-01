@@ -19,7 +19,7 @@ if (themeToggle) {
 
         document.body.classList.add("dark-mode");
 
-        themeToggle.textContent = "Sun Light Mode";
+        themeToggle.textContent = "Light Mode";
 
     }
 
