@@ -3012,8 +3012,8 @@ mathematics: {
                     appear in B.
                     `,
                     isSubset
-                        ? "A âŠ† B â€” YES"
-                        : "A âŠ† B â€” NO"
+                        ? "A  B ” YES"
+                        : "A  B ” NO"
                 );
 
             }
