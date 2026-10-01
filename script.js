@@ -5373,6 +5373,1077 @@ economics: {
 
 
 /* =========================================================
+   FINANCIAL ANALYSIS
+========================================================= */
+
+"financial-analysis": {
+
+    "current-ratio": {
+
+        title: "Current Ratio",
+
+        fields: [
+            ["currentAssets", "Current Assets (₦)", "number"],
+            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+        ],
+
+        formula:
+            "Current Ratio = Current Assets ÷ Current Liabilities",
+
+        calculate(v) {
+
+            const currentAssets =
+                getNumber(v, "currentAssets");
+
+            const currentLiabilities =
+                getNumber(v, "currentLiabilities");
+
+            if (currentLiabilities === 0) {
+                return errorMessage(
+                    "Current liabilities cannot be zero."
+                );
+            }
+
+            const ratio =
+                currentAssets / currentLiabilities;
+
+            return resultTemplate(
+                "Current Ratio = Current Assets ÷ Current Liabilities",
+
+                `
+                ${money(currentAssets)}
+                ÷ ${money(currentLiabilities)}
+                =
+                ${number(ratio)}
+                `,
+
+                `${number(ratio)} : 1`,
+
+                "Measures the business's ability to meet short-term obligations using current assets."
+            );
+
+        }
+
+    },
+
+
+    "acid-test-ratio": {
+
+        title: "Acid-Test / Quick Ratio",
+
+        fields: [
+            ["currentAssets", "Current Assets (₦)", "number"],
+            ["inventory", "Inventory (₦)", "number"],
+            ["prepayments", "Prepayments (₦) - Optional", "number"],
+            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+        ],
+
+        formula:
+            "Quick Assets = Current Assets − Inventory − Prepayments<br>Acid-Test Ratio = Quick Assets ÷ Current Liabilities",
+
+        calculate(v) {
+
+            const currentAssets =
+                getNumber(v, "currentAssets");
+
+            const inventory =
+                getNumber(v, "inventory");
+
+            const prepayments =
+                Number(v.prepayments) || 0;
+
+            const currentLiabilities =
+                getNumber(v, "currentLiabilities");
+
+            if (currentLiabilities === 0) {
+                return errorMessage(
+                    "Current liabilities cannot be zero."
+                );
+            }
+
+            const quickAssets =
+                currentAssets -
+                inventory -
+                prepayments;
+
+            const ratio =
+                quickAssets / currentLiabilities;
+
+            return resultTemplate(
+                "Acid-Test Ratio = (Current Assets − Inventory − Prepayments) ÷ Current Liabilities",
+
+                `
+                Quick Assets =
+                ${money(currentAssets)}
+                − ${money(inventory)}
+                − ${money(prepayments)}
+                <br><br>
+
+                ${money(quickAssets)}
+                ÷ ${money(currentLiabilities)}
+                =
+                ${number(ratio)}
+                `,
+
+                `${number(ratio)} : 1`,
+
+                "Measures the ability to meet current liabilities using liquid current assets, excluding inventory and prepayments."
+            );
+
+        }
+
+    },
+
+
+    "cash-ratio": {
+
+        title: "Cash Ratio",
+
+        fields: [
+            ["cash", "Cash and Cash Equivalents (₦)", "number"],
+            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+        ],
+
+        formula:
+            "Cash Ratio = Cash and Cash Equivalents ÷ Current Liabilities",
+
+        calculate(v) {
+
+            const cash =
+                getNumber(v, "cash");
+
+            const currentLiabilities =
+                getNumber(v, "currentLiabilities");
+
+            if (currentLiabilities === 0) {
+                return errorMessage(
+                    "Current liabilities cannot be zero."
+                );
+            }
+
+            const ratio =
+                cash / currentLiabilities;
+
+            return resultTemplate(
+                "Cash Ratio = Cash and Cash Equivalents ÷ Current Liabilities",
+
+                `
+                ${money(cash)}
+                ÷ ${money(currentLiabilities)}
+                =
+                ${number(ratio)}
+                `,
+
+                `${number(ratio)} : 1`,
+
+                "Measures the ability to meet current liabilities using cash and cash equivalents."
+            );
+
+        }
+
+    },
+
+
+    "working-capital": {
+
+        title: "Working Capital",
+
+        fields: [
+            ["currentAssets", "Current Assets (₦)", "number"],
+            ["currentLiabilities", "Current Liabilities (₦)", "number"]
+        ],
+
+        formula:
+            "Working Capital = Current Assets − Current Liabilities",
+
+        calculate(v) {
+
+            const currentAssets =
+                getNumber(v, "currentAssets");
+
+            const currentLiabilities =
+                getNumber(v, "currentLiabilities");
+
+            const workingCapital =
+                currentAssets -
+                currentLiabilities;
+
+            return resultTemplate(
+                "Working Capital = Current Assets − Current Liabilities",
+
+                `
+                ${money(currentAssets)}
+                − ${money(currentLiabilities)}
+                =
+                ${money(workingCapital)}
+                `,
+
+                money(workingCapital),
+
+                workingCapital >= 0
+                    ? "The business has positive working capital."
+                    : "The business has negative working capital."
+            );
+
+        }
+
+    },
+
+
+    "inventory-turnover": {
+
+        title: "Inventory Turnover",
+
+        fields: [
+            ["cogs", "Cost of Goods Sold (₦)", "number"],
+            ["averageInventory", "Average Inventory (₦)", "number"]
+        ],
+
+        formula:
+            "Inventory Turnover = Cost of Goods Sold ÷ Average Inventory",
+
+        calculate(v) {
+
+            const cogs =
+                getNumber(v, "cogs");
+
+            const averageInventory =
+                getNumber(v, "averageInventory");
+
+            if (averageInventory === 0) {
+                return errorMessage(
+                    "Average inventory cannot be zero."
+                );
+            }
+
+            const ratio =
+                cogs / averageInventory;
+
+            return resultTemplate(
+                "Inventory Turnover = COGS ÷ Average Inventory",
+
+                `
+                ${money(cogs)}
+                ÷ ${money(averageInventory)}
+                =
+                ${number(ratio)}
+                times
+                `,
+
+                `${number(ratio)} times`,
+
+                "Measures how many times inventory is sold or used during the period."
+            );
+
+        }
+
+    },
+
+
+    "receivables-turnover": {
+
+        title: "Receivables Turnover",
+
+        fields: [
+            ["creditSales", "Credit Sales (₦)", "number"],
+            ["averageReceivables", "Average Trade Receivables (₦)", "number"]
+        ],
+
+        formula:
+            "Receivables Turnover = Credit Sales ÷ Average Trade Receivables",
+
+        calculate(v) {
+
+            const creditSales =
+                getNumber(v, "creditSales");
+
+            const averageReceivables =
+                getNumber(v, "averageReceivables");
+
+            if (averageReceivables === 0) {
+                return errorMessage(
+                    "Average receivables cannot be zero."
+                );
+            }
+
+            const ratio =
+                creditSales / averageReceivables;
+
+            return resultTemplate(
+                "Receivables Turnover = Credit Sales ÷ Average Trade Receivables",
+
+                `
+                ${money(creditSales)}
+                ÷ ${money(averageReceivables)}
+                =
+                ${number(ratio)}
+                times
+                `,
+
+                `${number(ratio)} times`,
+
+                "Measures how efficiently the business collects money owed by customers."
+            );
+
+        }
+
+    },
+
+
+    "payables-turnover": {
+
+        title: "Payables Turnover",
+
+        fields: [
+            ["creditPurchases", "Credit Purchases (₦)", "number"],
+            ["averagePayables", "Average Trade Payables (₦)", "number"]
+        ],
+
+        formula:
+            "Payables Turnover = Credit Purchases ÷ Average Trade Payables",
+
+        calculate(v) {
+
+            const creditPurchases =
+                getNumber(v, "creditPurchases");
+
+            const averagePayables =
+                getNumber(v, "averagePayables");
+
+            if (averagePayables === 0) {
+                return errorMessage(
+                    "Average payables cannot be zero."
+                );
+            }
+
+            const ratio =
+                creditPurchases / averagePayables;
+
+            return resultTemplate(
+                "Payables Turnover = Credit Purchases ÷ Average Trade Payables",
+
+                `
+                ${money(creditPurchases)}
+                ÷ ${money(averagePayables)}
+                =
+                ${number(ratio)}
+                times
+                `,
+
+                `${number(ratio)} times`,
+
+                "Measures how frequently the business pays its suppliers."
+            );
+
+        }
+
+    },
+
+
+    "total-asset-turnover": {
+
+        title: "Total Asset Turnover",
+
+        fields: [
+            ["revenue", "Revenue / Sales (₦)", "number"],
+            ["averageAssets", "Average Total Assets (₦)", "number"]
+        ],
+
+        formula:
+            "Total Asset Turnover = Revenue ÷ Average Total Assets",
+
+        calculate(v) {
+
+            const revenue =
+                getNumber(v, "revenue");
+
+            const averageAssets =
+                getNumber(v, "averageAssets");
+
+            if (averageAssets === 0) {
+                return errorMessage(
+                    "Average total assets cannot be zero."
+                );
+            }
+
+            const ratio =
+                revenue / averageAssets;
+
+            return resultTemplate(
+                "Total Asset Turnover = Revenue ÷ Average Total Assets",
+
+                `
+                ${money(revenue)}
+                ÷ ${money(averageAssets)}
+                =
+                ${number(ratio)}
+                times
+                `,
+
+                `${number(ratio)} times`,
+
+                "Measures how efficiently the business uses its assets to generate revenue."
+            );
+
+        }
+
+    },
+
+
+    "inventory-days": {
+
+        title: "Inventory Days",
+
+        fields: [
+            ["averageInventory", "Average Inventory (₦)", "number"],
+            ["cogs", "Cost of Goods Sold (₦)", "number"]
+        ],
+
+        formula:
+            "Inventory Days = (Average Inventory ÷ COGS) × 365",
+
+        calculate(v) {
+
+            const averageInventory =
+                getNumber(v, "averageInventory");
+
+            const cogs =
+                getNumber(v, "cogs");
+
+            if (cogs === 0) {
+                return errorMessage(
+                    "COGS cannot be zero."
+                );
+            }
+
+            const days =
+                (averageInventory / cogs) * 365;
+
+            return resultTemplate(
+                "Inventory Days = (Average Inventory ÷ COGS) × 365",
+
+                `
+                (${money(averageInventory)}
+                ÷ ${money(cogs)})
+                × 365
+                =
+                ${number(days)}
+                days
+                `,
+
+                `${number(days)} days`,
+
+                "Measures the average number of days inventory remains before being sold or used."
+            );
+
+        }
+
+    },
+
+
+    "receivable-days": {
+
+        title: "Receivable Days",
+
+        fields: [
+            ["averageReceivables", "Average Trade Receivables (₦)", "number"],
+            ["creditSales", "Credit Sales (₦)", "number"]
+        ],
+
+        formula:
+            "Receivable Days = (Average Receivables ÷ Credit Sales) × 365",
+
+        calculate(v) {
+
+            const averageReceivables =
+                getNumber(v, "averageReceivables");
+
+            const creditSales =
+                getNumber(v, "creditSales");
+
+            if (creditSales === 0) {
+                return errorMessage(
+                    "Credit sales cannot be zero."
+                );
+            }
+
+            const days =
+                (averageReceivables / creditSales) * 365;
+
+            return resultTemplate(
+                "Receivable Days = (Average Receivables ÷ Credit Sales) × 365",
+
+                `
+                (${money(averageReceivables)}
+                ÷ ${money(creditSales)})
+                × 365
+                =
+                ${number(days)}
+                days
+                `,
+
+                `${number(days)} days`,
+
+                "Measures the average number of days customers take to pay amounts owed."
+            );
+
+        }
+
+    },
+
+
+    "payable-days": {
+
+        title: "Payable Days",
+
+        fields: [
+            ["averagePayables", "Average Trade Payables (₦)", "number"],
+            ["creditPurchases", "Credit Purchases (₦)", "number"]
+        ],
+
+        formula:
+            "Payable Days = (Average Payables ÷ Credit Purchases) × 365",
+
+        calculate(v) {
+
+            const averagePayables =
+                getNumber(v, "averagePayables");
+
+            const creditPurchases =
+                getNumber(v, "creditPurchases");
+
+            if (creditPurchases === 0) {
+                return errorMessage(
+                    "Credit purchases cannot be zero."
+                );
+            }
+
+            const days =
+                (averagePayables / creditPurchases) * 365;
+
+            return resultTemplate(
+                "Payable Days = (Average Payables ÷ Credit Purchases) × 365",
+
+                `
+                (${money(averagePayables)}
+                ÷ ${money(creditPurchases)})
+                × 365
+                =
+                ${number(days)}
+                days
+                `,
+
+                `${number(days)} days`,
+
+                "Measures the average number of days the business takes to pay its suppliers."
+            );
+
+        }
+
+    },
+
+
+    "debt-ratio": {
+
+        title: "Debt Ratio",
+
+        fields: [
+            ["totalLiabilities", "Total Liabilities (₦)", "number"],
+            ["totalAssets", "Total Assets (₦)", "number"]
+        ],
+
+        formula:
+            "Debt Ratio = (Total Liabilities ÷ Total Assets) × 100",
+
+        calculate(v) {
+
+            const liabilities =
+                getNumber(v, "totalLiabilities");
+
+            const assets =
+                getNumber(v, "totalAssets");
+
+            if (assets === 0) {
+                return errorMessage(
+                    "Total assets cannot be zero."
+                );
+            }
+
+            const ratio =
+                (liabilities / assets) * 100;
+
+            return resultTemplate(
+                "Debt Ratio = (Total Liabilities ÷ Total Assets) × 100",
+
+                `
+                (${money(liabilities)}
+                ÷ ${money(assets)})
+                × 100
+                =
+                ${percent(ratio)}
+                `,
+
+                percent(ratio),
+
+                "Shows the proportion of the business's assets financed by liabilities."
+            );
+
+        }
+
+    },
+
+
+    "debt-to-equity": {
+
+        title: "Debt-to-Equity Ratio",
+
+        fields: [
+            ["totalLiabilities", "Total Liabilities (₦)", "number"],
+            ["totalEquity", "Total Equity (₦)", "number"]
+        ],
+
+        formula:
+            "Debt-to-Equity Ratio = Total Liabilities ÷ Total Equity",
+
+        calculate(v) {
+
+            const liabilities =
+                getNumber(v, "totalLiabilities");
+
+            const equity =
+                getNumber(v, "totalEquity");
+
+            if (equity === 0) {
+                return errorMessage(
+                    "Total equity cannot be zero."
+                );
+            }
+
+            const ratio =
+                liabilities / equity;
+
+            return resultTemplate(
+                "Debt-to-Equity Ratio = Total Liabilities ÷ Total Equity",
+
+                `
+                ${money(liabilities)}
+                ÷ ${money(equity)}
+                =
+                ${number(ratio)}
+                `,
+
+                `${number(ratio)} : 1`,
+
+                "Compares financing provided by creditors with financing provided by owners."
+            );
+
+        }
+
+    },
+
+
+    "equity-ratio": {
+
+        title: "Equity Ratio",
+
+        fields: [
+            ["totalEquity", "Total Equity (₦)", "number"],
+            ["totalAssets", "Total Assets (₦)", "number"]
+        ],
+
+        formula:
+            "Equity Ratio = (Total Equity ÷ Total Assets) × 100",
+
+        calculate(v) {
+
+            const equity =
+                getNumber(v, "totalEquity");
+
+            const assets =
+                getNumber(v, "totalAssets");
+
+            if (assets === 0) {
+                return errorMessage(
+                    "Total assets cannot be zero."
+                );
+            }
+
+            const ratio =
+                (equity / assets) * 100;
+
+            return resultTemplate(
+                "Equity Ratio = (Total Equity ÷ Total Assets) × 100",
+
+                `
+                (${money(equity)}
+                ÷ ${money(assets)})
+                × 100
+                =
+                ${percent(ratio)}
+                `,
+
+                percent(ratio),
+
+                "Shows the proportion of the business's assets financed by owners' equity."
+            );
+
+        }
+
+    },
+
+
+    "interest-coverage": {
+
+        title: "Interest Coverage Ratio",
+
+        fields: [
+            ["ebit", "EBIT / Operating Profit (₦)", "number"],
+            ["interest", "Interest Expense (₦)", "number"]
+        ],
+
+        formula:
+            "Interest Coverage Ratio = EBIT ÷ Interest Expense",
+
+        calculate(v) {
+
+            const ebit =
+                getNumber(v, "ebit");
+
+            const interest =
+                getNumber(v, "interest");
+
+            if (interest === 0) {
+                return errorMessage(
+                    "Interest expense cannot be zero."
+                );
+            }
+
+            const ratio =
+                ebit / interest;
+
+            return resultTemplate(
+                "Interest Coverage Ratio = EBIT ÷ Interest Expense",
+
+                `
+                ${money(ebit)}
+                ÷ ${money(interest)}
+                =
+                ${number(ratio)}
+                times
+                `,
+
+                `${number(ratio)} times`,
+
+                "Indicates how many times operating profit can cover interest expense."
+            );
+
+        }
+
+    },
+
+
+    "return-on-assets": {
+
+        title: "Return on Assets (ROA)",
+
+        fields: [
+            ["netProfit", "Net Profit (₦)", "number"],
+            ["averageAssets", "Average Total Assets (₦)", "number"]
+        ],
+
+        formula:
+            "ROA = (Net Profit ÷ Average Total Assets) × 100",
+
+        calculate(v) {
+
+            const profit =
+                getNumber(v, "netProfit");
+
+            const assets =
+                getNumber(v, "averageAssets");
+
+            if (assets === 0) {
+                return errorMessage(
+                    "Average total assets cannot be zero."
+                );
+            }
+
+            const roa =
+                (profit / assets) * 100;
+
+            return resultTemplate(
+                "ROA = (Net Profit ÷ Average Total Assets) × 100",
+
+                `
+                (${money(profit)}
+                ÷ ${money(assets)})
+                × 100
+                =
+                ${percent(roa)}
+                `,
+
+                percent(roa),
+
+                "Measures the return generated from the assets employed by the business."
+            );
+
+        }
+
+    },
+
+
+    "return-on-equity": {
+
+        title: "Return on Equity (ROE)",
+
+        fields: [
+            ["netProfit", "Net Profit (₦)", "number"],
+            ["averageEquity", "Average Equity (₦)", "number"]
+        ],
+
+        formula:
+            "ROE = (Net Profit ÷ Average Equity) × 100",
+
+        calculate(v) {
+
+            const profit =
+                getNumber(v, "netProfit");
+
+            const equity =
+                getNumber(v, "averageEquity");
+
+            if (equity === 0) {
+                return errorMessage(
+                    "Average equity cannot be zero."
+                );
+            }
+
+            const roe =
+                (profit / equity) * 100;
+
+            return resultTemplate(
+                "ROE = (Net Profit ÷ Average Equity) × 100",
+
+                `
+                (${money(profit)}
+                ÷ ${money(equity)})
+                × 100
+                =
+                ${percent(roe)}
+                `,
+
+                percent(roe),
+
+                "Measures the return generated on owners' equity."
+            );
+
+        }
+
+    },
+
+
+    "earnings-per-share": {
+
+        title: "Earnings Per Share (EPS)",
+
+        fields: [
+            ["profit", "Profit Attributable to Ordinary Shareholders (₦)", "number"],
+            ["shares", "Number of Ordinary Shares", "number"]
+        ],
+
+        formula:
+            "EPS = Profit Attributable to Ordinary Shareholders ÷ Number of Ordinary Shares",
+
+        calculate(v) {
+
+            const profit =
+                getNumber(v, "profit");
+
+            const shares =
+                getNumber(v, "shares");
+
+            if (shares === 0) {
+                return errorMessage(
+                    "Number of ordinary shares cannot be zero."
+                );
+            }
+
+            const eps =
+                profit / shares;
+
+            return resultTemplate(
+                "EPS = Profit Attributable to Ordinary Shareholders ÷ Number of Ordinary Shares",
+
+                `
+                ${money(profit)}
+                ÷ ${number(shares, 0)}
+                =
+                ${money(eps)}
+                per share
+                `,
+
+                `${money(eps)} per share`,
+
+                "Shows the amount of profit attributable to each ordinary share."
+            );
+
+        }
+
+    },
+
+
+    "pe-ratio": {
+
+        title: "P/E Ratio",
+
+        fields: [
+            ["marketPrice", "Market Price per Share (₦)", "number"],
+            ["eps", "Earnings Per Share (₦)", "number"]
+        ],
+
+        formula:
+            "P/E Ratio = Market Price per Share ÷ Earnings Per Share",
+
+        calculate(v) {
+
+            const price =
+                getNumber(v, "marketPrice");
+
+            const eps =
+                getNumber(v, "eps");
+
+            if (eps === 0) {
+                return errorMessage(
+                    "EPS cannot be zero."
+                );
+            }
+
+            const ratio =
+                price / eps;
+
+            return resultTemplate(
+                "P/E Ratio = Market Price per Share ÷ EPS",
+
+                `
+                ${money(price)}
+                ÷ ${money(eps)}
+                =
+                ${number(ratio)}
+                times
+                `,
+
+                `${number(ratio)} times`,
+
+                "Compares the market price of a share with its earnings per share."
+            );
+
+        }
+
+    },
+
+
+    "dividend-per-share": {
+
+        title: "Dividend Per Share",
+
+        fields: [
+            ["dividends", "Total Ordinary Dividends (₦)", "number"],
+            ["shares", "Number of Ordinary Shares", "number"]
+        ],
+
+        formula:
+            "Dividend Per Share = Total Ordinary Dividends ÷ Number of Ordinary Shares",
+
+        calculate(v) {
+
+            const dividends =
+                getNumber(v, "dividends");
+
+            const shares =
+                getNumber(v, "shares");
+
+            if (shares === 0) {
+                return errorMessage(
+                    "Number of ordinary shares cannot be zero."
+                );
+            }
+
+            const dps =
+                dividends / shares;
+
+            return resultTemplate(
+                "Dividend Per Share = Total Ordinary Dividends ÷ Number of Ordinary Shares",
+
+                `
+                ${money(dividends)}
+                ÷ ${number(shares, 0)}
+                =
+                ${money(dps)}
+                `,
+
+                money(dps),
+
+                "Represents the dividend attributable to each ordinary share."
+            );
+
+        }
+
+    },
+
+
+    "dividend-yield": {
+
+        title: "Dividend Yield",
+
+        fields: [
+            ["dps", "Dividend Per Share (₦)", "number"],
+            ["marketPrice", "Market Price per Share (₦)", "number"]
+        ],
+
+        formula:
+            "Dividend Yield = (Dividend Per Share ÷ Market Price per Share) × 100",
+
+        calculate(v) {
+
+            const dps =
+                getNumber(v, "dps");
+
+            const marketPrice =
+                getNumber(v, "marketPrice");
+
+            if (marketPrice === 0) {
+                return errorMessage(
+                    "Market price per share cannot be zero."
+                );
+            }
+
+            const yieldValue =
+                (dps / marketPrice) * 100;
+
+            return resultTemplate(
+                "Dividend Yield = (Dividend Per Share ÷ Market Price per Share) × 100",
+
+                `
+                (${money(dps)}
+                ÷ ${money(marketPrice)})
+                × 100
+                =
+                ${percent(yieldValue)}
+                `,
+
+                percent(yieldValue),
+
+                "Measures the dividend return relative to the market price of the share."
+            );
+
+        }
+
+    }
+
+},
+
+
+/* =========================================================
    CALCULATOR NAMES
 ========================================================= */
 
@@ -5637,6 +6708,74 @@ const calculatorNames = {
     }
 
 };
+
+
+financial-analysis: {
+
+    "current-ratio":
+        "Current Ratio",
+
+    "acid-test-ratio":
+        "Acid-Test / Quick Ratio",
+
+    "cash-ratio":
+        "Cash Ratio",
+
+    "working-capital":
+        "Working Capital",
+
+    "inventory-turnover":
+        "Inventory Turnover",
+
+    "receivables-turnover":
+        "Receivables Turnover",
+
+    "payables-turnover":
+        "Payables Turnover",
+
+    "total-asset-turnover":
+        "Total Asset Turnover",
+
+    "inventory-days":
+        "Inventory Days",
+
+    "receivable-days":
+        "Receivable Days",
+
+    "payable-days":
+        "Payable Days",
+
+    "debt-ratio":
+        "Debt Ratio",
+
+    "debt-to-equity":
+        "Debt-to-Equity Ratio",
+
+    "equity-ratio":
+        "Equity Ratio",
+
+    "interest-coverage":
+        "Interest Coverage Ratio",
+
+    "return-on-assets":
+        "Return on Assets (ROA)",
+
+    "return-on-equity":
+        "Return on Equity (ROE)",
+
+    "earnings-per-share":
+        "Earnings Per Share (EPS)",
+
+    "pe-ratio":
+        "P/E Ratio",
+
+    "dividend-per-share":
+        "Dividend Per Share",
+
+    "dividend-yield":
+        "Dividend Yield"
+
+}
 
 
 /* =========================================================
