@@ -33,13 +33,13 @@ if (themeToggle) {
 
         if (isDark) {
 
-            themeToggle.textContent = "Sun Light Mode";
+            themeToggle.textContent = "Light Mode";
 
             localStorage.setItem("theme", "dark");
 
         } else {
 
-            themeToggle.textContent = "Moon Dark Mode";
+            themeToggle.textContent = "Dark Mode";
 
             localStorage.setItem("theme", "light");
 
