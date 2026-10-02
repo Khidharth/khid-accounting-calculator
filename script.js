@@ -39,7 +39,7 @@ if (themeToggle) {
 
         } else {
 
-            themeToggle.textContent = "🌑Dark Mode";
+            themeToggle.textContent = "🌙Dark Mode";
 
             localStorage.setItem("theme", "light");
 
