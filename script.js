@@ -19,7 +19,7 @@ if (themeToggle) {
 
         document.body.classList.add("dark-mode");
 
-        themeToggle.textContent = "💡Light Mode";
+        themeToggle.textContent = "Sun Light Mode";
 
     }
 
@@ -33,13 +33,13 @@ if (themeToggle) {
 
         if (isDark) {
 
-            themeToggle.textContent = "💡Light Mode";
+            themeToggle.textContent = "Sun Light Mode";
 
             localStorage.setItem("theme", "dark");
 
         } else {
 
-            themeToggle.textContent = "🌙Dark Mode";
+            themeToggle.textContent = "Moon Dark Mode";
 
             localStorage.setItem("theme", "light");
 
@@ -1577,14 +1577,19 @@ accounting: {
         ["obligationCount", "Number of Performance Obligations", "select"],
         ["ssp1", "Obligation 1 - Stand-Alone Selling Price (NGN)", "number"],
         ["status1", "Obligation 1 - Status", "select"],
+        ["percent1", "Obligation 1 - Percentage Satisfied (%)", "number"],
         ["ssp2", "Obligation 2 - Stand-Alone Selling Price (NGN)", "number"],
         ["status2", "Obligation 2 - Status", "select"],
+        ["percent2", "Obligation 2 - Percentage Satisfied (%)", "number"],
         ["ssp3", "Obligation 3 - Stand-Alone Selling Price (NGN)", "number"],
         ["status3", "Obligation 3 - Status", "select"],
+        ["percent3", "Obligation 3 - Percentage Satisfied (%)", "number"],
         ["ssp4", "Obligation 4 - Stand-Alone Selling Price (NGN)", "number"],
         ["status4", "Obligation 4 - Status", "select"],
+        ["percent4", "Obligation 4 - Percentage Satisfied (%)", "number"],
         ["ssp5", "Obligation 5 - Stand-Alone Selling Price (NGN)", "number"],
-        ["status5", "Obligation 5 - Status", "select"]
+        ["status5", "Obligation 5 - Status", "select"],
+        ["percent5", "Obligation 5 - Percentage Satisfied (%)", "number"]
     ],
 
     options: {
@@ -1594,11 +1599,11 @@ accounting: {
             ["4", "4 Obligations"],
             ["5", "5 Obligations"]
         ],
-        status1: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status2: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status3: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status4: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]],
-        status5: [["satisfied", "Satisfied"], ["not-satisfied", "Not Satisfied"]]
+        status1: [["satisfied", "Satisfied"], ["partial", "Partially Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status2: [["satisfied", "Satisfied"], ["partial", "Partially Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status3: [["satisfied", "Satisfied"], ["partial", "Partially Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status4: [["satisfied", "Satisfied"], ["partial", "Partially Satisfied"], ["not-satisfied", "Not Satisfied"]],
+        status5: [["satisfied", "Satisfied"], ["partial", "Partially Satisfied"], ["not-satisfied", "Not Satisfied"]]
     },
 
     formula:
@@ -1619,13 +1624,23 @@ accounting: {
         for (let i = 1; i <= count; i++) {
             const ssp = Number(v[`ssp${i}`]);
             const status = v[`status${i}`] || "not-satisfied";
+            const percentSatisfied = Number(v[`percent${i}`] || 0);
 
             if (!Number.isFinite(ssp) || ssp <= 0) {
                 return errorMessage(`Enter a valid stand-alone selling price for Obligation ${i}.`);
             }
 
+            if (status === "partial" && (!Number.isFinite(percentSatisfied) || percentSatisfied < 0 || percentSatisfied > 100)) {
+                return errorMessage(`Enter a percentage between 0 and 100 for Obligation ${i}.`);
+            }
+
             totalSSP += ssp;
-            rows.push({ number: i, ssp, status });
+            rows.push({
+                number: i,
+                ssp,
+                status,
+                percentSatisfied
+            });
         }
 
         let recognised = 0;
@@ -1633,19 +1648,31 @@ accounting: {
 
         rows.forEach(row => {
             row.allocated = (row.ssp / totalSSP) * transactionPrice;
+
             if (row.status === "satisfied") {
-                recognised += row.allocated;
+                row.recognised = row.allocated;
+            } else if (row.status === "partial") {
+                row.recognised =
+                    row.allocated * (row.percentSatisfied / 100);
             } else {
-                remaining += row.allocated;
+                row.recognised = 0;
             }
+
+            row.remaining =
+                row.allocated - row.recognised;
+
+            recognised += row.recognised;
+            remaining += row.remaining;
         });
 
         const tableRows = rows.map(row => `
             <tr>
                 <td style="padding:8px; border:1px solid #999;">${row.number}</td>
                 <td style="padding:8px; border:1px solid #999;">${money(row.ssp)}</td>
-                <td style="padding:8px; border:1px solid #999;">${row.status === "satisfied" ? "Satisfied" : "Not Satisfied"}</td>
+                <td style="padding:8px; border:1px solid #999;">${row.status === "satisfied" ? "Satisfied" : row.status === "partial" ? "Partially Satisfied" : "Not Satisfied"}</td>
+                <td style="padding:8px; border:1px solid #999;">${row.status === "partial" ? number(row.percentSatisfied) + "%" : row.status === "satisfied" ? "100%" : "0%"}</td>
                 <td style="padding:8px; border:1px solid #999;">${money(row.allocated)}</td>
+                <td style="padding:8px; border:1px solid #999;">${money(row.recognised)}</td>
             </tr>
         `).join("");
 
@@ -1658,6 +1685,9 @@ accounting: {
             Each obligation receives:<br>
             SSP / Total SSP * Transaction Price<br><br>
 
+            For partially satisfied obligations:<br>
+            Recognised Revenue = Allocated Revenue * % Satisfied<br><br>
+
             <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; margin-top:10px;">
                     <thead>
@@ -1665,7 +1695,9 @@ accounting: {
                             <th style="padding:8px; border:1px solid #999;">Obligation</th>
                             <th style="padding:8px; border:1px solid #999;">SSP</th>
                             <th style="padding:8px; border:1px solid #999;">Status</th>
+                            <th style="padding:8px; border:1px solid #999;">% Satisfied</th>
                             <th style="padding:8px; border:1px solid #999;">Allocated Revenue</th>
+                            <th style="padding:8px; border:1px solid #999;">Revenue Recognised</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
@@ -1676,7 +1708,7 @@ accounting: {
             Revenue Not Yet Recognised = ${money(remaining)}
             `,
             `Recognised Revenue = ${money(recognised)}<br>Remaining Contract Revenue = ${money(remaining)}`,
-            "Revenue is recognised for the performance obligations marked Satisfied. The allocation is based on relative stand-alone selling prices."
+            "Revenue is recognised based on the satisfaction status of each performance obligation. For partially satisfied obligations, only the satisfied percentage of the allocated revenue is recognised."
         );
 
     }
@@ -6400,6 +6432,142 @@ function showCalculator(type) {
             };
             [op,ra,ca,rb,cb].forEach(el=>el.addEventListener("change",build)); build();
         }
+
+    } else if (
+        category === "accounting" &&
+        type === "ifrs15-performance-obligations"
+    ) {
+
+        calculatorForm.appendChild(
+            createField(calculator.fields[0])
+        );
+
+        calculatorForm.appendChild(
+            createField(calculator.fields[1])
+        );
+
+        const obligationFields = [];
+
+        for (let i = 1; i <= 5; i++) {
+
+            const sspField =
+                calculator.fields.find(
+                    field => field[0] === `ssp${i}`
+                );
+
+            const statusField =
+                calculator.fields.find(
+                    field => field[0] === `status${i}`
+                );
+
+            const percentField =
+                calculator.fields.find(
+                    field => field[0] === `percent${i}`
+                );
+
+            const sspElement =
+                createField(sspField);
+
+            const statusElement =
+                createField(statusField);
+
+            const percentElement =
+                createField(percentField);
+
+            const wrapper =
+                document.createElement("div");
+
+            wrapper.className =
+                "ifrs15-obligation";
+
+            wrapper.dataset.obligation =
+                i;
+
+            wrapper.appendChild(
+                sspElement
+            );
+
+            wrapper.appendChild(
+                statusElement
+            );
+
+            wrapper.appendChild(
+                percentElement
+            );
+
+            calculatorForm.appendChild(
+                wrapper
+            );
+
+            obligationFields.push({
+                wrapper,
+                statusElement,
+                percentElement
+            });
+
+            const statusSelect =
+                document.getElementById(
+                    `status${i}`
+                );
+
+            const refreshPartialField = () => {
+
+                percentElement.style.display =
+                    statusSelect.value === "partial"
+                        ? "block"
+                        : "none";
+
+                const percentInput =
+                    document.getElementById(
+                        `percent${i}`
+                    );
+
+                if (
+                    statusSelect.value !== "partial"
+                ) {
+                    percentInput.value = "";
+                }
+
+            };
+
+            statusSelect.addEventListener(
+                "change",
+                refreshPartialField
+            );
+
+            refreshPartialField();
+
+        }
+
+        const countSelect =
+            document.getElementById(
+                "obligationCount"
+            );
+
+        const refreshObligations = () => {
+
+            const count =
+                Number(countSelect.value || 2);
+
+            obligationFields.forEach(
+                (item, index) => {
+
+                    item.wrapper.style.display =
+                        index < count
+                            ? "block"
+                            : "none";
+
+                }
+            );
+
+        };
+
+        countSelect.addEventListener(
+            "change",
+            refreshObligations
+        );
+
+        refreshObligations();
 
     } else if (
         category === "accounting" &&
