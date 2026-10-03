@@ -7089,7 +7089,7 @@ async function sendAiMessage() {
 
     addAiMessage(
         "KHID AI",
-        "Connection error: " + error.message,
+        "Sorry, I could not connect to the AI server. Please try again.",
         "bot"
     );
 
@@ -7098,7 +7098,7 @@ async function sendAiMessage() {
         error
     );
 
-       }
+}
 
 
 /* =========================================================
