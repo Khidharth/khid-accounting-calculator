@@ -7085,29 +7085,20 @@ async function sendAiMessage() {
 
     } catch (error) {
 
-        removeThinkingMessage();
+    removeThinkingMessage();
 
-        addAiMessage(
-            "KHID AI",
-            "Sorry, I could not connect to the AI server. Please try again.",
-            "bot"
-        );
+    addAiMessage(
+        "KHID AI",
+        "Connection error: " + error.message,
+        "bot"
+    );
 
-        console.error(
-            "KHID AI Error:",
-            error
-        );
+    console.error(
+        "KHID AI Error:",
+        error
+    );
 
-    } finally {
-
-        sendAiButton.disabled = false;
-        sendAiButton.textContent = "Send";
-
-        aiInput.focus();
-
-    }
-
-}
+       }
 
 
 /* =========================================================
