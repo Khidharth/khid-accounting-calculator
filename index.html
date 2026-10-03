@@ -159,7 +159,81 @@
     </footer>
 
 
-    <script src="script.js"></script>
+    <!-- KHID AI ASSISTANT -->
+<div id="khidAiPanel" class="khid-ai-panel">
+
+    <div class="khid-ai-header">
+
+        <div>
+            <strong>🤖 KHID AI ASSISTANT</strong>
+
+            <span>
+                Accounting • Finance • Mathematics • Statistics • Economics
+            </span>
+        </div>
+
+        <button
+            id="closeAiButton"
+            type="button"
+            aria-label="Close AI assistant"
+        >
+            ✕
+        </button>
+
+    </div>
+
+
+    <div
+        id="khidAiMessages"
+        class="khid-ai-messages"
+    >
+
+        <div class="khid-ai-message khid-ai-bot-message">
+
+            <strong>KHID AI:</strong>
+
+            <p>
+                Hello! I'm KHID AI. Ask me about accounting,
+                finance, mathematics, statistics, economics,
+                or financial analysis.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="khid-ai-input-area">
+
+        <textarea
+            id="aiInput"
+            rows="2"
+            placeholder="Ask KHID AI something..."
+        ></textarea>
+
+        <button
+            id="sendAiButton"
+            type="button"
+        >
+            Send
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- AI OPEN BUTTON -->
+<button
+    id="openAiButton"
+    class="khid-ai-open-button"
+    type="button"
+>
+    🤖 KHID AI
+</button>
+    
+
+ <script src="script.js"></script>
 
 </body>
 </html>
