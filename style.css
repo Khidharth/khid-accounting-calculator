@@ -809,3 +809,29 @@ body.dark-mode #aiInput::placeholder {
     }
 
 }
+
+
+/* =========================================================
+   AI FORMATTING
+========================================================= */
+
+.khid-ai-content {
+    line-height: 1.6;
+}
+
+.khid-ai-content h3,
+.khid-ai-content h4 {
+    margin: 12px 0 6px;
+}
+
+.khid-ai-content li {
+    margin-left: 20px;
+    margin-bottom: 5px;
+}
+
+.ai-formula {
+    margin: 12px 0;
+    padding: 10px;
+    overflow-x: auto;
+    text-align: center;
+}
