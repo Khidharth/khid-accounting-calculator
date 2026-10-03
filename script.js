@@ -1,3 +1,4 @@
+
 /* =========================================================
    KHID MULTIPURPOSE CALCULATOR
    ACCOUNTING + FINANCE + MATHEMATICS
@@ -19,7 +20,7 @@ if (themeToggle) {
 
         document.body.classList.add("dark-mode");
 
-        themeToggle.textContent = "💡Light Mode";
+        themeToggle.textContent = "Sun Light Mode";
 
     }
 
@@ -33,13 +34,13 @@ if (themeToggle) {
 
         if (isDark) {
 
-            themeToggle.textContent = "💡Light Mode";
+            themeToggle.textContent = "Sun Light Mode";
 
             localStorage.setItem("theme", "dark");
 
         } else {
 
-            themeToggle.textContent = "🌙Dark Mode";
+            themeToggle.textContent = "Moon Dark Mode";
 
             localStorage.setItem("theme", "light");
 
@@ -7085,18 +7086,27 @@ async function sendAiMessage() {
 
     } catch (error) {
 
-    removeThinkingMessage();
+        removeThinkingMessage();
 
-    addAiMessage(
-        "KHID AI",
-        "Sorry, I could not connect to the AI server. Please try again.",
-        "bot"
-    );
+        addAiMessage(
+            "KHID AI",
+            "Sorry, I could not connect to the AI server. Please try again.",
+            "bot"
+        );
 
-    console.error(
-        "KHID AI Error:",
-        error
-    );
+        console.error(
+            "KHID AI Error:",
+            error
+        );
+
+    } finally {
+
+        sendAiButton.disabled = false;
+        sendAiButton.textContent = "Send";
+
+        aiInput.focus();
+
+    }
 
 }
 
