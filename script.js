@@ -6836,3 +6836,316 @@ if (calculateButton) {
 ========================================================= */
 
 populateCalculators();
+
+
+/* =========================================================
+   KHID AI ASSISTANT
+========================================================= */
+
+const khidAiPanel = document.getElementById("khidAiPanel");
+const khidAiMessages = document.getElementById("khidAiMessages");
+const aiInput = document.getElementById("aiInput");
+const sendAiButton = document.getElementById("sendAiButton");
+const openAiButton = document.getElementById("openAiButton");
+const closeAiButton = document.getElementById("closeAiButton");
+
+const KHID_AI_WORKER =
+    "https://khid-ai.simonmiraclechinecherem.workers.dev";
+
+let aiHistory = [];
+
+
+/* =========================================================
+   OPEN AI
+========================================================= */
+
+if (openAiButton && khidAiPanel) {
+
+    openAiButton.addEventListener("click", function () {
+
+        khidAiPanel.style.display = "flex";
+        openAiButton.style.display = "none";
+
+        if (aiInput) {
+            aiInput.focus();
+        }
+
+    });
+
+}
+
+
+/* =========================================================
+   CLOSE AI
+========================================================= */
+
+if (closeAiButton && khidAiPanel) {
+
+    closeAiButton.addEventListener("click", function () {
+
+        khidAiPanel.style.display = "none";
+        openAiButton.style.display = "block";
+
+    });
+
+}
+
+
+/* =========================================================
+   ADD MESSAGE
+========================================================= */
+
+function addAiMessage(sender, message, type) {
+
+    if (!khidAiMessages) return;
+
+    const messageBox = document.createElement("div");
+
+    messageBox.className =
+        "khid-ai-message " +
+        (type === "user"
+            ? "khid-ai-user-message"
+            : "khid-ai-bot-message");
+
+    const strong = document.createElement("strong");
+    strong.textContent = sender + ":";
+
+    const paragraph = document.createElement("p");
+
+    paragraph.textContent = message;
+
+    messageBox.appendChild(strong);
+    messageBox.appendChild(paragraph);
+
+    khidAiMessages.appendChild(messageBox);
+
+    khidAiMessages.scrollTop =
+        khidAiMessages.scrollHeight;
+
+}
+
+
+/* =========================================================
+   THINKING MESSAGE
+========================================================= */
+
+function addThinkingMessage() {
+
+    const thinking = document.createElement("div");
+
+    thinking.id = "khidAiThinking";
+
+    thinking.className =
+        "khid-ai-message khid-ai-bot-message";
+
+    thinking.innerHTML =
+        "<strong>KHID AI:</strong>" +
+        "<p>Thinking...</p>";
+
+    khidAiMessages.appendChild(thinking);
+
+    khidAiMessages.scrollTop =
+        khidAiMessages.scrollHeight;
+
+}
+
+
+/* =========================================================
+   REMOVE THINKING MESSAGE
+========================================================= */
+
+function removeThinkingMessage() {
+
+    const thinking =
+        document.getElementById("khidAiThinking");
+
+    if (thinking) {
+        thinking.remove();
+    }
+
+}
+
+
+/* =========================================================
+   SEND MESSAGE
+========================================================= */
+
+async function sendAiMessage() {
+
+    if (!aiInput || !sendAiButton) return;
+
+    const message =
+        aiInput.value.trim();
+
+    if (!message) return;
+
+
+    /* Show user's message */
+
+    addAiMessage(
+        "You",
+        message,
+        "user"
+    );
+
+
+    /* Clear input */
+
+    aiInput.value = "";
+
+
+    /* Disable button */
+
+    sendAiButton.disabled = true;
+    sendAiButton.textContent = "Thinking...";
+
+
+    /* Thinking indicator */
+
+    addThinkingMessage();
+
+
+    try {
+
+        const response =
+            await fetch(
+                KHID_AI_WORKER,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        message: message,
+
+                        history:
+                            aiHistory.slice(-10)
+
+                    })
+
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        removeThinkingMessage();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "The AI server returned an error."
+            );
+
+        }
+
+
+        const answer =
+            data.answer;
+
+
+        if (!answer) {
+
+            throw new Error(
+                "KHID AI returned no answer."
+            );
+
+        }
+
+
+        /* Show AI response */
+
+        addAiMessage(
+            "KHID AI",
+            answer,
+            "bot"
+        );
+
+
+        /* Save conversation */
+
+        aiHistory.push({
+            role: "user",
+            text: message
+        });
+
+        aiHistory.push({
+            role: "model",
+            text: answer
+        });
+
+
+    } catch (error) {
+
+        removeThinkingMessage();
+
+        addAiMessage(
+            "KHID AI",
+            "Sorry, I could not connect to the AI server. Please try again.",
+            "bot"
+        );
+
+        console.error(
+            "KHID AI Error:",
+            error
+        );
+
+    } finally {
+
+        sendAiButton.disabled = false;
+        sendAiButton.textContent = "Send";
+
+        aiInput.focus();
+
+    }
+
+}
+
+
+/* =========================================================
+   SEND BUTTON
+========================================================= */
+
+if (sendAiButton) {
+
+    sendAiButton.addEventListener(
+        "click",
+        sendAiMessage
+    );
+
+}
+
+
+/* =========================================================
+   ENTER TO SEND
+========================================================= */
+
+if (aiInput) {
+
+    aiInput.addEventListener(
+        "keydown",
+        function (event) {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendAiMessage();
+
+            }
+
+        }
+    );
+
+}
