@@ -7185,7 +7185,7 @@ async function sendAiMessage() {
 
         addAiMessage(
             "KHID AI",
-            "Sorry, I could not connect to the AI server. Please try again.",
+            "Sorry, I'm temporarily unavailable because my free AI usage limit has been reached. Please try again.",
             "bot"
         );
 
