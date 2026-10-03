@@ -564,3 +564,248 @@ body.dark-mode .error-message {
     }
 
    }
+
+
+/* =========================================================
+   KHID AI ASSISTANT
+========================================================= */
+
+.khid-ai-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+
+    width: 360px;
+    max-width: calc(100% - 40px);
+    height: 500px;
+
+    background: white;
+    color: #111827;
+
+    border-radius: 14px;
+    overflow: hidden;
+
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
+
+    display: flex;
+    flex-direction: column;
+
+    z-index: 9999;
+}
+
+
+/* =========================================================
+   AI HEADER
+========================================================= */
+
+.khid-ai-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 14px 16px;
+
+    background: #111827;
+    color: white;
+}
+
+.khid-ai-header strong {
+    display: block;
+    font-size: 15px;
+}
+
+.khid-ai-header span {
+    display: block;
+
+    margin-top: 4px;
+
+    font-size: 11px;
+    color: #d1d5db;
+}
+
+#closeAiButton {
+    border: none;
+    background: transparent;
+    color: white;
+
+    font-size: 20px;
+
+    cursor: pointer;
+}
+
+
+/* =========================================================
+   AI MESSAGES
+========================================================= */
+
+.khid-ai-messages {
+    flex: 1;
+
+    padding: 15px;
+
+    overflow-y: auto;
+
+    background: #f3f4f6;
+}
+
+.khid-ai-message {
+    max-width: 90%;
+
+    margin-bottom: 12px;
+    padding: 10px 12px;
+
+    border-radius: 10px;
+
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.khid-ai-message p {
+    margin: 5px 0 0;
+}
+
+.khid-ai-bot-message {
+    background: white;
+
+    border: 1px solid #e5e7eb;
+}
+
+
+/* =========================================================
+   AI INPUT
+========================================================= */
+
+.khid-ai-input-area {
+    display: flex;
+    gap: 8px;
+
+    padding: 10px;
+
+    background: white;
+
+    border-top: 1px solid #e5e7eb;
+}
+
+#aiInput {
+    flex: 1;
+
+    min-width: 0;
+
+    resize: none;
+
+    padding: 10px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    font-family: inherit;
+    font-size: 14px;
+}
+
+#sendAiButton {
+    align-self: stretch;
+
+    padding: 0 15px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #00a86b;
+    color: white;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+#sendAiButton:hover {
+    background: #008f5b;
+}
+
+
+/* =========================================================
+   AI OPEN BUTTON
+========================================================= */
+
+.khid-ai-open-button {
+    position: fixed;
+
+    right: 20px;
+    bottom: 20px;
+
+    padding: 12px 18px;
+
+    border: none;
+    border-radius: 25px;
+
+    background: #00a86b;
+    color: white;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    z-index: 9998;
+
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+
+/* =========================================================
+   DARK MODE
+========================================================= */
+
+body.dark-mode .khid-ai-panel {
+    background: #111827;
+    color: #f8fafc;
+}
+
+body.dark-mode .khid-ai-messages {
+    background: #0f172a;
+}
+
+body.dark-mode .khid-ai-bot-message {
+    background: #1f2937;
+
+    border-color: #374151;
+}
+
+body.dark-mode .khid-ai-input-area {
+    background: #111827;
+
+    border-color: #374151;
+}
+
+body.dark-mode #aiInput {
+    background: #1f2937;
+    color: #f8fafc;
+
+    border-color: #4b5563;
+}
+
+body.dark-mode #aiInput::placeholder {
+    color: #9ca3af;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+    .khid-ai-panel {
+        right: 10px;
+        bottom: 10px;
+
+        width: calc(100% - 20px);
+
+        height: 70vh;
+    }
+
+    .khid-ai-open-button {
+        right: 15px;
+        bottom: 15px;
+    }
+
+}
