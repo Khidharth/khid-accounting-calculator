@@ -6907,17 +6907,113 @@ function addAiMessage(sender, message, type) {
             ? "khid-ai-user-message"
             : "khid-ai-bot-message");
 
+
     const strong = document.createElement("strong");
+
     strong.textContent = sender + ":";
 
-    const paragraph = document.createElement("p");
 
-    paragraph.textContent = message;
+    const paragraph = document.createElement("div");
+
+    paragraph.className = "khid-ai-content";
+
+
+    /*
+       Convert common Markdown into HTML
+    */
+
+    let formatted = message
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+
+    /* Display math */
+
+    formatted = formatted.replace(
+        /\$\$([\s\S]*?)\$\$/g,
+        '<div class="ai-formula">\\[$1\\]</div>'
+    );
+
+
+    /* Bold */
+
+    formatted = formatted.replace(
+        /\*\*(.*?)\*\*/g,
+        "<strong>$1</strong>"
+    );
+
+
+    /* Headings */
+
+    formatted = formatted.replace(
+        /^### (.*)$/gm,
+        "<h4>$1</h4>"
+    );
+
+    formatted = formatted.replace(
+        /^## (.*)$/gm,
+        "<h3>$1</h3>"
+    );
+
+
+    /* Bullet points */
+
+    formatted = formatted.replace(
+        /^\* (.*)$/gm,
+        "<li>$1</li>"
+    );
+
+    formatted = formatted.replace(
+        /^- (.*)$/gm,
+        "<li>$1</li>"
+    );
+
+
+    /* Numbered lists */
+
+    formatted = formatted.replace(
+        /^\d+\.\s+(.*)$/gm,
+        "<li>$1</li>"
+    );
+
+
+    /* Line breaks */
+
+    formatted = formatted.replace(
+        /\n/g,
+        "<br>"
+    );
+
+
+    paragraph.innerHTML = formatted;
+
 
     messageBox.appendChild(strong);
     messageBox.appendChild(paragraph);
 
     khidAiMessages.appendChild(messageBox);
+
+
+    /* Render mathematical formulas */
+
+    if (
+        window.MathJax &&
+        typeof window.MathJax.typesetPromise === "function"
+    ) {
+
+        window.MathJax.typesetPromise([paragraph])
+            .catch(function(error) {
+
+                console.error(
+                    "MathJax rendering error:",
+                    error
+                );
+
+            });
+
+    }
+
 
     khidAiMessages.scrollTop =
         khidAiMessages.scrollHeight;
