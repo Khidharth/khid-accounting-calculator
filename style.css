@@ -1,20 +1,6 @@
 /* =========================================================
    KHID MULTIPURPOSE CALCULATOR
-   PREMIUM / SAPPHIRE DESIGN
-========================================================= */
-
-/* =========================================================
-   GOOGLE FONT FALLBACKS
-========================================================= */
-
-:root {
-    --font-display: "Georgia", "Times New Roman", serif;
-    --font-body: Inter, "Segoe UI", Arial, sans-serif;
-}
-
-
-/* =========================================================
-   GLOBAL
+   PREMIUM DARK / LIGHT DESIGN
 ========================================================= */
 
 * {
@@ -25,40 +11,75 @@ html {
     scroll-behavior: smooth;
 }
 
+:root {
+    --font-body: "Segoe UI", Arial, sans-serif;
+    --font-display: Georgia, "Times New Roman", serif;
+
+    /* DARK */
+    --dark-bg: #080a10;
+    --dark-bg-2: #0e1420;
+    --dark-surface: #151c2a;
+    --dark-surface-2: #1c2434;
+    --dark-surface-3: #222b3e;
+
+    --dark-text: #edf1ff;
+    --dark-muted: #9ba6ba;
+    --dark-border: rgba(255, 255, 255, 0.09);
+
+    --violet: #7668d5;
+    --violet-light: #9a8ff0;
+    --blue: #4d82ad;
+    --cyan: #5a9eb5;
+
+    /* LIGHT */
+    --light-bg: #f5f4ef;
+    --light-bg-2: #eef1f7;
+    --light-surface: #ffffff;
+    --light-surface-2: #f4f6fa;
+    --light-text: #22283a;
+    --light-muted: #6f7788;
+    --light-border: #dfe3eb;
+}
+
+
+/* =========================================================
+   BODY
+========================================================= */
+
 body {
     margin: 0;
     min-height: 100vh;
 
     font-family: var(--font-body);
-    color: #eef2ff;
+
+    color: var(--dark-text);
 
     background:
         radial-gradient(
             circle at 12% 8%,
-            rgba(105, 91, 170, 0.18),
+            rgba(118, 104, 213, 0.18),
             transparent 30%
         ),
         radial-gradient(
             circle at 88% 18%,
-            rgba(57, 107, 165, 0.16),
+            rgba(77, 130, 173, 0.17),
             transparent 32%
         ),
         radial-gradient(
             circle at 50% 90%,
-            rgba(83, 65, 128, 0.12),
-            transparent 35%
+            rgba(90, 73, 150, 0.12),
+            transparent 38%
         ),
         linear-gradient(
             135deg,
-            #070910 0%,
-            #0c111d 38%,
-            #111827 68%,
-            #171b29 100%
+            var(--dark-bg) 0%,
+            var(--dark-bg-2) 42%,
+            var(--dark-surface) 100%
         );
 
     transition:
-        background 0.45s ease,
-        color 0.35s ease;
+        background 0.4s ease,
+        color 0.3s ease;
 }
 
 
@@ -73,25 +94,26 @@ header {
 
     text-align: center;
 
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom:
+        1px solid var(--dark-border);
 
     background:
         radial-gradient(
             circle at 50% 0%,
-            rgba(126, 104, 206, 0.17),
+            rgba(118, 104, 213, 0.16),
             transparent 45%
         ),
         linear-gradient(
             180deg,
-            rgba(14, 19, 32, 0.96),
-            rgba(9, 12, 20, 0.72)
+            rgba(15, 20, 33, 0.96),
+            rgba(8, 11, 19, 0.75)
         );
 }
 
 
 /* =========================================================
    MAIN HEADING
-   Sapphire + Premium inspired
+   Current size deliberately preserved
 ========================================================= */
 
 header h1 {
@@ -100,9 +122,7 @@ header h1 {
     max-width: 1000px;
 
     font-family:
-        "Georgia",
-        "Times New Roman",
-        serif;
+        var(--font-display);
 
     font-size: clamp(
         2.3rem,
@@ -119,12 +139,12 @@ header h1 {
     background:
         linear-gradient(
             105deg,
-            #f0f3ff 0%,
-            #c7d1ff 18%,
-            #8d9eff 38%,
-            #7564d8 57%,
-            #5b8fc2 76%,
-            #e4eaff 100%
+            #eef2ff 0%,
+            #c9d3ff 20%,
+            #8d9cff 40%,
+            #7869d8 58%,
+            #5685ad 78%,
+            #e6ebff 100%
         );
 
     -webkit-background-clip: text;
@@ -135,33 +155,32 @@ header h1 {
     filter:
         drop-shadow(
             0 0 18px
-            rgba(103, 103, 205, 0.16)
+            rgba(105, 96, 205, 0.15)
         );
 }
 
 
 /* =========================================================
-   HEADER SUBTITLE
+   HEADER DESCRIPTION
 ========================================================= */
 
 header p {
-    margin: 0 auto;
-
     max-width: 760px;
 
-    color: #9ba5b8;
+    margin: 0 auto;
+
+    color: var(--dark-muted);
 
     font-size: 0.95rem;
 
     line-height: 1.7;
 
-    letter-spacing: 0.08em;
+    letter-spacing: 0.07em;
 }
 
 
 /* =========================================================
-   THEME BUTTON
-   Circular visual control
+   THEME TOGGLE
 ========================================================= */
 
 #themeToggle {
@@ -175,7 +194,9 @@ header p {
 
     padding: 0;
 
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border:
+        1px solid
+        rgba(255,255,255,0.12);
 
     border-radius: 50%;
 
@@ -186,7 +207,7 @@ header p {
             rgba(255,255,255,0.03)
         );
 
-    color: #e8edff;
+    color: #edf1ff;
 
     font-size: 0;
 
@@ -200,8 +221,8 @@ header p {
 
     transition:
         transform 0.25s ease,
-        border-color 0.25s ease,
-        background 0.25s ease;
+        background 0.25s ease,
+        border-color 0.25s ease;
 }
 
 #themeToggle::before {
@@ -211,15 +232,15 @@ header p {
 }
 
 #themeToggle:hover {
-    transform: rotate(12deg) scale(1.05);
+    transform: scale(1.06);
 
     border-color:
-        rgba(150, 137, 220, 0.55);
+        rgba(145, 132, 220, 0.55);
 
     background:
         linear-gradient(
             145deg,
-            rgba(122, 104, 194, 0.20),
+            rgba(118,104,213,0.20),
             rgba(255,255,255,0.05)
         );
 }
@@ -251,21 +272,26 @@ main {
 
     padding: 42px;
 
-    border: 1px solid rgba(255,255,255,0.08);
+    border:
+        1px solid
+        var(--dark-border);
 
     border-radius: 24px;
 
     background:
         linear-gradient(
             145deg,
-            rgba(28, 35, 52, 0.96),
-            rgba(16, 22, 35, 0.98) 52%,
-            rgba(34, 39, 57, 0.94)
+            var(--dark-surface-2),
+            var(--dark-surface) 52%,
+            var(--dark-surface-3)
         );
 
     box-shadow:
-        0 30px 70px rgba(0,0,0,0.32),
-        inset 0 1px 0 rgba(255,255,255,0.04);
+        0 30px 70px
+        rgba(0,0,0,0.32),
+
+        inset 0 1px 0
+        rgba(255,255,255,0.04);
 
     overflow: hidden;
 }
@@ -285,12 +311,12 @@ main {
         linear-gradient(
             90deg,
             transparent,
-            #6d63c7,
-            #5c8ebd,
+            var(--violet),
+            var(--blue),
             transparent
         );
 
-    opacity: 0.8;
+    opacity: 0.85;
 }
 
 
@@ -302,16 +328,13 @@ main {
 .contact-section > h2 {
     margin-top: 0;
 
-    font-family:
-        "Georgia",
-        "Times New Roman",
-        serif;
+    font-family: var(--font-display);
 
     font-size: 1.65rem;
 
     letter-spacing: -0.02em;
 
-    color: #eef1ff;
+    color: var(--dark-text);
 }
 
 
@@ -333,7 +356,7 @@ main {
 
     margin-bottom: 9px;
 
-    color: #aeb7ca;
+    color: #aeb8ca;
 
     font-size: 0.84rem;
 
@@ -344,7 +367,7 @@ main {
 
 
 /* =========================================================
-   SELECTS + INPUTS
+   INPUTS / SELECTS / TEXTAREA
 ========================================================= */
 
 select,
@@ -356,7 +379,9 @@ textarea {
 
     padding: 13px 15px;
 
-    border: 1px solid #30394c;
+    border:
+        1px solid
+        #30394c;
 
     border-radius: 12px;
 
@@ -365,8 +390,8 @@ textarea {
     background:
         linear-gradient(
             145deg,
-            #161d2c,
-            #111725
+            #171e2d,
+            #101724
         );
 
     color: #edf1ff;
@@ -390,11 +415,11 @@ textarea:hover {
 select:focus,
 input:focus,
 textarea:focus {
-    border-color: #766ac8;
+    border-color: var(--violet);
 
     box-shadow:
         0 0 0 3px
-        rgba(118, 106, 200, 0.13);
+        rgba(118,104,213,0.13);
 }
 
 
@@ -441,9 +466,9 @@ textarea:focus {
     background:
         linear-gradient(
             105deg,
-            #514b9b,
-            #695fc1 45%,
-            #477ba6
+            #514a9b,
+            #6a5fc0 45%,
+            #477da8
         );
 
     color: white;
@@ -460,7 +485,7 @@ textarea:focus {
 
     box-shadow:
         0 12px 30px
-        rgba(71, 79, 157, 0.24);
+        rgba(71,79,157,0.25);
 
     transition:
         transform 0.2s ease,
@@ -475,7 +500,7 @@ textarea:focus {
 
     box-shadow:
         0 16px 35px
-        rgba(71, 79, 157, 0.34);
+        rgba(71,79,157,0.35);
 }
 
 #calculateButton:active {
@@ -492,7 +517,9 @@ textarea:focus {
 
     padding: 25px;
 
-    border: 1px solid rgba(255,255,255,0.07);
+    border:
+        1px solid
+        rgba(255,255,255,0.07);
 
     border-radius: 16px;
 
@@ -507,33 +534,21 @@ textarea:focus {
 #result h3 {
     margin-top: 0;
 
-    color: #b9c5ff;
-
-    font-family:
-        "Georgia",
-        "Times New Roman",
-        serif;
+    font-family: var(--font-display);
 
     font-size: 1.2rem;
+
+    color: #bbc6ff;
 }
 
 #result p {
-    color: #b0b8c8;
+    color: #adb6c7;
 
     line-height: 1.7;
 }
 
-
-/* =========================================================
-   RESULT CONTENT
-========================================================= */
-
 #result strong {
-    color: #edf1ff;
-}
-
-#result .answer {
-    color: #c8b7ff;
+    color: #eef1ff;
 }
 
 
@@ -544,7 +559,9 @@ textarea:focus {
 .contact-section {
     padding: 34px;
 
-    border: 1px solid rgba(255,255,255,0.07);
+    border:
+        1px solid
+        rgba(255,255,255,0.07);
 
     border-radius: 20px;
 
@@ -573,7 +590,7 @@ textarea:focus {
 
     margin-top: 8px;
 
-    color: #9eafff;
+    color: #a3b1ff;
 
     font-weight: 600;
 
@@ -583,7 +600,7 @@ textarea:focus {
 }
 
 .contact-section a:hover {
-    color: #c4ccff;
+    color: #ccd2ff;
 }
 
 
@@ -607,7 +624,7 @@ footer {
 
 
 /* =========================================================
-   KHID AI ASSISTANT
+   KHID AI PANEL
 ========================================================= */
 
 .khid-ai-panel {
@@ -616,7 +633,10 @@ footer {
     right: 25px;
     bottom: 90px;
 
-    width: min(390px, calc(100% - 30px));
+    width: min(
+        390px,
+        calc(100% - 30px)
+    );
 
     max-height: 620px;
 
@@ -638,7 +658,8 @@ footer {
         );
 
     box-shadow:
-        0 30px 80px rgba(0,0,0,0.48);
+        0 30px 80px
+        rgba(0,0,0,0.48);
 
     overflow: hidden;
 
@@ -688,18 +709,21 @@ footer {
 
 
 /* =========================================================
-   AI CLOSE BUTTON
+   AI CLOSE
 ========================================================= */
 
 #closeAiButton {
     width: 36px;
     height: 36px;
 
-    border: 1px solid rgba(255,255,255,0.08);
+    border:
+        1px solid
+        rgba(255,255,255,0.08);
 
     border-radius: 50%;
 
-    background: rgba(255,255,255,0.04);
+    background:
+        rgba(255,255,255,0.04);
 
     color: #aeb7ca;
 
@@ -711,7 +735,8 @@ footer {
 }
 
 #closeAiButton:hover {
-    background: rgba(255,255,255,0.09);
+    background:
+        rgba(255,255,255,0.09);
 
     color: white;
 }
@@ -831,7 +856,9 @@ footer {
 
     padding: 0 18px;
 
-    border: 1px solid rgba(255,255,255,0.10);
+    border:
+        1px solid
+        rgba(255,255,255,0.10);
 
     border-radius: 999px;
 
@@ -871,24 +898,29 @@ footer {
 ========================================================= */
 
 body.light-mode {
-    color: #202638;
+    color: var(--light-text);
 
     background:
         radial-gradient(
             circle at 12% 8%,
-            rgba(117, 104, 202, 0.13),
+            rgba(117,104,202,0.13),
             transparent 30%
         ),
         radial-gradient(
             circle at 88% 18%,
-            rgba(76, 131, 183, 0.13),
+            rgba(76,131,183,0.13),
             transparent 32%
+        ),
+        radial-gradient(
+            circle at 50% 90%,
+            rgba(121,103,186,0.08),
+            transparent 36%
         ),
         linear-gradient(
             135deg,
-            #f7f5ef 0%,
-            #f4f5fa 45%,
-            #eef1f8 100%
+            var(--light-bg) 0%,
+            #f3f4f8 45%,
+            var(--light-bg-2) 100%
         );
 }
 
@@ -898,10 +930,14 @@ body.light-mode {
 ========================================================= */
 
 body.light-mode header {
+    border-bottom:
+        1px solid
+        rgba(39,48,72,0.08);
+
     background:
         radial-gradient(
             circle at 50% 0%,
-            rgba(111, 96, 189, 0.10),
+            rgba(111,96,189,0.10),
             transparent 45%
         ),
         linear-gradient(
@@ -909,10 +945,6 @@ body.light-mode header {
             rgba(255,255,255,0.96),
             rgba(246,247,251,0.90)
         );
-
-    border-bottom:
-        1px solid
-        rgba(39,48,72,0.08);
 }
 
 body.light-mode header h1 {
@@ -953,7 +985,8 @@ body.light-mode #themeToggle {
     color: #30384c;
 
     box-shadow:
-        0 8px 22px rgba(50,60,90,0.10);
+        0 8px 22px
+        rgba(50,60,90,0.10);
 }
 
 body.light-mode #themeToggle::before {
@@ -966,7 +999,7 @@ body.light-mode #themeToggle::before {
 ========================================================= */
 
 body.light-mode .calculator-section {
-    border-color: #dfe2ea;
+    border-color: var(--light-border);
 
     background:
         linear-gradient(
@@ -1170,8 +1203,7 @@ body.light-mode #closeAiButton {
 @media (max-width: 700px) {
 
     header {
-        padding:
-            75px 18px 45px;
+        padding: 75px 18px 45px;
     }
 
     header h1 {
@@ -1199,8 +1231,7 @@ body.light-mode #closeAiButton {
     main {
         width: 94%;
 
-        margin:
-            35px auto;
+        margin: 35px auto;
     }
 
     .calculator-section {
@@ -1239,7 +1270,9 @@ select:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-    outline: 2px solid #8c84d8;
+    outline:
+        2px solid
+        #8c84d8;
 
     outline-offset: 3px;
 }
@@ -1260,4 +1293,4 @@ a:focus-visible {
 
         animation-duration: 0.01ms !important;
     }
-   }
+}
