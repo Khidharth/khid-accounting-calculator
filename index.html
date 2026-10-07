@@ -17,28 +17,71 @@
 
     <title>KHID MULTIPURPOSE CALCULATOR</title>
 
-    <!-- Main stylesheet -->
-    <link rel="stylesheet" href="style.css">
 
-    <!-- MathJax configuration -->
+    <!-- =====================================================
+         PREMIUM DISPLAY FONTS
+    ====================================================== -->
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&display=swap"
+        rel="stylesheet"
+    >
+
+
+    <!-- =====================================================
+         MAIN CSS
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+
+    <!-- =====================================================
+         MATHJAX
+    ====================================================== -->
+
     <script>
+
         window.MathJax = {
+
             tex: {
-                inlineMath: [['\\(', '\\)']],
-                displayMath: [['\\[', '\\]'], ['$$', '$$']]
+                inlineMath: [
+                    ['\\(', '\\)']
+                ],
+
+                displayMath: [
+                    ['\\[', '\\]'],
+                    ['$$', '$$']
+                ]
             },
+
             svg: {
                 fontCache: 'global'
             }
+
         };
+
     </script>
 
-    <!-- MathJax -->
+
     <script
         id="MathJax-script"
         async
-        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-    </script>
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></script>
 
 </head>
 
@@ -52,17 +95,29 @@
 
     <header>
 
-    <h1>KHID MULTIPURPOSE CALCULATOR</h1>
+        <h1>
+            KHID MULTIPURPOSE CALCULATOR
+        </h1>
 
-    <p>
-        Accounting | Finance | Mathematics | Statistics | Economics | Financial Analysis
-    </p>
 
-    <button id="themeToggle">
-        🌙 Dark Mode
-    </button>
+        <p>
+            Accounting | Finance | Mathematics |
+            Statistics | Economics | Financial Analysis
+        </p>
 
-</header>
+
+        <!-- Theme button -->
+
+        <button
+            id="themeToggle"
+            type="button"
+            aria-label="Switch to light mode"
+        >
+            🌙 Dark Mode
+        </button>
+
+    </header>
+
 
     <!-- =====================================================
          MAIN CONTENT
@@ -77,10 +132,10 @@
 
         <section
             class="calculator-section"
-            aria-labelledby="calculatorSectionTitle"
+            aria-labelledby="calculatorHeading"
         >
 
-            <h2 id="calculatorSectionTitle">
+            <h2 id="calculatorHeading">
                 Calculator
             </h2>
 
@@ -92,6 +147,7 @@
                 <label for="categorySelect">
                     Select Category
                 </label>
+
 
                 <select id="categorySelect">
 
@@ -132,6 +188,7 @@
                     Select Calculator
                 </label>
 
+
                 <select id="calculatorSelect"></select>
 
             </div>
@@ -141,14 +198,18 @@
 
             <div id="calculatorTitle">
 
-                <h2>Select a calculator</h2>
+                <h2>
+                    Select a calculator
+                </h2>
 
             </div>
 
 
             <!-- CALCULATOR FORM -->
 
-            <form id="calculatorForm"></form>
+            <form
+                id="calculatorForm"
+            ></form>
 
 
             <!-- CALCULATE BUTTON -->
@@ -168,7 +229,9 @@
                 aria-live="polite"
             >
 
-                <h3>Result</h3>
+                <h3>
+                    Result
+                </h3>
 
                 <p>
                     Select a calculator and enter your values.
@@ -185,31 +248,34 @@
 
         <section
             class="contact-section"
-            aria-labelledby="contactSectionTitle"
+            aria-labelledby="contactHeading"
         >
 
-            <h2 id="contactSectionTitle">
+            <h2 id="contactHeading">
                 Contact
             </h2>
+
 
             <p>
                 Have a question, suggestion, or feedback about
                 KHID MULTIPURPOSE CALCULATOR?
             </p>
 
+
             <h3>
                 Simon Miracle Khidharth
             </h3>
+
 
             <p>
                 WhatsApp: 09031327887
             </p>
 
+
             <a
                 href="https://wa.me/2349031327887?text=Hello%20Simon%2C%20I%20am%20contacting%20you%20about%20the%20KHID%20MULTIPURPOSE%20CALCULATOR."
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Chat with Simon on WhatsApp"
             >
                 🟢 Chat with me on WhatsApp
             </a>
@@ -239,8 +305,8 @@
     <div
         id="khidAiPanel"
         class="khid-ai-panel"
-        aria-label="KHID AI Assistant"
     >
+
 
         <!-- AI HEADER -->
 
@@ -252,8 +318,10 @@
                     🤖 KHID AI ASSISTANT
                 </strong>
 
+
                 <span>
-                    Accounting • Finance • Mathematics • Statistics • Economics
+                    Accounting • Finance • Mathematics •
+                    Statistics • Economics
                 </span>
 
             </div>
@@ -276,18 +344,21 @@
             id="khidAiMessages"
             class="khid-ai-messages"
             aria-live="polite"
-            aria-label="KHID AI conversation"
         >
 
-            <div class="khid-ai-message khid-ai-bot-message">
+            <div
+                class="khid-ai-message khid-ai-bot-message"
+            >
 
                 <strong>
                     KHID AI:
                 </strong>
 
+
                 <p>
-                    Hello! I'm KHID AI. Ask me about accounting,
-                    finance, mathematics, statistics, economics,
+                    Hello! I'm KHID AI.
+                    Ask me about accounting, finance,
+                    mathematics, statistics, economics,
                     or financial analysis.
                 </p>
 
@@ -306,6 +377,7 @@
                 placeholder="Ask KHID AI something..."
                 aria-label="Ask KHID AI a question"
             ></textarea>
+
 
             <button
                 id="sendAiButton"
@@ -327,17 +399,17 @@
         id="openAiButton"
         class="khid-ai-open-button"
         type="button"
-        aria-label="Open KHID AI Assistant"
+        aria-label="Open KHID AI assistant"
     >
         🤖 KHID AI
     </button>
 
 
     <!-- =====================================================
-         JAVASCRIPT
+         MAIN JAVASCRIPT
+         Only loaded ONCE
     ====================================================== -->
 
-    <!-- Loaded ONCE only -->
     <script src="script.js"></script>
 
 </body>
