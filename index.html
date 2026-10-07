@@ -18,9 +18,7 @@
     <title>KHID MULTIPURPOSE CALCULATOR</title>
 
 
-    <!-- =====================================================
-         PREMIUM DISPLAY FONTS
-    ====================================================== -->
+    <!-- PREMIUM FONTS -->
 
     <link
         rel="preconnect"
@@ -34,14 +32,12 @@
     >
 
     <link
-        href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,500;1,600;1,700&family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&display=swap"
         rel="stylesheet"
     >
 
 
-    <!-- =====================================================
-         MAIN CSS
-    ====================================================== -->
+    <!-- MAIN CSS -->
 
     <link
         rel="stylesheet"
@@ -49,9 +45,7 @@
     >
 
 
-    <!-- =====================================================
-         MATHJAX
-    ====================================================== -->
+    <!-- MATHJAX -->
 
     <script>
 
@@ -96,7 +90,20 @@
     <header>
 
         <h1>
-            KHID MULTIPURPOSE CALCULATOR
+
+            <span class="khid-brand">
+
+                <span>🅺</span>
+                <span>🅷</span>
+                <span>🅸</span>
+                <span>🅳</span>
+
+            </span>
+
+            <span class="calculator-name">
+                𝑴𝒖𝒍𝒕𝒊𝒑𝒖𝒓𝒑𝒐𝒔𝒆 𝑪𝒂𝒍𝒄𝒖𝒍𝒂𝒕𝒐𝒓
+            </span>
+
         </h1>
 
 
@@ -106,21 +113,21 @@
         </p>
 
 
-        <!-- Theme button -->
+        <!-- THEME BUTTON -->
 
         <button
             id="themeToggle"
             type="button"
             aria-label="Switch to light mode"
         >
-            🌙 Dark Mode
+            🌙
         </button>
 
     </header>
 
 
     <!-- =====================================================
-         MAIN CONTENT
+         MAIN
     ====================================================== -->
 
     <main>
@@ -205,7 +212,7 @@
             </div>
 
 
-            <!-- CALCULATOR FORM -->
+            <!-- FORM -->
 
             <form
                 id="calculatorForm"
@@ -307,9 +314,6 @@
         class="khid-ai-panel"
     >
 
-
-        <!-- AI HEADER -->
-
         <div class="khid-ai-header">
 
             <div>
@@ -338,8 +342,6 @@
         </div>
 
 
-        <!-- AI MESSAGES -->
-
         <div
             id="khidAiMessages"
             class="khid-ai-messages"
@@ -367,8 +369,6 @@
         </div>
 
 
-        <!-- AI INPUT -->
-
         <div class="khid-ai-input-area">
 
             <textarea
@@ -391,9 +391,7 @@
     </div>
 
 
-    <!-- =====================================================
-         AI OPEN BUTTON
-    ====================================================== -->
+    <!-- AI OPEN BUTTON -->
 
     <button
         id="openAiButton"
@@ -405,10 +403,7 @@
     </button>
 
 
-    <!-- =====================================================
-         MAIN JAVASCRIPT
-         Only loaded ONCE
-    ====================================================== -->
+    <!-- MAIN JAVASCRIPT -->
 
     <script src="script.js"></script>
 
