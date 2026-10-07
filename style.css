@@ -1,60 +1,46 @@
 /* =========================================================
    KHID MULTIPURPOSE CALCULATOR
-   PREMIUM NAVY + CHAMPAGNE DESIGN
-   Accounting | Finance | Mathematics
-   Statistics | Economics | Financial Analysis
-========================================================= */
+   PREMIUM DARK GRADIENT DESIGN
+   ========================================================= */
 
 
 /* =========================================================
-   COLOUR SYSTEM
-========================================================= */
+   1. ROOT / GLOBAL
+   ========================================================= */
 
 :root {
-    --bg: #f7f5f0;
-    --surface: #ffffff;
-    --surface-soft: #f0eee8;
-    --surface-muted: #e9e6de;
+    --bg-main: #05070c;
+    --bg-secondary: #090e18;
+    --surface: #101725;
+    --surface-2: #141c2c;
+    --surface-3: #192235;
 
-    --text: #20242b;
-    --text-soft: #68707c;
-    --text-muted: #8a9099;
+    --border: rgba(132, 153, 194, 0.16);
+    --border-bright: rgba(145, 168, 215, 0.28);
 
-    --primary: #172033;
-    --primary-dark: #0d1422;
-    --primary-light: #273248;
+    --text-main: #eef2fa;
+    --text-secondary: #9aa6bd;
+    --text-muted: #68758d;
 
-    --accent: #c9a96e;
-    --accent-light: #e8d8b8;
+    --blue: #7194ff;
+    --violet: #9274ff;
+    --cyan: #45c8d8;
 
-    --border: #ddd9d0;
-    --border-strong: #c9c4b9;
+    --success: #4fc58b;
+    --danger: #e56b78;
 
-    --success: #3d8b7a;
+    --radius-large: 28px;
+    --radius-medium: 18px;
+    --radius-small: 12px;
 
-    --danger: #a63d40;
-    --danger-bg: #fff1f0;
-
-    --shadow-sm:
-        0 2px 8px rgba(23, 32, 51, 0.05);
-
-    --shadow-md:
-        0 12px 35px rgba(23, 32, 51, 0.08);
-
-    --shadow-lg:
-        0 22px 60px rgba(23, 32, 51, 0.14);
-
-    --radius-sm: 10px;
-    --radius-md: 15px;
-    --radius-lg: 21px;
-
-    --transition: 0.25s ease;
+    --shadow:
+        0 25px 70px rgba(0, 0, 0, 0.42);
 }
 
 
 /* =========================================================
-   RESET
-========================================================= */
+   2. RESET
+   ========================================================= */
 
 * {
     box-sizing: border-box;
@@ -63,3015 +49,1295 @@
 }
 
 
-/* =========================================================
-   BODY
-========================================================= */
+html {
+    scroll-behavior: smooth;
+}
+
 
 body {
+    min-height: 100vh;
+
     font-family:
         Inter,
         "Segoe UI",
         Roboto,
-        Helvetica,
         Arial,
         sans-serif;
 
+    color: var(--text-main);
+
     background:
+        radial-gradient(
+            circle at 8% 8%,
+            rgba(66, 100, 190, 0.20),
+            transparent 28%
+        ),
+        radial-gradient(
+            circle at 90% 12%,
+            rgba(121, 73, 193, 0.17),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 50% 90%,
+            rgba(35, 148, 169, 0.10),
+            transparent 34%
+        ),
         linear-gradient(
-            180deg,
-            #faf9f6 0%,
-            var(--bg) 48%,
-            #efede7 100%
+            135deg,
+            #05070c 0%,
+            #09101b 38%,
+            #0d1422 68%,
+            #070a11 100%
         );
 
-    color: var(--text);
+    background-attachment: fixed;
 
     line-height: 1.6;
 
-    min-height: 100vh;
-
     transition:
-        background-color var(--transition),
-        color var(--transition);
+        background 0.35s ease,
+        color 0.35s ease;
 }
 
 
 /* =========================================================
-   HEADER
-========================================================= */
+   3. HEADER
+   ========================================================= */
 
 header {
     position: relative;
 
-    text-align: center;
-
-    padding: 72px 24px 64px;
-
-    background:
-        radial-gradient(
-            circle at 50% 0%,
-            rgba(201, 169, 110, 0.14),
-            transparent 40%
-        ),
-        linear-gradient(
-            135deg,
-            #0d1422 0%,
-            #172033 52%,
-            #101827 100%
-        );
-
-    color: #ffffff;
-
-    overflow: hidden;
-
-    border-bottom:
-        1px solid rgba(255, 255, 255, 0.08);
-}
-
-
-/* Premium accent line */
-
-header::after {
-    content: "";
-
-    position: absolute;
-
-    left: 50%;
-    bottom: 0;
-
-    width: 90px;
-    height: 3px;
-
-    transform: translateX(-50%);
-
-    background: var(--accent);
-
-    border-radius: 999px;
-}
-
-
-header h1 {
-    position: relative;
-
-    font-size: clamp(30px, 5vw, 46px);
-
-    font-weight: 800;
-
-    letter-spacing: -1.5px;
-
-    margin-bottom: 14px;
-}
-
-
-header p {
-    max-width: 760px;
-
+    max-width: 1100px;
     margin: 0 auto;
 
-    color: #c5cad3;
+    padding: 70px 24px 45px;
 
-    font-size: 15px;
-
-    letter-spacing: 0.2px;
+    text-align: center;
 }
 
 
 /* =========================================================
-   THEME TOGGLE
-========================================================= */
+   KHID BRAND
+   ========================================================= */
 
-#themeToggle {
-    margin-top: 28px;
+.khid-brand {
+    text-align: center;
+    margin-bottom: 20px;
+}
 
-    padding: 10px 17px;
 
-    border:
-        1px solid rgba(255, 255, 255, 0.16);
+/*
+   The main KHID wordmark.
 
-    border-radius: 999px;
+   The HTML version coming later will use:
+   .khid-wordmark
+*/
+
+.khid-wordmark {
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    gap: 1px;
+
+    font-family:
+        "Arial Black",
+        "Trebuchet MS",
+        sans-serif;
+
+    font-size: clamp(4rem, 15vw, 8rem);
+
+    font-weight: 900;
+
+    letter-spacing: -0.13em;
+
+    line-height: 0.82;
 
     background:
-        rgba(255, 255, 255, 0.07);
+        linear-gradient(
+            105deg,
+            #f3f6ff 0%,
+            #a8baff 24%,
+            #7567f4 50%,
+            #3fc5d7 74%,
+            #dce5ff 100%
+        );
 
-    color: #ffffff;
+    -webkit-background-clip: text;
+    background-clip: text;
 
-    font-size: 13px;
+    color: transparent;
+
+    filter:
+        drop-shadow(
+            0 0 25px
+            rgba(92, 113, 255, 0.13)
+        );
+}
+
+
+/* Individual letter personality */
+
+.khid-wordmark span:nth-child(1) {
+    transform: skewX(-8deg);
+}
+
+.khid-wordmark span:nth-child(2) {
+    transform: scaleX(0.88);
+}
+
+.khid-wordmark span:nth-child(3) {
+    transform: scaleX(0.70);
+}
+
+.khid-wordmark span:nth-child(4) {
+    transform: skewX(7deg);
+}
+
+
+/* Subtitle */
+
+.khid-subtitle {
+    margin-top: 22px;
+
+    font-family:
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+    font-size: 0.72rem;
 
     font-weight: 600;
 
+    letter-spacing: 0.42em;
+
+    text-indent: 0.42em;
+
+    color: #9da9c0;
+
+    text-transform: uppercase;
+}
+
+
+/* Existing H1 fallback
+   This keeps the current HTML looking reasonable
+   until we replace it later.
+*/
+
+header h1 {
+    font-size: clamp(2rem, 7vw, 4.5rem);
+
+    font-weight: 900;
+
+    letter-spacing: -0.055em;
+
+    line-height: 1;
+
+    background:
+        linear-gradient(
+            105deg,
+            #f4f6ff,
+            #8fa8ff 35%,
+            #8069f1 65%,
+            #49c5d4
+        );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    color: transparent;
+}
+
+
+/* Header description */
+
+header > p {
+    max-width: 760px;
+
+    margin: 24px auto 0;
+
+    color: var(--text-secondary);
+
+    font-size: 0.88rem;
+
+    letter-spacing: 0.04em;
+}
+
+
+/* =========================================================
+   4. THEME BUTTON
+   ========================================================= */
+
+#themeToggle {
+    position: absolute;
+
+    top: 28px;
+    right: 24px;
+
+    width: 46px;
+    height: 46px;
+
+    border-radius: 50%;
+
+    border: 1px solid var(--border-bright);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(28, 38, 58, 0.95),
+            rgba(13, 18, 29, 0.95)
+        );
+
+    color: #e9edfa;
+
+    font-size: 0;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
     cursor: pointer;
 
-    backdrop-filter: blur(10px);
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.28);
 
     transition:
-        background var(--transition),
-        border-color var(--transition),
-        transform var(--transition);
+        transform 0.25s ease,
+        border-color 0.25s ease,
+        background 0.25s ease;
+}
+
+
+/* Circular sun/moon icon */
+
+#themeToggle::before {
+    content: "☀";
+
+    font-size: 20px;
+
+    line-height: 1;
+
+    color: #dbe4ff;
 }
 
 
 #themeToggle:hover {
-    background:
-        rgba(201, 169, 110, 0.14);
+    transform: translateY(-2px);
 
     border-color:
-        rgba(201, 169, 110, 0.55);
+        rgba(127, 151, 255, 0.55);
 
-    transform: translateY(-1px);
+    background:
+        linear-gradient(
+            145deg,
+            #202b42,
+            #111827
+        );
+}
+
+
+#themeToggle:active {
+    transform: scale(0.94);
 }
 
 
 /* =========================================================
-   MAIN
-========================================================= */
+   5. MAIN
+   ========================================================= */
 
 main {
-    width: min(100% - 32px, 1060px);
+    width: min(1100px, calc(100% - 32px));
 
-    margin: 42px auto 70px;
+    margin: 0 auto;
+
+    padding-bottom: 70px;
 }
 
 
 /* =========================================================
-   SECTIONS
-========================================================= */
+   6. CALCULATOR SECTION
+   ========================================================= */
 
-section {
-    background: var(--surface);
+.calculator-section {
+    position: relative;
 
-    padding: 34px;
+    overflow: hidden;
 
-    margin-bottom: 26px;
+    padding: clamp(24px, 5vw, 48px);
 
-    border:
-        1px solid var(--border);
+    border-radius: var(--radius-large);
 
-    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
 
-    box-shadow: var(--shadow-md);
+    background:
+        radial-gradient(
+            circle at 10% 0%,
+            rgba(77, 106, 193, 0.12),
+            transparent 32%
+        ),
+        radial-gradient(
+            circle at 100% 100%,
+            rgba(112, 76, 174, 0.10),
+            transparent 35%
+        ),
+        linear-gradient(
+            145deg,
+            #111827,
+            #0d1421 55%,
+            #151d2d
+        );
 
-    transition:
-        background-color var(--transition),
-        border-color var(--transition),
-        box-shadow var(--transition);
+    box-shadow: var(--shadow);
 }
 
 
-section h2 {
-    margin-bottom: 24px;
+/* subtle top glow */
 
-    color: var(--text);
+.calculator-section::before {
+    content: "";
 
-    font-size: 21px;
+    position: absolute;
 
-    font-weight: 750;
+    top: -120px;
+    left: 50%;
 
-    letter-spacing: -0.3px;
+    width: 360px;
+    height: 220px;
+
+    transform: translateX(-50%);
+
+    background:
+        radial-gradient(
+            ellipse,
+            rgba(91, 116, 220, 0.13),
+            transparent 70%
+        );
+
+    pointer-events: none;
+}
+
+
+/* Calculator title */
+
+.calculator-section > h2 {
+    position: relative;
+
+    margin-bottom: 30px;
+
+    font-size: 1.7rem;
+
+    font-weight: 700;
+
+    letter-spacing: -0.03em;
+
+    color: var(--text-main);
 }
 
 
 /* =========================================================
-   INPUT GROUP
-========================================================= */
+   7. INPUT GROUPS
+   ========================================================= */
 
 .input-group {
-    margin-bottom: 21px;
+    margin-bottom: 22px;
 }
 
 
 .input-group label {
     display: block;
 
-    margin-bottom: 8px;
+    margin-bottom: 9px;
 
-    color: var(--text-soft);
+    color: #aeb9ce;
 
-    font-size: 13px;
+    font-size: 0.88rem;
 
-    font-weight: 700;
+    font-weight: 600;
 
-    letter-spacing: 0.2px;
+    letter-spacing: 0.01em;
 }
 
 
-/* =========================================================
-   SELECT + INPUT
-========================================================= */
-
-#categorySelect,
-#calculatorSelect,
-#calculatorForm input,
-#calculatorForm select {
-
+.input-group select,
+.input-group input,
+.input-group textarea {
     width: 100%;
 
-    min-height: 50px;
+    min-height: 52px;
 
-    padding: 13px 15px;
+    padding: 13px 16px;
 
-    border:
-        1px solid var(--border-strong);
+    border: 1px solid var(--border);
 
-    border-radius: var(--radius-sm);
-
-    background: var(--surface);
-
-    color: var(--text);
-
-    font-family: inherit;
-
-    font-size: 15px;
+    border-radius: var(--radius-small);
 
     outline: none;
 
+    background:
+        linear-gradient(
+            145deg,
+            #0b111c,
+            #111a29
+        );
+
+    color: var(--text-main);
+
+    font: inherit;
+
     transition:
-        border-color var(--transition),
-        box-shadow var(--transition),
-        background-color var(--transition),
-        color var(--transition);
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
 }
 
 
-#categorySelect:hover,
-#calculatorSelect:hover,
-#calculatorForm input:hover,
-#calculatorForm select:hover {
-    border-color: #aaa59b;
-}
-
-
-#categorySelect:focus,
-#calculatorSelect:focus,
-#calculatorForm input:focus,
-#calculatorForm select:focus {
-
-    border-color: var(--accent);
+.input-group select:focus,
+.input-group input:focus,
+.input-group textarea:focus {
+    border-color:
+        rgba(108, 137, 238, 0.65);
 
     box-shadow:
-        0 0 0 4px rgba(201, 169, 110, 0.14);
+        0 0 0 3px
+        rgba(92, 112, 255, 0.10);
+}
+
+
+.input-group select:hover,
+.input-group input:hover,
+.input-group textarea:hover {
+    border-color:
+        rgba(126, 148, 200, 0.30);
+}
+
+
+/* Select dropdown */
+
+select {
+    cursor: pointer;
 }
 
 
 /* =========================================================
-   CALCULATOR TITLE
-========================================================= */
+   8. CALCULATOR TITLE
+   ========================================================= */
 
 #calculatorTitle {
+    margin: 30px 0 22px;
 
-    margin-top: 34px;
+    padding-bottom: 18px;
 
-    margin-bottom: 22px;
-
-    padding-top: 27px;
-
-    border-top:
-        1px solid var(--border);
+    border-bottom: 1px solid var(--border);
 }
 
 
 #calculatorTitle h2 {
+    font-size: clamp(1.35rem, 4vw, 2rem);
 
-    margin-bottom: 0;
+    line-height: 1.2;
 
-    color: var(--primary);
+    font-weight: 700;
 
-    font-size: 25px;
-
-    font-weight: 780;
-
-    letter-spacing: -0.6px;
+    color: #eef2fb;
 }
 
 
 /* =========================================================
-   CALCULATOR FORM
-========================================================= */
+   9. FORM
+   ========================================================= */
 
 #calculatorForm {
-    margin-top: 20px;
+    display: grid;
+
+    gap: 18px;
 }
 
 
-#calculatorForm .input-group {
-    margin-bottom: 19px;
-}
+/* Generic form elements generated by JS */
 
-
-#calculatorForm small {
-
+#calculatorForm label {
     display: block;
 
-    margin-top: 6px;
+    margin-bottom: 7px;
 
-    color: var(--text-muted);
+    color: #aab5ca;
 
-    font-size: 12px;
+    font-size: 0.87rem;
+
+    font-weight: 600;
 }
 
 
-/* =========================================================
-   BUTTONS
-========================================================= */
-
-button {
-
-    padding: 12px 19px;
-
-    margin: 6px;
-
-    border: none;
-
-    border-radius: var(--radius-sm);
-
-    background: var(--primary);
-
-    color: #ffffff;
-
-    font-family: inherit;
-
-    font-size: 14px;
-
-    font-weight: 650;
-
-    cursor: pointer;
-
-    transition:
-        transform var(--transition),
-        background-color var(--transition),
-        box-shadow var(--transition);
-}
-
-
-button:hover {
-
-    background: var(--primary-light);
-
-    transform: translateY(-1px);
-
-    box-shadow:
-        0 6px 15px rgba(23, 32, 51, 0.12);
-}
-
-
-button:active {
-    transform: translateY(0);
-}
-
-
-/* =========================================================
-   CALCULATE BUTTON
-========================================================= */
-
-#calculateButton {
-
+#calculatorForm input,
+#calculatorForm select,
+#calculatorForm textarea {
     width: 100%;
 
-    margin:
-        12px 0 28px;
+    padding: 13px 15px;
 
-    padding: 15px 20px;
+    min-height: 50px;
 
     border-radius: 12px;
 
+    border: 1px solid var(--border);
+
     background:
         linear-gradient(
-            135deg,
-            #172033,
-            #0d1422
+            145deg,
+            #0a101a,
+            #111a29
+        );
+
+    color: #f0f3fb;
+
+    font: inherit;
+
+    outline: none;
+}
+
+
+#calculatorForm input:focus,
+#calculatorForm select:focus,
+#calculatorForm textarea:focus {
+    border-color:
+        rgba(112, 139, 240, 0.68);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(85, 108, 215, 0.10);
+}
+
+
+/* =========================================================
+   10. CALCULATE BUTTON
+   ========================================================= */
+
+#calculateButton {
+    width: 100%;
+
+    min-height: 54px;
+
+    margin-top: 28px;
+
+    border: none;
+
+    border-radius: 14px;
+
+    background:
+        linear-gradient(
+            105deg,
+            #526fe0,
+            #8065df 52%,
+            #35baca
         );
 
     color: #ffffff;
 
-    font-size: 15px;
+    font-size: 1rem;
 
-    font-weight: 750;
+    font-weight: 700;
 
-    letter-spacing: 0.1px;
+    letter-spacing: 0.01em;
+
+    cursor: pointer;
 
     box-shadow:
-        0 8px 20px rgba(13, 20, 34, 0.18);
+        0 14px 35px
+        rgba(74, 93, 190, 0.22);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
 }
 
 
 #calculateButton:hover {
+    transform: translateY(-2px);
 
-    background:
-        linear-gradient(
-            135deg,
-            #273248,
-            #172033
-        );
+    filter: brightness(1.08);
 
     box-shadow:
-        0 11px 25px rgba(13, 20, 34, 0.24);
+        0 18px 40px
+        rgba(75, 99, 215, 0.30);
+}
 
-    transform: translateY(-2px);
+
+#calculateButton:active {
+    transform: translateY(0) scale(0.99);
 }
 
 
 /* =========================================================
-   RESULT
-========================================================= */
+   11. RESULT
+   ========================================================= */
 
 #result {
+    margin-top: 28px;
 
-    margin-top: 18px;
+    padding: 25px;
 
-    padding: 27px;
+    border-radius: var(--radius-medium);
+
+    border: 1px solid var(--border);
 
     background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(109, 83, 183, 0.13),
+            transparent 38%
+        ),
         linear-gradient(
             145deg,
-            #faf9f6,
-            #f1efe9
+            #182235,
+            #111927
         );
-
-    border:
-        1px solid var(--border);
-
-    border-left:
-        4px solid var(--accent);
-
-    border-radius: 14px;
-
-    overflow-wrap: break-word;
-
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 
 #result h3 {
-
     margin-bottom: 18px;
 
-    color: var(--primary);
+    font-size: 1.15rem;
 
-    font-size: 20px;
+    font-weight: 700;
 
-    font-weight: 800;
-
-    letter-spacing: -0.3px;
-}
-
-
-#result h4 {
-
-    margin-bottom: 8px;
-
-    color: var(--primary);
-
-    font-size: 15px;
-
-    font-weight: 750;
+    color: #e8ecf7;
 }
 
 
 #result p {
-    margin-bottom: 10px;
-}
-
-
-/* =========================================================
-   RESULT BOXES
-========================================================= */
-
-.formula-box,
-.working-box,
-.interpretation-box {
-
-    margin-top: 15px;
-
-    padding: 17px 18px;
-
-    background: var(--surface);
-
-    border:
-        1px solid var(--border);
-
-    border-radius: 12px;
-
-    box-shadow:
-        0 2px 8px rgba(23, 32, 51, 0.035);
-}
-
-
-.formula-box strong,
-.working-box strong,
-.interpretation-box strong {
-
-    display: inline-block;
-
-    margin-bottom: 6px;
-
-    color: #8c6d35;
-
-    font-size: 12px;
-
-    text-transform: uppercase;
-
-    letter-spacing: 0.7px;
-}
-
-
-/* =========================================================
-   ERROR
-========================================================= */
-
-.error-message {
-
-    padding: 15px 17px;
-
-    background: var(--danger-bg);
-
-    color: var(--danger);
-
-    border:
-        1px solid #ecc9c7;
-
-    border-left:
-        4px solid var(--danger);
-
-    border-radius: 10px;
-
-    font-size: 14px;
-
-    font-weight: 600;
-}
-
-
-/* =========================================================
-   CONTACT
-========================================================= */
-
-.contact-section {
-
-    position: relative;
-
-    text-align: center;
-
-    background:
-        linear-gradient(
-            145deg,
-            #fbfaf7,
-            #f0eee8
-        );
-}
-
-
-.contact-section h2 {
-
-    margin-bottom: 12px;
-
-    font-size: 23px;
-}
-
-
-.contact-section h3 {
-
-    margin-top: 22px;
-
-    margin-bottom: 7px;
-
-    color: var(--primary);
-
-    font-size: 18px;
-
-    font-weight: 750;
-}
-
-
-.contact-section p {
-
-    margin-bottom: 9px;
-
-    color: var(--text-soft);
-
-    font-size: 14px;
-}
-
-
-.contact-section a {
-
-    display: inline-flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    margin-top: 18px;
-
-    padding: 12px 21px;
-
-    background: #1f765f;
-
-    color: white;
-
-    text-decoration: none;
-
-    border-radius: 999px;
-
-    font-size: 14px;
-
-    font-weight: 700;
-
-    box-shadow:
-        0 7px 18px rgba(31, 118, 95, 0.18);
-
-    transition:
-        transform var(--transition),
-        background-color var(--transition),
-        box-shadow var(--transition);
-}
-
-
-.contact-section a:hover {
-
-    background: #185f4d;
-
-    transform: translateY(-2px);
-
-    box-shadow:
-        0 10px 24px rgba(31, 118, 95, 0.24);
-}
-
-
-/* =========================================================
-   FOOTER
-========================================================= */
-
-footer {
-
-    text-align: center;
-
-    padding: 30px 20px 38px;
-
-    color: var(--text-muted);
-
-    font-size: 12px;
-
-    letter-spacing: 0.1px;
-}
-
-
-/* =========================================================
-   DARK MODE
-========================================================= */
-
-body.dark-mode {
-
-    --bg: #0b101a;
-    --surface: #151c29;
-    --surface-soft: #111824;
-    --surface-muted: #1c2534;
-
-    --text: #f0eee8;
-    --text-soft: #b7bdc7;
-    --text-muted: #89919d;
-
-    --primary: #e8e1d2;
-    --primary-dark: #f2ede4;
-    --primary-light: #293449;
-
-    --accent: #d2b77e;
-    --accent-light: #51452e;
-
-    --border: #2a3342;
-    --border-strong: #3b4658;
-
-    --danger: #e7a4a5;
-    --danger-bg: #351a1c;
-
-    background:
-        radial-gradient(
-            circle at 50% 0%,
-            rgba(201, 169, 110, 0.08),
-            transparent 35%
-        ),
-        #0b101a;
-
-    color: var(--text);
-}
-
-
-/* =========================================================
-   DARK — HEADER
-========================================================= */
-
-body.dark-mode header {
-
-    background:
-        radial-gradient(
-            circle at 50% 0%,
-            rgba(201, 169, 110, 0.10),
-            transparent 40%
-        ),
-        linear-gradient(
-            135deg,
-            #080d15,
-            #111927,
-            #0a1019
-        );
-}
-
-
-body.dark-mode header p {
-    color: #aeb5c0;
-}
-
-
-/* =========================================================
-   DARK — SECTIONS
-========================================================= */
-
-body.dark-mode section {
-
-    background: var(--surface);
-
-    border-color: var(--border);
-
-    color: var(--text);
-
-    box-shadow:
-        0 15px 40px rgba(0, 0, 0, 0.25);
-}
-
-
-/* =========================================================
-   DARK — HEADINGS
-========================================================= */
-
-body.dark-mode section h2,
-body.dark-mode #calculatorTitle h2,
-body.dark-mode #result h3,
-body.dark-mode #result h4 {
-
-    color: #f0eee8;
-}
-
-
-/* =========================================================
-   DARK — LABELS
-========================================================= */
-
-body.dark-mode .input-group label {
-    color: #bfc5ce;
-}
-
-
-/* =========================================================
-   DARK — INPUTS
-========================================================= */
-
-body.dark-mode #categorySelect,
-body.dark-mode #calculatorSelect,
-body.dark-mode #calculatorForm input,
-body.dark-mode #calculatorForm select {
-
-    background: #0f1622;
-
-    color: #f0eee8;
-
-    border-color: var(--border-strong);
-}
-
-
-body.dark-mode #categorySelect:hover,
-body.dark-mode #calculatorSelect:hover,
-body.dark-mode #calculatorForm input:hover,
-body.dark-mode #calculatorForm select:hover {
-
-    border-color: #596577;
-}
-
-
-body.dark-mode #categorySelect:focus,
-body.dark-mode #calculatorSelect:focus,
-body.dark-mode #calculatorForm input:focus,
-body.dark-mode #calculatorForm select:focus {
-
-    border-color: var(--accent);
-
-    box-shadow:
-        0 0 0 4px rgba(201, 169, 110, 0.12);
-}
-
-
-/* =========================================================
-   DARK — CALCULATOR TITLE
-========================================================= */
-
-body.dark-mode #calculatorTitle {
-    border-top-color: var(--border);
-}
-
-
-/* =========================================================
-   DARK — BUTTONS
-========================================================= */
-
-body.dark-mode button {
-
-    background: #e8e1d2;
-
-    color: #172033;
-}
-
-
-body.dark-mode button:hover {
-
-    background: #ffffff;
-
-    color: #0d1422;
-}
-
-
-/* =========================================================
-   DARK — CALCULATE BUTTON
-========================================================= */
-
-body.dark-mode #calculateButton {
-
-    background:
-        linear-gradient(
-            135deg,
-            #e5dfd1,
-            #cdbf9f
-        );
-
-    color: #111827;
-
-    box-shadow:
-        0 8px 22px rgba(0, 0, 0, 0.30);
-}
-
-
-body.dark-mode #calculateButton:hover {
-
-    background:
-        linear-gradient(
-            135deg,
-            #f0e9dc,
-            #d9cba9
-        );
-}
-
-
-/* =========================================================
-   DARK — RESULT
-========================================================= */
-
-body.dark-mode #result {
-
-    background:
-        linear-gradient(
-            145deg,
-            #17202e,
-            #121a26
-        );
-
-    color: var(--text);
-
-    border-color: var(--border);
-
-    border-left-color: var(--accent);
-}
-
-
-body.dark-mode .formula-box,
-body.dark-mode .working-box,
-body.dark-mode .interpretation-box {
-
-    background: #1b2432;
-
-    color: var(--text);
-
-    border-color: var(--border);
-}
-
-
-body.dark-mode .formula-box strong,
-body.dark-mode .working-box strong,
-body.dark-mode .interpretation-box strong {
-
-    color: #d8bd86;
-}
-
-
-body.dark-mode #calculatorForm small {
-    color: #89929f;
-}
-
-
-/* =========================================================
-   DARK — ERROR
-========================================================= */
-
-body.dark-mode .error-message {
-
-    background: #351a1c;
-
-    color: #f0b4b5;
-
-    border-color: #5c2e32;
-
-    border-left-color: #c95c60;
-}
-
-
-/* =========================================================
-   DARK — CONTACT
-========================================================= */
-
-body.dark-mode .contact-section {
-
-    background:
-        linear-gradient(
-            145deg,
-            #17202d,
-            #121a25
-        );
-}
-
-
-body.dark-mode .contact-section h3 {
-    color: #f0eee8;
-}
-
-
-body.dark-mode .contact-section p {
-    color: #b5bcc6;
-}
-
-
-body.dark-mode .contact-section a {
-    background: #1f765f;
-    color: white;
-}
-
-
-body.dark-mode .contact-section a:hover {
-    background: #278b70;
-}
-
-
-/* =========================================================
-   DARK — FOOTER
-========================================================= */
-
-body.dark-mode footer {
-    color: #89919d;
-}
-
-
-/* =========================================================
-   KHID AI ASSISTANT
-========================================================= */
-
-.khid-ai-panel {
-
-    position: fixed;
-
-    right: 22px;
-    bottom: 22px;
-
-    width: 380px;
-
-    max-width: calc(100% - 44px);
-
-    height: 540px;
-
-    background: var(--surface);
-
-    color: var(--text);
-
-    border:
-        1px solid var(--border);
-
-    border-radius: 20px;
-
-    overflow: hidden;
-
-    box-shadow: var(--shadow-lg);
-
-    display: none;
-
-    flex-direction: column;
-
-    z-index: 9999;
-}
-
-
-/* =========================================================
-   AI HEADER
-========================================================= */
-
-.khid-ai-header {
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    padding: 16px 18px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #0d1422,
-            #172033
-        );
-
-    color: white;
-}
-
-
-.khid-ai-header strong {
-
-    display: block;
-
-    font-size: 14px;
-
-    font-weight: 750;
-}
-
-
-.khid-ai-header span {
-
-    display: block;
-
-    margin-top: 4px;
-
-    font-size: 10px;
-
-    color: #c2c8d1;
-}
-
-
-#closeAiButton {
-
-    margin: 0;
-
-    padding: 7px;
-
-    border: none;
-
-    background: transparent;
-
-    color: white;
-
-    font-size: 18px;
-
-    cursor: pointer;
-
-    box-shadow: none;
-}
-
-
-#closeAiButton:hover {
-
-    background:
-        rgba(201, 169, 110, 0.12);
-
-    color: var(--accent);
-
-    transform: none;
-
-    box-shadow: none;
-}
-
-
-/* =========================================================
-   AI MESSAGES
-========================================================= */
-
-.khid-ai-messages {
-
-    flex: 1;
-
-    padding: 17px;
-
-    overflow-y: auto;
-
-    background: var(--surface-soft);
-
-    scrollbar-width: thin;
-}
-
-
-.khid-ai-message {
-
-    max-width: 90%;
-
-    margin-bottom: 13px;
-
-    padding: 11px 13px;
-
-    border-radius: 13px;
-
-    line-height: 1.55;
-
-    font-size: 13px;
-}
-
-
-.khid-ai-message p {
-    margin: 5px 0 0;
-}
-
-
-.khid-ai-bot-message {
-
-    background: var(--surface);
-
-    border:
-        1px solid var(--border);
-
-    box-shadow: var(--shadow-sm);
-}
-
-
-/* =========================================================
-   AI INPUT
-========================================================= */
-
-.khid-ai-input-area {
-
-    display: flex;
-
-    gap: 8px;
-
-    padding: 11px;
-
-    background: var(--surface);
-
-    border-top:
-        1px solid var(--border);
-}
-
-
-#aiInput {
-
-    flex: 1;
-
-    min-width: 0;
-
-    resize: none;
-
-    padding: 11px 12px;
-
-    border:
-        1px solid var(--border-strong);
-
-    border-radius: 11px;
-
-    background: var(--surface);
-
-    color: var(--text);
-
-    font-family: inherit;
-
-    font-size: 13px;
-
-    outline: none;
-
-    transition:
-        border-color var(--transition),
-        box-shadow var(--transition);
-}
-
-
-#aiInput:focus {
-
-    border-color: var(--accent);
-
-    box-shadow:
-        0 0 0 3px rgba(201, 169, 110, 0.12);
-}
-
-
-#sendAiButton {
-
-    align-self: stretch;
-
-    min-width: 68px;
-
-    margin: 0;
-
-    padding: 0 14px;
-
-    border: none;
-
-    border-radius: 10px;
-
-    background: var(--primary);
-
-    color: #ffffff;
-
-    font-weight: 700;
-
-    cursor: pointer;
-}
-
-
-#sendAiButton:hover {
-
-    background: var(--primary-light);
-
-    transform: none;
-
-    box-shadow: none;
-}
-
-
-/* =========================================================
-   AI OPEN BUTTON
-========================================================= */
-
-.khid-ai-open-button {
-
-    position: fixed;
-
-    right: 22px;
-    bottom: 22px;
-
-    margin: 0;
-
-    padding: 12px 18px;
-
-    border:
-        1px solid rgba(201, 169, 110, 0.25);
-
-    border-radius: 999px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #172033,
-            #0d1422
-        );
-
-    color: #ffffff;
-
-    font-weight: 700;
-
-    cursor: pointer;
-
-    z-index: 9998;
-
-    box-shadow:
-        0 9px 25px rgba(13, 20, 34, 0.25);
-
-    transition:
-        transform var(--transition),
-        box-shadow var(--transition),
-        border-color var(--transition);
-}
-
-
-.khid-ai-open-button:hover {
-
-    background:
-        linear-gradient(
-            135deg,
-            #273248,
-            #172033
-        );
-
-    border-color:
-        rgba(201, 169, 110, 0.55);
-
-    transform: translateY(-2px);
-
-    box-shadow:
-        0 13px 30px rgba(13, 20, 34, 0.32);
-}
-
-
-/* =========================================================
-   AI DARK MODE
-========================================================= */
-
-body.dark-mode .khid-ai-panel {
-
-    background: #151c29;
-
-    color: #f0eee8;
-
-    border-color: #2a3342;
-
-    box-shadow:
-        0 25px 70px rgba(0, 0, 0, 0.45);
-}
-
-
-body.dark-mode .khid-ai-header {
-
-    background:
-        linear-gradient(
-            135deg,
-            #080d15,
-            #172033
-        );
-}
-
-
-body.dark-mode .khid-ai-messages {
-
-    background: #0f1622;
-}
-
-
-body.dark-mode .khid-ai-bot-message {
-
-    background: #1b2432;
-
-    border-color: #2a3342;
-}
-
-
-body.dark-mode .khid-ai-input-area {
-
-    background: #151c29;
-
-    border-color: #2a3342;
-}
-
-
-body.dark-mode #aiInput {
-
-    background: #0f1622;
-
-    color: #f0eee8;
-
-    border-color: #3b4658;
-}
-
-
-body.dark-mode #aiInput:focus {
-
-    border-color: var(--accent);
-
-    box-shadow:
-        0 0 0 3px rgba(201, 169, 110, 0.12);
-}
-
-
-body.dark-mode #aiInput::placeholder {
-    color: #89919d;
-}
-
-
-/* =========================================================
-   AI FORMATTING
-========================================================= */
-
-.khid-ai-content {
-    line-height: 1.65;
-}
-
-
-.khid-ai-content h3,
-.khid-ai-content h4 {
-
-    margin:
-        13px 0 7px;
-
-    color: var(--text);
-}
-
-
-.khid-ai-content li {
-
-    margin-left: 20px;
-
-    margin-bottom: 5px;
-}
-
-
-.ai-formula {
-
-    margin: 13px 0;
-
-    padding: 11px;
-
-    overflow-x: auto;
-
-    text-align: center;
-
-    background: var(--surface-muted);
-
-    border-radius: 9px;
-
-    border:
-        1px solid var(--border);
-}
-
-
-/* =========================================================
-   RESPONSIVE — TABLET
-========================================================= */
-
-@media (max-width: 800px) {
-
-    main {
-        width: min(100% - 26px, 700px);
-    }
-
-    section {
-        padding: 28px;
-    }
-
-    header {
-        padding: 60px 20px 55px;
-    }
-}
-
-
-/* =========================================================
-   RESPONSIVE — MOBILE
-========================================================= */
-
-@media (max-width: 600px) {
-
-    header {
-
-        padding:
-            48px 16px 45px;
-    }
-
-
-    header h1 {
-
-        font-size: 29px;
-
-        letter-spacing: -0.8px;
-    }
-
-
-    header p {
-
-        font-size: 13px;
-
-        line-height: 1.7;
-    }
-
-
-    #themeToggle {
-
-        margin-top: 22px;
-    }
-
-
-    main {
-
-        width: calc(100% - 22px);
-
-        margin:
-            25px auto 45px;
-    }
-
-
-    section {
-
-        padding: 22px 18px;
-
-        margin-bottom: 18px;
-
-        border-radius: 17px;
-    }
-
-
-    section h2 {
-
-        font-size: 19px;
-
-        margin-bottom: 20px;
-    }
-
-
-    #categorySelect,
-    #calculatorSelect,
-    #calculatorForm input,
-    #calculatorForm select {
-
-        min-height: 49px;
-
-        font-size: 16px;
-    }
-
-
-    #calculatorTitle {
-
-        margin-top: 27px;
-
-        padding-top: 23px;
-    }
-
-
-    #calculatorTitle h2 {
-
-        font-size: 22px;
-    }
-
-
-    #calculateButton {
-
-        padding: 14px;
-
-        margin-bottom: 23px;
-    }
-
-
-    #result {
-
-        padding: 20px 17px;
-
-        border-radius: 12px;
-    }
-
-
-    #result h3 {
-
-        font-size: 18px;
-    }
-
-
-    .formula-box,
-    .working-box,
-    .interpretation-box {
-
-        padding: 14px;
-
-        margin-top: 12px;
-    }
-
-
-    .contact-section {
-
-        padding:
-            26px 18px;
-    }
-
-
-    .contact-section a {
-
-        width: 100%;
-
-        padding: 13px 15px;
-    }
-
-
-    footer {
-
-        padding:
-            22px 15px 30px;
-    }
-
-
-    /* AI */
-
-    .khid-ai-panel {
-
-        right: 10px;
-
-        bottom: 10px;
-
-        width: calc(100% - 20px);
-
-        max-width: none;
-
-        height: min(600px, 76vh);
-
-        border-radius: 17px;
-    }
-
-
-    .khid-ai-open-button {
-
-        right: 14px;
-
-        bottom: 14px;
-
-        padding:
-            11px 16px;
-
-        font-size: 13px;
-    }
-}
-
-
-/* =========================================================
-   VERY SMALL PHONES
-========================================================= */
-
-@media (max-width: 380px) {
-
-    header h1 {
-        font-size: 25px;
-    }
-
-
-    section {
-        padding: 19px 15px;
-    }
-
-
-    #result {
-        padding: 17px 14px;
-    }
-
-
-    .khid-ai-header span {
-        max-width: 210px;
-        line-height: 1.4;
-    }
-}
-
-
-/* =========================================================
-   ACCESSIBILITY
-========================================================= */
-
-button:focus-visible,
-select:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-a:focus-visible {
-
-    outline:
-        3px solid rgba(201, 169, 110, 0.38);
-
-    outline-offset: 2px;
-}
-
-
-/* =========================================================
-   REDUCED MOTION
-========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-
-    *,
-    *::before,
-    *::after {
-
-        scroll-behavior: auto !important;
-
-        transition-duration: 0.01ms !important;
-
-        animation-duration: 0.01ms !important;
-
-        animation-iteration-count: 1 !important;
-    }
-   }==================================================
-   ERROR
-========================================================= */
-
-.error-message {
-
-    padding: 15px 17px;
-
-    background: var(--danger-bg);
-
-    color: var(--danger);
-
-    border:
-        1px solid #f5c7c2;
-
-    border-left:
-        4px solid #d92d20;
-
-    border-radius: 10px;
-
-    font-size: 14px;
-
-    font-weight: 600;
-}
-
-
-/* =========================================================
-   CONTACT SECTION
-========================================================= */
-
-.contact-section {
-
-    position: relative;
-
-    text-align: center;
-
-    background:
-        linear-gradient(
-            145deg,
-            #f8faf8,
-            #eef4f0
-        );
-}
-
-
-.contact-section h2 {
-
-    margin-bottom: 12px;
-
-    font-size: 23px;
-}
-
-
-.contact-section h3 {
-
-    margin-top: 22px;
-
-    margin-bottom: 7px;
-
-    color: var(--text);
-
-    font-size: 18px;
-
-    font-weight: 750;
-}
-
-
-.contact-section p {
-
-    margin-bottom: 9px;
-
-    color: var(--text-soft);
-
-    font-size: 14px;
-}
-
-
-.contact-section a {
-
-    display: inline-flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    margin-top: 18px;
-
-    padding: 12px 21px;
-
-    background:
-        #16845a;
-
-    color: white;
-
-    text-decoration: none;
-
-    border-radius: 999px;
-
-    font-size: 14px;
-
-    font-weight: 700;
-
-    box-shadow:
-        0 7px 18px rgba(22, 132, 90, 0.18);
-
-    transition:
-        transform var(--transition),
-        background-color var(--transition),
-        box-shadow var(--transition);
-}
-
-
-.contact-section a:hover {
-
-    background: #106a48;
-
-    transform: translateY(-2px);
-
-    box-shadow:
-        0 10px 24px rgba(22, 132, 90, 0.24);
-}
-
-
-/* =========================================================
-   FOOTER
-========================================================= */
-
-footer {
-
-    text-align: center;
-
-    padding: 30px 20px 38px;
-
-    color: var(--text-muted);
-
-    font-size: 12px;
-
-    letter-spacing: 0.1px;
-}
-
-
-/* =========================================================
-   DARK MODE
-========================================================= */
-
-body.dark-mode {
-
-    --bg: #0b1210;
-    --surface: #111b17;
-    --surface-soft: #16221d;
-    --surface-muted: #1b2923;
-
-    --text: #edf4f0;
-    --text-soft: #b8c5be;
-    --text-muted: #8e9c95;
-
-    --primary: #46b986;
-    --primary-dark: #2d986a;
-    --primary-light: #183d2f;
-
-    --border: #26352e;
-    --border-strong: #37483f;
-
-    --danger: #ffb4ad;
-    --danger-bg: #351917;
-
-    background:
-        radial-gradient(
-            circle at 50% 0%,
-            rgba(42, 117, 84, 0.10),
-            transparent 35%
-        ),
-        #0b1210;
-
-    color: var(--text);
-}
-
-
-/* =========================================================
-   DARK — HEADER
-========================================================= */
-
-body.dark-mode header {
-
-    background:
-        radial-gradient(
-            circle at 50% 0%,
-            rgba(65, 170, 119, 0.15),
-            transparent 40%
-        ),
-        linear-gradient(
-            135deg,
-            #08110d,
-            #102019,
-            #07100c
-        );
-}
-
-
-body.dark-mode header p {
-    color: #aebdb5;
-}
-
-
-/* =========================================================
-   DARK — SECTIONS
-========================================================= */
-
-body.dark-mode section {
-
-    background: var(--surface);
-
-    border-color: var(--border);
-
-    color: var(--text);
-
-    box-shadow:
-        0 15px 40px rgba(0, 0, 0, 0.20);
-}
-
-
-/* =========================================================
-   DARK — HEADINGS
-========================================================= */
-
-body.dark-mode section h2,
-body.dark-mode #calculatorTitle h2,
-body.dark-mode #result h3,
-body.dark-mode #result h4 {
-
-    color: #f1f7f3;
-}
-
-
-/* =========================================================
-   DARK — LABELS
-========================================================= */
-
-body.dark-mode .input-group label {
-    color: #bdc9c2;
-}
-
-
-/* =========================================================
-   DARK — INPUTS
-========================================================= */
-
-body.dark-mode #categorySelect,
-body.dark-mode #calculatorSelect,
-body.dark-mode #calculatorForm input,
-body.dark-mode #calculatorForm select {
-
-    background: #0c1511;
-
-    color: #edf4f0;
-
-    border-color: var(--border-strong);
-}
-
-
-body.dark-mode #categorySelect:hover,
-body.dark-mode #calculatorSelect:hover,
-body.dark-mode #calculatorForm input:hover,
-body.dark-mode #calculatorForm select:hover {
-
-    border-color: #52665b;
-}
-
-
-body.dark-mode #categorySelect:focus,
-body.dark-mode #calculatorSelect:focus,
-body.dark-mode #calculatorForm input:focus,
-body.dark-mode #calculatorForm select:focus {
-
-    border-color: var(--primary);
-
-    box-shadow:
-        0 0 0 4px rgba(70, 185, 134, 0.12);
-}
-
-
-/* =========================================================
-   DARK — CALCULATOR TITLE
-========================================================= */
-
-body.dark-mode #calculatorTitle {
-
-    border-top-color: var(--border);
-}
-
-
-/* =========================================================
-   DARK — RESULT
-========================================================= */
-
-body.dark-mode #result {
-
-    background:
-        linear-gradient(
-            145deg,
-            #121e19,
-            #0f1915
-        );
-
-    color: var(--text);
-
-    border-color: var(--border);
-
-    border-left-color: var(--primary);
-}
-
-
-body.dark-mode .formula-box,
-body.dark-mode .working-box,
-body.dark-mode .interpretation-box {
-
-    background: #16221d;
-
-    color: var(--text);
-
-    border-color: var(--border);
-}
-
-
-body.dark-mode .formula-box strong,
-body.dark-mode .working-box strong,
-body.dark-mode .interpretation-box strong {
-
-    color: #64ce9b;
-}
-
-
-body.dark-mode #calculatorForm small {
-    color: #87978f;
-}
-
-
-/* =========================================================
-   DARK — ERROR
-========================================================= */
-
-body.dark-mode .error-message {
-
-    background: #351917;
-
-    color: #ffcbc6;
-
-    border-color: #64302b;
-
-    border-left-color: #ef6b61;
-}
-
-
-/* =========================================================
-   DARK — CONTACT
-========================================================= */
-
-body.dark-mode .contact-section {
-
-    background:
-        linear-gradient(
-            145deg,
-            #132019,
-            #101a15
-        );
-}
-
-
-body.dark-mode .contact-section h3 {
-    color: #f1f7f3;
-}
-
-
-body.dark-mode .contact-section p {
-    color: #b7c4bd;
-}
-
-
-body.dark-mode .contact-section a {
-    background: #16845a;
-    color: white;
-}
-
-
-body.dark-mode .contact-section a:hover {
-    background: #1a9967;
-}
-
-
-/* =========================================================
-   DARK — FOOTER
-========================================================= */
-
-body.dark-mode footer {
-    color: #84938b;
-}
-
-
-/* =========================================================
-   KHID AI ASSISTANT
-========================================================= */
-
-.khid-ai-panel {
-
-    position: fixed;
-
-    right: 22px;
-    bottom: 22px;
-
-    width: 380px;
-
-    max-width: calc(100% - 44px);
-
-    height: 540px;
-
-    background: var(--surface);
-
-    color: var(--text);
-
-    border:
-        1px solid var(--border);
-
-    border-radius: 20px;
-
-    overflow: hidden;
-
-    box-shadow: var(--shadow-lg);
-
-    display: none;
-
-    flex-direction: column;
-
-    z-index: 9999;
-}
-
-
-/* =========================================================
-   AI HEADER
-========================================================= */
-
-.khid-ai-header {
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    padding: 16px 18px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #10281e,
-            #176b4d
-        );
-
-    color: white;
-}
-
-
-.khid-ai-header strong {
-
-    display: block;
-
-    font-size: 14px;
-
-    font-weight: 750;
-}
-
-
-.khid-ai-header span {
-
-    display: block;
-
-    margin-top: 4px;
-
-    font-size: 10px;
-
-    color: #c9ddd3;
-}
-
-
-#closeAiButton {
-
-    margin: 0;
-
-    padding: 7px;
-
-    border: none;
-
-    background: transparent;
-
-    color: white;
-
-    font-size: 18px;
-
-    cursor: pointer;
-
-    box-shadow: none;
-}
-
-
-#closeAiButton:hover {
-
-    background:
-        rgba(255, 255, 255, 0.10);
-
-    transform: none;
-
-    box-shadow: none;
-}
-
-
-/* =========================================================
-   AI MESSAGES
-========================================================= */
-
-.khid-ai-messages {
-
-    flex: 1;
-
-    padding: 17px;
-
-    overflow-y: auto;
-
-    background: var(--surface-soft);
-
-    scrollbar-width: thin;
-}
-
-
-.khid-ai-message {
-
-    max-width: 90%;
-
-    margin-bottom: 13px;
-
-    padding: 11px 13px;
-
-    border-radius: 13px;
-
-    line-height: 1.55;
-
-    font-size: 13px;
-}
+    color: var(--text-secondary);
 
-
-.khid-ai-message p {
-    margin: 5px 0 0;
-}
-
-
-.khid-ai-bot-message {
-
-    background: var(--surface);
-
-    border:
-        1px solid var(--border);
-
-    box-shadow: var(--shadow-sm);
-}
-
-
-/* =========================================================
-   AI INPUT
-========================================================= */
-
-.khid-ai-input-area {
-
-    display: flex;
-
-    gap: 8px;
-
-    padding: 11px;
-
-    background: var(--surface);
-
-    border-top:
-        1px solid var(--border);
-}
-
-
-#aiInput {
-
-    flex: 1;
-
-    min-width: 0;
-
-    resize: none;
-
-    padding: 11px 12px;
-
-    border:
-        1px solid var(--border-strong);
-
-    border-radius: 11px;
-
-    background: var(--surface);
-
-    color: var(--text);
-
-    font-family: inherit;
-
-    font-size: 13px;
-
-    outline: none;
-
-    transition:
-        border-color var(--transition),
-        box-shadow var(--transition);
-}
-
-
-#aiInput:focus {
-
-    border-color: var(--primary);
-
-    box-shadow:
-        0 0 0 3px rgba(23, 107, 77, 0.10);
-}
-
-
-#sendAiButton {
-
-    align-self: stretch;
-
-    min-width: 68px;
-
-    margin: 0;
-
-    padding: 0 14px;
-
-    border: none;
-
-    border-radius: 10px;
-
-    background: var(--primary);
-
-    color: white;
-
-    font-weight: 700;
-
-    cursor: pointer;
-}
-
-
-#sendAiButton:hover {
-
-    background: var(--primary-dark);
-
-    transform: none;
-
-    box-shadow: none;
-}
-
-
-/* =========================================================
-   AI OPEN BUTTON
-========================================================= */
-
-.khid-ai-open-button {
-
-    position: fixed;
-
-    right: 22px;
-    bottom: 22px;
-
-    margin: 0;
-
-    padding: 12px 18px;
-
-    border:
-        1px solid rgba(255, 255, 255, 0.15);
-
-    border-radius: 999px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #176b4d,
-            #0f513a
-        );
-
-    color: white;
-
-    font-weight: 700;
-
-    cursor: pointer;
-
-    z-index: 9998;
-
-    box-shadow:
-        0 9px 25px rgba(16, 82, 59, 0.25);
-
-    transition:
-        transform var(--transition),
-        box-shadow var(--transition);
-}
-
-
-.khid-ai-open-button:hover {
-
-    background:
-        linear-gradient(
-            135deg,
-            #1b7c59,
-            #105b41
-        );
-
-    transform: translateY(-2px);
-
-    box-shadow:
-        0 13px 30px rgba(16, 82, 59, 0.30);
-}
-
-
-/* =========================================================
-   AI DARK MODE
-========================================================= */
-
-body.dark-mode .khid-ai-panel {
-
-    background: #111b17;
-
-    color: #edf4f0;
-
-    border-color: #26352e;
-
-    box-shadow:
-        0 25px 70px rgba(0, 0, 0, 0.45);
-}
-
-
-body.dark-mode .khid-ai-header {
-
-    background:
-        linear-gradient(
-            135deg,
-            #0b1b14,
-            #14543c
-        );
-}
-
-
-body.dark-mode .khid-ai-messages {
-
-    background: #0c1511;
-}
-
-
-body.dark-mode .khid-ai-bot-message {
-
-    background: #16221d;
-
-    border-color: #293a31;
-}
-
-
-body.dark-mode .khid-ai-input-area {
-
-    background: #111b17;
-
-    border-color: #293a31;
-}
-
-
-body.dark-mode #aiInput {
-
-    background: #0c1511;
-
-    color: #edf4f0;
-
-    border-color: #3a4c42;
-}
-
-
-body.dark-mode #aiInput:focus {
-
-    border-color: #46b986;
-
-    box-shadow:
-        0 0 0 3px rgba(70, 185, 134, 0.12);
-}
-
-
-body.dark-mode #aiInput::placeholder {
-    color: #819088;
-}
-
-
-/* =========================================================
-   AI FORMATTING
-========================================================= */
-
-.khid-ai-content {
-    line-height: 1.65;
-}
-
-
-.khid-ai-content h3,
-.khid-ai-content h4 {
-
-    margin:
-        13px 0 7px;
-
-    color: var(--text);
-}
-
-
-.khid-ai-content li {
-
-    margin-left: 20px;
-
-    margin-bottom: 5px;
-}
-
-
-.ai-formula {
-
-    margin: 13px 0;
-
-    padding: 11px;
-
-    overflow-x: auto;
-
-    text-align: center;
-
-    background: var(--surface-muted);
-
-    border-radius: 9px;
-
-    border:
-        1px solid var(--border);
-}
-
-
-/* =========================================================
-   RESPONSIVE — TABLET
-========================================================= */
-
-@media (max-width: 800px) {
-
-    main {
-        width: min(100% - 26px, 700px);
-    }
-
-    section {
-        padding: 28px;
-    }
-
-    header {
-        padding: 60px 20px 55px;
-    }
-}
-
-
-/* =========================================================
-   RESPONSIVE — MOBILE
-========================================================= */
-
-@media (max-width: 600px) {
-
-    header {
-
-        padding:
-            48px 16px 45px;
-    }
-
-
-    header h1 {
-
-        font-size: 29px;
-
-        letter-spacing: -0.8px;
-    }
-
-
-    header p {
-
-        font-size: 13px;
-
-        line-height: 1.7;
-    }
-
-
-    #themeToggle {
-
-        margin-top: 22px;
-    }
-
-
-    main {
-
-        width: calc(100% - 22px);
-
-        margin:
-            25px auto 45px;
-    }
-
-
-    section {
-
-        padding: 22px 18px;
-
-        margin-bottom: 18px;
-
-        border-radius: 17px;
-    }
-
-
-    section h2 {
-
-        font-size: 19px;
-
-        margin-bottom: 20px;
-    }
-
-
-    #categorySelect,
-    #calculatorSelect,
-    #calculatorForm input,
-    #calculatorForm select {
-
-        min-height: 49px;
-
-        font-size: 16px;
-    }
-
-
-    #calculatorTitle {
-
-        margin-top: 27px;
-
-        padding-top: 23px;
-    }
-
-
-    #calculatorTitle h2 {
-
-        font-size: 22px;
-    }
-
-
-    #calculateButton {
-
-        padding: 14px;
-
-        margin-bottom: 23px;
-    }
-
-
-    #result {
-
-        padding: 20px 17px;
-
-        border-radius: 12px;
-    }
-
-
-    #result h3 {
-
-        font-size: 18px;
-    }
-
-
-    .formula-box,
-    .working-box,
-    .interpretation-box {
-
-        padding: 14px;
-
-        margin-top: 12px;
-    }
-
-
-    .contact-section {
-
-        padding:
-            26px 18px;
-    }
-
-
-    .contact-section a {
-
-        width: 100%;
-
-        padding: 13px 15px;
-    }
-
-
-    footer {
-
-        padding:
-            22px 15px 30px;
-    }
-
-
-    /* AI */
-
-    .khid-ai-panel {
-
-        right: 10px;
-
-        bottom: 10px;
-
-        width: calc(100% - 20px);
-
-        max-width: none;
-
-        height: min(600px, 76vh);
-
-        border-radius: 17px;
-    }
-
-
-    .khid-ai-open-button {
-
-        right: 14px;
-
-        bottom: 14px;
-
-        padding:
-            11px 16px;
-
-        font-size: 13px;
-    }
-}
-
-
-/* =========================================================
-   VERY SMALL PHONES
-========================================================= */
-
-@media (max-width: 380px) {
-
-    header h1 {
-        font-size: 25px;
-    }
-
-
-    section {
-        padding: 19px 15px;
-    }
-
-
-    #result {
-        padding: 17px 14px;
-    }
-
-
-    .khid-ai-header span {
-        max-width: 210px;
-        line-height: 1.4;
-    }
-}
-
-
-/* =========================================================
-   ACCESSIBILITY
-========================================================= */
-
-button:focus-visible,
-select:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-a:focus-visible {
-
-    outline:
-        3px solid rgba(70, 185, 134, 0.35);
-
-    outline-offset: 2px;
-}
-
-
-/* =========================================================
-   REDUCED MOTION
-========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-
-    *,
-    *::before,
-    *::after {
-
-        scroll-behavior: auto !important;
-
-        transition-duration: 0.01ms !important;
-
-        animation-duration: 0.01ms !important;
-
-        animation-iteration-count: 1 !important;
-    }
-   }
-    font-size: 11px;
-    color: #d1d5db;
+    line-height: 1.75;
 }
-
-#closeAiButton {
-    border: none;
-    background: transparent;
-    color: white;
 
-    font-size: 20px;
 
-    cursor: pointer;
+#result strong {
+    color: #f1f4fc;
 }
 
 
-/* =========================================================
-   AI MESSAGES
-========================================================= */
+/* Formula */
 
-.khid-ai-messages {
-    flex: 1;
+#result .formula {
+    margin: 14px 0;
 
     padding: 15px;
 
-    overflow-y: auto;
+    border-radius: 12px;
 
-    background: #f3f4f6;
+    background:
+        rgba(4, 8, 15, 0.48);
+
+    border: 1px solid var(--border);
+
+    color: #c8d4ff;
 }
 
-.khid-ai-message {
-    max-width: 90%;
 
-    margin-bottom: 12px;
-    padding: 10px 12px;
+/* Answer emphasis */
 
-    border-radius: 10px;
+#result .answer {
+    margin-top: 18px;
 
-    line-height: 1.5;
-    font-size: 14px;
-}
+    font-size: 1.45rem;
 
-.khid-ai-message p {
-    margin: 5px 0 0;
-}
+    font-weight: 800;
 
-.khid-ai-bot-message {
-    background: white;
+    background:
+        linear-gradient(
+            100deg,
+            #eaf0ff,
+            #9bb1ff,
+            #65d1dc
+        );
 
-    border: 1px solid #e5e7eb;
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    color: transparent;
 }
 
 
 /* =========================================================
-   AI INPUT
-========================================================= */
+   12. CONTACT
+   ========================================================= */
+
+.contact-section {
+    margin-top: 35px;
+
+    padding: 32px;
+
+    border-radius: 22px;
+
+    border: 1px solid var(--border);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(17, 24, 39, 0.94),
+            rgba(10, 15, 24, 0.94)
+        );
+}
+
+
+.contact-section h2 {
+    margin-bottom: 12px;
+
+    font-size: 1.45rem;
+}
+
+
+.contact-section p {
+    margin-bottom: 10px;
+
+    color: var(--text-secondary);
+}
+
+
+.contact-section h3 {
+    margin: 20px 0 5px;
+
+    color: #e7ebf5;
+}
+
+
+.contact-section a {
+    display: inline-flex;
+
+    align-items: center;
+
+    margin-top: 12px;
+
+    color: #88a6ff;
+
+    text-decoration: none;
+
+    font-weight: 600;
+
+    transition: color 0.2s ease;
+}
+
+
+.contact-section a:hover {
+    color: #b0c1ff;
+}
+
+
+/* =========================================================
+   13. FOOTER
+   ========================================================= */
+
+footer {
+    padding: 30px 20px 45px;
+
+    text-align: center;
+
+    color: #68758c;
+
+    font-size: 0.82rem;
+}
+
+
+/* =========================================================
+   14. KHID AI ASSISTANT
+   ========================================================= */
+
+.khid-ai-panel {
+    position: fixed;
+
+    right: 22px;
+    bottom: 90px;
+
+    z-index: 1000;
+
+    width: min(390px, calc(100% - 30px));
+
+    max-height: 620px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    overflow: hidden;
+
+    border: 1px solid var(--border-bright);
+
+    border-radius: 22px;
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(91, 73, 168, 0.16),
+            transparent 40%
+        ),
+        linear-gradient(
+            145deg,
+            #121a29,
+            #0a1019
+        );
+
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.55);
+}
+
+
+/* AI header */
+
+.khid-ai-header {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 17px 18px;
+
+    border-bottom: 1px solid var(--border);
+}
+
+
+.khid-ai-header strong {
+    display: block;
+
+    color: #edf1fb;
+
+    font-size: 0.92rem;
+}
+
+
+.khid-ai-header span {
+    display: block;
+
+    margin-top: 3px;
+
+    color: #748198;
+
+    font-size: 0.68rem;
+}
+
+
+#closeAiButton {
+    width: 36px;
+    height: 36px;
+
+    border-radius: 50%;
+
+    border: 1px solid var(--border);
+
+    background: #111927;
+
+    color: #c3ccdd;
+
+    cursor: pointer;
+
+    font-size: 15px;
+}
+
+
+/* Messages */
+
+.khid-ai-messages {
+    flex: 1;
+
+    min-height: 250px;
+
+    max-height: 390px;
+
+    overflow-y: auto;
+
+    padding: 18px;
+}
+
+
+.khid-ai-message {
+    margin-bottom: 14px;
+
+    padding: 13px 15px;
+
+    border-radius: 15px;
+
+    background: #151e2e;
+
+    border: 1px solid var(--border);
+}
+
+
+.khid-ai-message strong {
+    color: #8ea9ff;
+}
+
+
+.khid-ai-message p {
+    margin-top: 6px;
+
+    color: #c2cada;
+
+    font-size: 0.88rem;
+}
+
+
+/* AI input */
 
 .khid-ai-input-area {
     display: flex;
-    gap: 8px;
 
-    padding: 10px;
+    gap: 9px;
 
-    background: white;
+    padding: 14px;
 
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border);
 }
+
 
 #aiInput {
     flex: 1;
 
-    min-width: 0;
-
     resize: none;
 
-    padding: 10px;
+    min-height: 46px;
 
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
+    padding: 12px;
 
-    font-family: inherit;
-    font-size: 14px;
+    border-radius: 12px;
+
+    border: 1px solid var(--border);
+
+    background: #080e17;
+
+    color: #eef2fa;
+
+    outline: none;
+
+    font: inherit;
 }
 
-#sendAiButton {
-    align-self: stretch;
 
-    padding: 0 15px;
+#aiInput:focus {
+    border-color:
+        rgba(111, 137, 236, 0.65);
+}
+
+
+#sendAiButton {
+    align-self: flex-end;
+
+    min-width: 70px;
+
+    min-height: 46px;
 
     border: none;
-    border-radius: 8px;
 
-    background: #00a86b;
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            110deg,
+            #566fdf,
+            #8066dc
+        );
+
     color: white;
 
-    font-weight: bold;
+    font-weight: 700;
 
     cursor: pointer;
 }
 
-#sendAiButton:hover {
-    background: #008f5b;
-}
 
-
-/* =========================================================
-   AI OPEN BUTTON
-========================================================= */
+/* AI open button */
 
 .khid-ai-open-button {
     position: fixed;
 
-    right: 20px;
-    bottom: 20px;
+    right: 22px;
+    bottom: 22px;
 
-    padding: 12px 18px;
+    z-index: 999;
 
-    border: none;
-    border-radius: 25px;
+    min-height: 48px;
 
-    background: #00a86b;
-    color: white;
+    padding: 0 18px;
 
-    font-weight: bold;
+    border: 1px solid rgba(132, 151, 204, 0.25);
+
+    border-radius: 999px;
+
+    background:
+        linear-gradient(
+            110deg,
+            #151e31,
+            #222b42
+        );
+
+    color: #e8edfa;
+
+    font-weight: 700;
 
     cursor: pointer;
 
-    z-index: 9998;
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.38);
 
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease;
+}
+
+
+.khid-ai-open-button:hover {
+    transform: translateY(-2px);
+
+    border-color:
+        rgba(126, 151, 255, 0.55);
 }
 
 
 /* =========================================================
-   DARK MODE
-========================================================= */
+   15. LIGHT MODE
+   ========================================================= */
 
-body.dark-mode .khid-ai-panel {
-    background: #111827;
-    color: #f8fafc;
+body.light-mode {
+    --bg-main: #f4f6fb;
+    --bg-secondary: #edf1f8;
+
+    --surface: #ffffff;
+    --surface-2: #f4f6fb;
+    --surface-3: #e9edf5;
+
+    --border: rgba(45, 61, 91, 0.13);
+    --border-bright: rgba(65, 83, 122, 0.24);
+
+    --text-main: #182033;
+    --text-secondary: #647087;
+    --text-muted: #8a94a6;
+
+    background:
+        radial-gradient(
+            circle at 10% 5%,
+            rgba(90, 120, 220, 0.14),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 90% 15%,
+            rgba(126, 86, 192, 0.11),
+            transparent 30%
+        ),
+        linear-gradient(
+            135deg,
+            #f8faff,
+            #edf2f9
+        );
+
+    color: var(--text-main);
 }
 
-body.dark-mode .khid-ai-messages {
-    background: #0f172a;
+
+/* Light mode calculator */
+
+body.light-mode .calculator-section {
+    background:
+        radial-gradient(
+            circle at 5% 0%,
+            rgba(92, 117, 204, 0.10),
+            transparent 30%
+        ),
+        linear-gradient(
+            145deg,
+            #ffffff,
+            #f1f4fa
+        );
+
+    box-shadow:
+        0 25px 65px rgba(40, 53, 80, 0.10);
 }
 
-body.dark-mode .khid-ai-bot-message {
-    background: #1f2937;
 
-    border-color: #374151;
+body.light-mode .input-group select,
+body.light-mode .input-group input,
+body.light-mode .input-group textarea,
+body.light-mode #calculatorForm input,
+body.light-mode #calculatorForm select,
+body.light-mode #calculatorForm textarea {
+    background: #f7f9fc;
+
+    color: #1d2638;
 }
 
-body.dark-mode .khid-ai-input-area {
-    background: #111827;
 
-    border-color: #374151;
+body.light-mode #result {
+    background:
+        linear-gradient(
+            145deg,
+            #f2f5fb,
+            #e9eef7
+        );
 }
 
-body.dark-mode #aiInput {
-    background: #1f2937;
-    color: #f8fafc;
 
-    border-color: #4b5563;
+body.light-mode #result p {
+    color: #647087;
 }
 
-body.dark-mode #aiInput::placeholder {
-    color: #9ca3af;
+
+body.light-mode .contact-section {
+    background:
+        linear-gradient(
+            145deg,
+            #ffffff,
+            #f2f5fa
+        );
+}
+
+
+body.light-mode #themeToggle {
+    background:
+        linear-gradient(
+            145deg,
+            #ffffff,
+            #edf1f8
+        );
+
+    color: #27334a;
+
+    box-shadow:
+        0 8px 25px rgba(35, 49, 77, 0.12);
+}
+
+
+body.light-mode #themeToggle::before {
+    content: "☾";
+
+    color: #33415d;
+}
+
+
+body.light-mode .khid-ai-panel {
+    background:
+        linear-gradient(
+            145deg,
+            #ffffff,
+            #f0f3f8
+        );
+
+    box-shadow:
+        0 25px 70px rgba(38, 49, 70, 0.18);
+}
+
+
+body.light-mode .khid-ai-message {
+    background: #f3f6fa;
+}
+
+
+body.light-mode #aiInput {
+    background: #f7f9fc;
+
+    color: #1d2638;
 }
 
 
 /* =========================================================
-   MOBILE
-========================================================= */
+   16. RESPONSIVE
+   ========================================================= */
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
+
+    header {
+        padding:
+            75px 18px
+            35px;
+    }
+
+
+    #themeToggle {
+        top: 20px;
+        right: 18px;
+
+        width: 42px;
+        height: 42px;
+    }
+
+
+    .khid-wordmark {
+        font-size: clamp(3.4rem, 18vw, 6rem);
+    }
+
+
+    .khid-subtitle {
+        font-size: 0.61rem;
+
+        letter-spacing: 0.28em;
+
+        text-indent: 0.28em;
+    }
+
+
+    header > p {
+        font-size: 0.76rem;
+
+        line-height: 1.8;
+    }
+
+
+    main {
+        width: min(
+            100% - 20px,
+            1100px
+        );
+    }
+
+
+    .calculator-section {
+        padding: 22px 18px;
+
+        border-radius: 22px;
+    }
+
+
+    .contact-section {
+        padding: 24px 19px;
+    }
+
+
+    #result {
+        padding: 20px;
+    }
+
 
     .khid-ai-panel {
         right: 10px;
-        bottom: 10px;
+        bottom: 76px;
 
         width: calc(100% - 20px);
-
-        height: 70vh;
     }
+
 
     .khid-ai-open-button {
-        right: 15px;
-        bottom: 15px;
+        right: 12px;
+        bottom: 16px;
     }
-
 }
 
 
 /* =========================================================
-   AI FORMATTING
-========================================================= */
+   17. REDUCED MOTION
+   ========================================================= */
 
-.khid-ai-content {
-    line-height: 1.6;
-}
+@media (prefers-reduced-motion: reduce) {
 
-.khid-ai-content h3,
-.khid-ai-content h4 {
-    margin: 12px 0 6px;
-}
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
 
-.khid-ai-content li {
-    margin-left: 20px;
-    margin-bottom: 5px;
-}
+        transition-duration: 0.01ms !important;
 
-.ai-formula {
-    margin: 12px 0;
-    padding: 10px;
-    overflow-x: auto;
-    text-align: center;
+        animation-duration: 0.01ms !important;
+
+        animation-iteration-count: 1 !important;
+    }
 }
