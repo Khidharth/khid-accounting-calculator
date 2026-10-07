@@ -6,7 +6,7 @@
 
 
 /* =========================================================
-   DARK MODE
+   THEME TOGGLE
 ========================================================= */
 
 const themeToggle = document.getElementById("themeToggle");
@@ -15,40 +15,59 @@ if (themeToggle) {
 
     const savedTheme = localStorage.getItem("theme");
 
-    if (savedTheme === "dark") {
+    /* Restore saved light mode */
+    if (savedTheme === "light") {
 
-        document.body.classList.add("dark-mode");
-
-        themeToggle.textContent = "💡Light Mode";
+        document.body.classList.add("light-mode");
 
     }
 
 
+    /* Update the icon */
+    function updateThemeIcon() {
+
+        const isLight =
+            document.body.classList.contains("light-mode");
+
+        themeToggle.setAttribute(
+            "aria-label",
+            isLight
+                ? "Switch to dark mode"
+                : "Switch to light mode"
+        );
+
+    }
+
+
+    /* Set correct icon when page loads */
+    updateThemeIcon();
+
+
+    /* Toggle theme */
     themeToggle.addEventListener("click", function () {
 
-        document.body.classList.toggle("dark-mode");
+        document.body.classList.toggle("light-mode");
 
-        const isDark =
-            document.body.classList.contains("dark-mode");
+        const isLight =
+            document.body.classList.contains("light-mode");
 
-        if (isDark) {
 
-            themeToggle.textContent = "💡Light Mode";
-
-            localStorage.setItem("theme", "dark");
-
-        } else {
-
-            themeToggle.textContent = "🌙Dark Mode";
+        if (isLight) {
 
             localStorage.setItem("theme", "light");
 
+        } else {
+
+            localStorage.setItem("theme", "dark");
+
         }
+
+
+        updateThemeIcon();
 
     });
 
 }
-
 
 /* =========================================================
    BASIC HELPERS
