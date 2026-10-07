@@ -13,7 +13,7 @@ html {
 
 :root {
     --font-body: "Segoe UI", Arial, sans-serif;
-    --font-display: Georgia, "Times New Roman", serif;
+    --font-display: "Playfair Display", serif;
 
     /* DARK */
     --dark-bg: #080a10;
@@ -118,47 +118,34 @@ header {
 
 header h1 {
     margin: 0 auto 18px;
-
     max-width: 1000px;
 
-    font-family:
-        var(--font-display);
-
-    font-size: clamp(
-        2.3rem,
-        7vw,
-        4.8rem
-    );
-
-    font-weight: 800;
+    font-family: "Playfair Display", serif;
+    font-size: clamp(2.3rem, 7vw, 4.8rem);
+    font-weight: 700;
+    font-style: italic;
 
     line-height: 1.02;
+    letter-spacing: -0.035em;
 
-    letter-spacing: -0.045em;
-
-    background:
-        linear-gradient(
-            105deg,
-            #eef2ff 0%,
-            #c9d3ff 20%,
-            #8d9cff 40%,
-            #7869d8 58%,
-            #5685ad 78%,
-            #e6ebff 100%
-        );
+    background: linear-gradient(
+        105deg,
+        #eef2ff 0%,
+        #c9d3ff 20%,
+        #8d9cff 40%,
+        #7869d8 58%,
+        #5685ad 78%,
+        #e6ebff 100%
+    );
 
     -webkit-background-clip: text;
     background-clip: text;
-
     color: transparent;
 
-    filter:
-        drop-shadow(
-            0 0 18px
-            rgba(105, 96, 205, 0.15)
-        );
+    filter: drop-shadow(
+        0 0 18px rgba(105, 96, 205, 0.15)
+    );
 }
-
 
 /* =========================================================
    HEADER DESCRIPTION
