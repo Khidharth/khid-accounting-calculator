@@ -1097,64 +1097,181 @@ footer {
 
 
 /* =========================================================
-   15. LIGHT MODE
-   ========================================================= */
+   LIGHT MODE — PREMIUM IVORY / BLUE / VIOLET
+========================================================= */
 
 body.light-mode {
-    --bg-main: #f4f6fb;
-    --bg-secondary: #edf1f8;
+
+    --bg-main: #f5f6fb;
+    --bg-secondary: #eceff7;
 
     --surface: #ffffff;
-    --surface-2: #f4f6fb;
-    --surface-3: #e9edf5;
+    --surface-2: #f7f8fc;
+    --surface-3: #e9edf6;
 
-    --border: rgba(45, 61, 91, 0.13);
-    --border-bright: rgba(65, 83, 122, 0.24);
+    --border: rgba(39, 52, 79, 0.12);
+    --border-bright: rgba(69, 87, 126, 0.24);
 
-    --text-main: #182033;
+    --text-main: #172033;
     --text-secondary: #647087;
-    --text-muted: #8a94a6;
+    --text-muted: #8a94a8;
 
     background:
         radial-gradient(
-            circle at 10% 5%,
-            rgba(90, 120, 220, 0.14),
+            circle at 8% 5%,
+            rgba(91, 120, 229, 0.20),
             transparent 30%
         ),
         radial-gradient(
-            circle at 90% 15%,
-            rgba(126, 86, 192, 0.11),
-            transparent 30%
+            circle at 92% 12%,
+            rgba(133, 91, 207, 0.17),
+            transparent 32%
+        ),
+        radial-gradient(
+            circle at 50% 90%,
+            rgba(67, 170, 190, 0.09),
+            transparent 35%
         ),
         linear-gradient(
             135deg,
-            #f8faff,
-            #edf2f9
+            #f9faff 0%,
+            #f1f3fa 48%,
+            #e9edf7 100%
         );
 
     color: var(--text-main);
 }
 
 
-/* Light mode calculator */
+/* =========================================================
+   LIGHT MODE — HEADER
+========================================================= */
 
-body.light-mode .calculator-section {
+body.light-mode header > p {
+    color: #68748b;
+}
+
+
+/* Keep the KHID gradient strong */
+
+body.light-mode .khid-wordmark,
+body.light-mode header h1 {
+
     background:
-        radial-gradient(
-            circle at 5% 0%,
-            rgba(92, 117, 204, 0.10),
-            transparent 30%
-        ),
+        linear-gradient(
+            105deg,
+            #4d70df 0%,
+            #6979e9 28%,
+            #7757c9 55%,
+            #328fa8 80%,
+            #5368c8 100%
+        );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    color: transparent;
+
+    filter:
+        drop-shadow(
+            0 4px 12px
+            rgba(70, 91, 180, 0.12)
+        );
+}
+
+
+body.light-mode .khid-subtitle {
+    color: #69748b;
+}
+
+
+/* =========================================================
+   LIGHT MODE — THEME BUTTON
+========================================================= */
+
+body.light-mode #themeToggle {
+
+    background:
         linear-gradient(
             145deg,
             #ffffff,
-            #f1f4fa
+            #edf0f7
         );
 
+    border-color:
+        rgba(49, 65, 96, 0.17);
+
+    color: #27334a;
+
     box-shadow:
-        0 25px 65px rgba(40, 53, 80, 0.10);
+        0 8px 25px
+        rgba(43, 57, 88, 0.13);
 }
 
+
+body.light-mode #themeToggle::before {
+
+    content: "☾";
+
+    color: #34415b;
+}
+
+
+/* =========================================================
+   LIGHT MODE — CALCULATOR
+========================================================= */
+
+body.light-mode .calculator-section {
+
+    background:
+        radial-gradient(
+            circle at 5% 0%,
+            rgba(87, 113, 211, 0.10),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 100% 100%,
+            rgba(124, 87, 193, 0.08),
+            transparent 34%
+        ),
+        linear-gradient(
+            145deg,
+            #ffffff 0%,
+            #f6f8fc 55%,
+            #eef1f8 100%
+        );
+
+    border-color:
+        rgba(51, 66, 99, 0.13);
+
+    box-shadow:
+        0 25px 70px
+        rgba(42, 55, 84, 0.12);
+}
+
+
+/* Calculator heading */
+
+body.light-mode .calculator-section > h2 {
+
+    color: #182237;
+}
+
+
+/* =========================================================
+   LIGHT MODE — LABELS
+========================================================= */
+
+body.light-mode .input-group label,
+body.light-mode #calculatorForm label {
+
+    color: #7a879d;
+}
+
+
+/* =========================================================
+   LIGHT MODE — INPUTS
+========================================================= */
 
 body.light-mode .input-group select,
 body.light-mode .input-group input,
@@ -1162,81 +1279,316 @@ body.light-mode .input-group textarea,
 body.light-mode #calculatorForm input,
 body.light-mode #calculatorForm select,
 body.light-mode #calculatorForm textarea {
-    background: #f7f9fc;
 
-    color: #1d2638;
-}
-
-
-body.light-mode #result {
     background:
         linear-gradient(
             145deg,
-            #f2f5fb,
-            #e9eef7
+            #fbfcff,
+            #f0f3f9
         );
+
+    border-color:
+        rgba(50, 65, 96, 0.13);
+
+    color: #1d2639;
+
+    box-shadow:
+        inset 0 1px 0
+        rgba(255, 255, 255, 0.8);
+}
+
+
+body.light-mode .input-group select:hover,
+body.light-mode .input-group input:hover,
+body.light-mode #calculatorForm input:hover,
+body.light-mode #calculatorForm select:hover {
+
+    border-color:
+        rgba(82, 105, 169, 0.30);
+}
+
+
+body.light-mode .input-group select:focus,
+body.light-mode .input-group input:focus,
+body.light-mode #calculatorForm input:focus,
+body.light-mode #calculatorForm select:focus {
+
+    border-color:
+        rgba(82, 105, 210, 0.55);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(89, 111, 213, 0.09);
+}
+
+
+/* =========================================================
+   LIGHT MODE — CALCULATOR TITLE
+========================================================= */
+
+body.light-mode #calculatorTitle {
+
+    border-bottom-color:
+        rgba(48, 62, 94, 0.11);
+}
+
+
+body.light-mode #calculatorTitle h2 {
+
+    color: #53617a;
+
+    background:
+        linear-gradient(
+            100deg,
+            #53617a,
+            #6e73a5,
+            #5d8395
+        );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    color: transparent;
+}
+
+
+/* =========================================================
+   LIGHT MODE — CALCULATE BUTTON
+========================================================= */
+
+body.light-mode #calculateButton {
+
+    background:
+        linear-gradient(
+            105deg,
+            #506edb,
+            #765fd0 52%,
+            #3a9caf
+        );
+
+    color: #ffffff;
+
+    box-shadow:
+        0 14px 32px
+        rgba(76, 94, 190, 0.22);
+}
+
+
+/* =========================================================
+   LIGHT MODE — RESULT
+========================================================= */
+
+body.light-mode #result {
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(117, 87, 190, 0.10),
+            transparent 38%
+        ),
+        linear-gradient(
+            145deg,
+            #f1f4fa,
+            #e8edf6
+        );
+
+    border-color:
+        rgba(48, 63, 96, 0.12);
+}
+
+
+body.light-mode #result h3 {
+
+    color: #27334a;
 }
 
 
 body.light-mode #result p {
-    color: #647087;
+
+    color: #69758a;
 }
 
+
+body.light-mode #result .formula {
+
+    background:
+        rgba(255, 255, 255, 0.72);
+
+    border-color:
+        rgba(54, 70, 104, 0.10);
+
+    color: #596da9;
+}
+
+
+body.light-mode #result .answer {
+
+    background:
+        linear-gradient(
+            100deg,
+            #4c68d5,
+            #725bc7,
+            #368ea0
+        );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+
+    color: transparent;
+}
+
+
+/* =========================================================
+   LIGHT MODE — CONTACT
+========================================================= */
 
 body.light-mode .contact-section {
+
     background:
-        linear-gradient(
-            145deg,
-            #ffffff,
-            #f2f5fa
-        );
-}
-
-
-body.light-mode #themeToggle {
-    background:
-        linear-gradient(
-            145deg,
-            #ffffff,
-            #edf1f8
-        );
-
-    color: #27334a;
-
-    box-shadow:
-        0 8px 25px rgba(35, 49, 77, 0.12);
-}
-
-
-body.light-mode #themeToggle::before {
-    content: "☾";
-
-    color: #33415d;
-}
-
-
-body.light-mode .khid-ai-panel {
-    background:
+        radial-gradient(
+            circle at 90% 0%,
+            rgba(112, 91, 187, 0.08),
+            transparent 35%
+        ),
         linear-gradient(
             145deg,
             #ffffff,
             #f0f3f8
         );
 
+    border-color:
+        rgba(47, 62, 95, 0.12);
+
     box-shadow:
-        0 25px 70px rgba(38, 49, 70, 0.18);
+        0 18px 45px
+        rgba(43, 55, 82, 0.08);
+}
+
+
+body.light-mode .contact-section h2,
+body.light-mode .contact-section h3 {
+
+    color: #202b40;
+}
+
+
+body.light-mode .contact-section p {
+
+    color: #68748a;
+}
+
+
+body.light-mode .contact-section a {
+
+    color: #506dcc;
+}
+
+
+/* =========================================================
+   LIGHT MODE — AI
+========================================================= */
+
+body.light-mode .khid-ai-panel {
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(112, 87, 190, 0.10),
+            transparent 40%
+        ),
+        linear-gradient(
+            145deg,
+            #ffffff,
+            #edf1f7
+        );
+
+    border-color:
+        rgba(54, 70, 105, 0.16);
+
+    box-shadow:
+        0 25px 70px
+        rgba(35, 47, 72, 0.18);
 }
 
 
 body.light-mode .khid-ai-message {
-    background: #f3f6fa;
+
+    background:
+        linear-gradient(
+            145deg,
+            #f5f7fb,
+            #edf1f7
+        );
+
+    border-color:
+        rgba(51, 66, 98, 0.10);
+}
+
+
+body.light-mode .khid-ai-message strong {
+
+    color: #5d72d4;
+}
+
+
+body.light-mode .khid-ai-message p {
+
+    color: #68748a;
 }
 
 
 body.light-mode #aiInput {
-    background: #f7f9fc;
 
-    color: #1d2638;
+    background:
+        #f7f9fc;
+
+    border-color:
+        rgba(51, 66, 99, 0.13);
+
+    color: #1c263a;
+}
+
+
+body.light-mode #sendAiButton {
+
+    background:
+        linear-gradient(
+            110deg,
+            #536fd9,
+            #765fd0
+        );
+}
+
+
+/* AI floating button */
+
+body.light-mode .khid-ai-open-button {
+
+    background:
+        linear-gradient(
+            110deg,
+            #ffffff,
+            #edf1f8
+        );
+
+    border-color:
+        rgba(53, 68, 101, 0.16);
+
+    color: #26334b;
+
+    box-shadow:
+        0 12px 35px
+        rgba(38, 51, 79, 0.16);
+}
+
+
+/* =========================================================
+   LIGHT MODE — FOOTER
+========================================================= */
+
+body.light-mode footer {
+
+    color: #7c8799;
 }
 
 
