@@ -226,21 +226,27 @@ header {
 */
 
 header h1 {
+    font-family:
+        "Georgia",
+        "Times New Roman",
+        serif;
+
     font-size: clamp(2rem, 7vw, 4.5rem);
 
-    font-weight: 900;
+    font-weight: 700;
 
-    letter-spacing: -0.055em;
+    letter-spacing: -0.035em;
 
-    line-height: 1;
+    line-height: 1.02;
 
     background:
         linear-gradient(
             105deg,
-            #f4f6ff,
-            #8fa8ff 35%,
-            #8069f1 65%,
-            #49c5d4
+            #dce7ff,
+            #91a9ff 30%,
+            #8064e9 58%,
+            #46bfd1 82%,
+            #d8e2ff
         );
 
     -webkit-background-clip: text;
