@@ -6882,7 +6882,7 @@ if (openAiButton && khidAiPanel) {
 
     openAiButton.addEventListener("click", function () {
 
-        khidAiPanel.style.display = "none";
+        khidAiPanel.style.display = "flex";
         openAiButton.style.display = "none";
 
         if (aiInput) {
@@ -6902,7 +6902,7 @@ if (closeAiButton && khidAiPanel) {
 
     closeAiButton.addEventListener("click", function () {
 
-        khidAiPanel.style.display = "flex";
+        khidAiPanel.style.display = "none";
         openAiButton.style.display = "block";
 
     });
