@@ -6902,7 +6902,7 @@ if (closeAiButton && khidAiPanel) {
 
     closeAiButton.addEventListener("click", function () {
 
-        khidAiPanel.style.display = "none";
+        khidAiPanel.style.display = "flex";
         openAiButton.style.display = "block";
 
     });
