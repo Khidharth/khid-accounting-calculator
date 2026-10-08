@@ -858,7 +858,7 @@ footer {
 
     max-height: 620px;
 
-    display: flex;
+    display: none;
 
     flex-direction: column;
 
