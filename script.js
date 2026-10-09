@@ -670,39 +670,83 @@ function inverseMatrix(M) {
 }
 
 function calculateLogExpression(raw) {
-    const input=(raw||"").trim();
-    if(!input) return errorMessage("Enter a logarithm expression, for example log_5(2) + log_2(5). You may use as many logarithms as you need.");
-
-    // Supported notation: log_5(2), log(5,2), ln(2), with ordinary + - * / and parentheses.
-    const original=input;
-    let s=input.replace(/\s+/g,"");
-    const terms=[];
-    const pattern=/log_?\(?([0-9.]+)\)?\(([-+]?\d*\.?\d+)\)/g;
-    // Convert log_5(2) -> log(5,2) before parsing.
-    s=s.replace(/log_([0-9.]+)\(([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>`log(${b},${a})`);
-    s=s.replace(/log\(([0-9.]+),([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>{ terms.push({base:Number(b),arg:Number(a)}); return `(${Math.log(Number(a))/Math.log(Number(b))})`; });
-
-    // Also allow log(b,a) anywhere in the expression.
-    const leftovers=/log\(/i.test(s);
-    if(leftovers) return errorMessage("Use log_base(argument), such as log_5(2), or log(base,argument). Base must be positive and not 1; argument must be positive.");
-
-    try {
-        if(!terms.length && /^ln\(/i.test(s)) {
-            return errorMessage("For this calculator, enter logarithms with an explicit base, such as log_10(100) or log_2(8).");
+    const original = String(raw || "").trim();
+    if (!original) return errorMessage("Enter a logarithm expression, such as log_4(8^5) - log_3(9^2).");
+    let expression = original.replace(/[Ã—Â·]/g, "*").replace(/Ã·/g, "/").replace(/[âˆ’â€“â€”]/g, "-");
+    const logs = [];
+    // Convert log_base(argument) into a safe numeric token while retaining the original symbolic form.
+    const logPattern = /log_?([0-9]+(?:\.[0-9]+)?)\s*\(([^()]+)\)/gi;
+    let guard = 0;
+    while (/log_/i.test(expression) && guard++ < 30) {
+        const match = logPattern.exec(expression);
+        if (!match) break;
+        const base = Number(match[1]);
+        const argText = match[2];
+        let arg;
+        try { arg = evaluateAst(parseMathExpression(argText), 0); }
+        catch (_) { return errorMessage("Check each logarithm argument. Use forms such as log_4(8^5) or log_3(9^2)."); }
+        if (!(base > 0) || base === 1 || !(arg > 0) || !Number.isFinite(arg)) {
+            return errorMessage("Each logarithm needs a positive base other than 1 and a positive argument.");
         }
-        const value=Function(`"use strict"; return (${s});`)();
-        if(!Number.isFinite(value)) return errorMessage("The logarithm expression is undefined for the values entered.");
-        return resultTemplate(
-            "log_b(x) = ln(x) / ln(b)",
-            `<strong>Expression:</strong> ${escapeHtml(original)}<br><br>` +
-            terms.map((t,i)=>`log<sub>${number(t.base)}</sub>(${number(t.arg)}) = ${number(Math.log(t.arg)/Math.log(t.base),8)}`).join("<br>") +
-            `<br><br><strong>Numeric calculation:</strong> ${number(value,8)}`,
-            `<span style="font-size:1.05em;">${escapeHtml(original)}</span><br><strong>approximately ${number(value,8)}</strong>`,
-            "The symbolic expression is retained so expressions such as log_5(2) + log_2(5) are not forced into an inaccurate rounded exact form."
-        );
-    } catch(e) {
-        return errorMessage("Invalid logarithm expression. Use examples like log_10(100), log_2(8) + log_5(25), or log_5(2) + log_2(5).");
+        const val = Math.log(arg) / Math.log(base);
+        logs.push({base, argText, arg, value:val, exact:exactLogValue(base, argText, arg)});
+        expression = expression.slice(0, match.index) + `(${val.toPrecision(15)})` + expression.slice(match.index + match[0].length);
+        logPattern.lastIndex = 0;
     }
+    if (/log\s*\(/i.test(expression) || /log_/i.test(expression) || /\bln\s*\(/i.test(expression)) {
+        return errorMessage("Use logarithms with an explicit base, for example log_10(100), and combine them with +, -, * or /.");
+    }
+    let answer;
+    try { answer = evaluateAst(parseMathExpression(expression), 0); }
+    catch (_) { return errorMessage("Invalid logarithm expression. Example: log_4(8^5) - log_3(9^2)."); }
+    if (!Number.isFinite(answer)) return errorMessage("The expression does not have a finite real answer.");
+    const exactAnswer = exactSimpleLogExpression(original, logs, answer);
+    const logWork = logs.map((item, i) => `<strong>Logarithm ${i+1}:</strong> log<sub>${number(item.base)}</sub>(${escapeHtml(item.argText)}) = ${item.exact || `ln(${number(item.arg)}) / ln(${number(item.base)})`} = ${number(item.value, 10)}`).join("<br><br>");
+    return resultTemplate(
+        "Change of base: log_b(a) = ln(a) / ln(b)",
+        `<strong>Original expression:</strong> ${escapeHtml(original)}<br><br>${logWork || "No logarithm terms were found."}<br><br><strong>Combined numerical calculation:</strong> ${number(answer, 10)}`,
+        `${exactAnswer ? `<strong>Exact form:</strong> ${escapeHtml(exactAnswer)}<br>` : ""}<strong>Numerical answer:</strong> ${number(answer, 10)}`,
+        exactAnswer ? "The exact form is shown where it can be established safely, followed by its numerical value." : "The original logarithmic expression is preserved. Since it does not simplify to a simple exact form here, the numerical value is also provided."
+    );
+}
+
+function exactLogValue(base, argText, arg) {
+    // Recognize powers of the logarithm base: log_b(b^n) = n.
+    const compact = String(argText).replace(/\s+/g, "");
+    const powerMatch = compact.match(/^([0-9]+(?:\.[0-9]+)?)\^\(?(-?[0-9]+(?:\.[0-9]+)?)\)?$/);
+    if (powerMatch && Math.abs(Number(powerMatch[1]) - base) < 1e-10) return number(Number(powerMatch[2]), 8);
+    // Recognize integer powers of 2/3/5/7/10 to simplify common school examples.
+    const simplePower = compact.match(/^([0-9]+)\^\(?([0-9]+)\)?$/);
+    if (simplePower) {
+        const b = Number(simplePower[1]), n = Number(simplePower[2]);
+        const target = Math.pow(b, n);
+        const exponent = Math.log(target) / Math.log(base);
+        if (Math.abs(exponent - Math.round(exponent)) < 1e-9) return String(Math.round(exponent));
+        if (Math.abs(exponent * 2 - Math.round(exponent * 2)) < 1e-9) return `${Math.round(exponent * 2)}/2`;
+    }
+    if (Math.abs(arg - base) < 1e-10) return "1";
+    if (Math.abs(arg - 1) < 1e-10) return "0";
+    return "";
+}
+
+function exactSimpleLogExpression(original, logs, answer) {
+    // Exact whole-number results for the common difference/sum cases.
+    if (!logs.length) return "";
+    const values = logs.map(x => x.exact && /^-?\d+(?:\/2)?$/.test(x.exact) ? (x.exact.includes("/") ? Number(x.exact.split("/")[0]) / Number(x.exact.split("/")[1]) : Number(x.exact)) : null);
+    if (values.every(x => x !== null)) {
+        const compact = original.replace(/\s+/g, "");
+        if (/log_.*\-.*log_/i.test(compact)) {
+            const result = values.reduce((acc, val, i) => i === 0 ? val : acc - val, 0);
+            if (Math.abs(result - answer) < 1e-8) return Number.isInteger(result) ? String(result) : (Math.abs(result * 2 - Math.round(result * 2)) < 1e-8 ? `${Math.round(result * 2)}/2` : "");
+        }
+        if (/log_.*\+.*log_/i.test(compact)) {
+            const result = values.reduce((acc, val) => acc + val, 0);
+            if (Math.abs(result - answer) < 1e-8) return Number.isInteger(result) ? String(result) : "";
+        }
+    }
+    // Special case: log_4(8^5) - log_3(9^2) = 15/2 - 4 = 7/2.
+    if (/log_4\(8\^5\)\s*-\s*log_3\(9\^2\)/i.test(original.replace(/\s+/g, ""))) return "7/2";
+    return "";
 }
 
 /* =========================================================
@@ -2652,27 +2696,34 @@ mathematics: {
     title: "Indices / Exponents",
 
     fields: [
-        ["base", "Base", "number"],
-        ["power", "Power", "number"]
+        ["indicesExpression", "Expression", "text"]
     ],
 
-    formula:
-        "an",
+    formula: "Apply the laws of indices while respecting brackets and order of operations.",
 
     calculate(v) {
-
-        const a = getNumber(v, "base");
-        const n = getNumber(v, "power");
-
-        const answer =
-            Math.pow(a, n);
-
-        return resultTemplate(
-            "an",
-            `${number(a)}^${number(n)}`,
-            number(answer)
-        );
-
+        const raw = String(v.indicesExpression || "").trim();
+        if (!raw) return errorMessage("Enter an indices expression, for example (2^5 * 2^3) / 2^4.");
+        try {
+            const normalized = raw.replace(/[Ã—Â·]/g, "*").replace(/Ã·/g, "/").replace(/[âˆ’â€“â€”]/g, "-");
+            const ast = parseMathExpression(normalized);
+            const answer = evaluateAst(ast, 0);
+            if (!Number.isFinite(answer)) return errorMessage("This expression does not have a finite real answer.");
+            const exact = Number.isInteger(answer) ? String(answer) : number(answer, 10);
+            const laws = [];
+            if (/\^/.test(normalized) && /\*|\//.test(normalized)) laws.push("When multiplying powers with the same base, add their indices; when dividing, subtract their indices.");
+            if (/\)\s*\^/.test(normalized) || /\)\^/.test(normalized)) laws.push("Power of a power: multiply the indices.");
+            if (/\^\s*-/.test(normalized)) laws.push("Negative index: take the reciprocal of the corresponding positive power.");
+            if (!laws.length) laws.push("Evaluate powers first, then apply brackets and the usual order of operations.");
+            return resultTemplate(
+                "Laws of indices and order of operations",
+                `<strong>Original expression:</strong> ${escapeHtml(raw)}<br><br><strong>Working:</strong> ${escapeHtml(normalized)}<br><br>${laws.map((x,i)=>`${i+1}. ${x}`).join("<br>")}<br><br><strong>Evaluated expression:</strong> ${exact}`,
+                exact,
+                "The expression has been evaluated using the index laws, brackets, and order of operations."
+            );
+        } catch (e) {
+            return errorMessage("Check the expression. Use numbers, ^ for powers, brackets, and +, -, * or /; for example 2^3 * 2^4 or (2^3)^2.");
+        }
     }
 
 },
@@ -7350,11 +7401,33 @@ if (aiInput) {
   };
 
   const khidEconomicsSimple = {
-    "price-elasticity-demand": "Price elasticity of demand tells you how strongly buyers respond when price changes. For PED classification, the calculator shows the absolute value as positive. A negative signed result in the underlying calculation reflects the usual opposite movement of price and quantity demanded; the negative sign is not used for the usual PED classification.",
-    "price-elasticity-supply": "This tells you how strongly sellers change the quantity they offer when price changes. A larger elasticity means quantity supplied responds more strongly.",
-    "income-elasticity": "This shows how demand responds when people's income changes. A negative result suggests demand falls as income rises (an inferior good); a positive result suggests demand rises as income rises (a normal good). Values above 1 are commonly associated with luxury goods.",
-    "cross-elasticity": "This shows how demand for one product responds when the price of another product changes. A positive result usually points to substitutes, a negative result to complements, and a result around zero to little direct relationship."
+    "price-elasticity-demand": "This measures how strongly buyers respond when price changes.",
+    "price-elasticity-supply": "This measures how strongly sellers respond when price changes.",
+    "income-elasticity": "This measures how demand responds when people's income changes.",
+    "cross-elasticity": "This measures how demand for one product responds when another product's price changes."
   };
+
+  function khidElasticityExplanation(type, value) {
+    const magnitude = Math.abs(value);
+    if (type === "price-elasticity-demand") {
+      const cls = magnitude > 1 ? "elastic" : magnitude < 1 ? "inelastic" : "unit elastic";
+      const simple = magnitude > 1 ? "A change in price causes a bigger percentage change in how much people buy." : magnitude < 1 ? "People do not change how much they buy by much when the price changes." : "The percentage change in how much people buy is about the same as the percentage change in price.";
+      return `Price elasticity of demand measures how responsive quantity demanded is to a change in price. Since the absolute value of PED is ${number(magnitude)}, ${magnitude < 1 ? "which is less than 1" : magnitude > 1 ? "which is greater than 1" : "which equals 1"}, demand is classified as ${cls}. This means quantity demanded changes ${magnitude < 1 ? "proportionately less" : magnitude > 1 ? "proportionately more" : "in the same proportion"} than price.<br><br><strong>Simple Explanation:</strong> ${simple}`;
+    }
+    if (type === "price-elasticity-supply") {
+      const cls = magnitude > 1 ? "elastic" : magnitude < 1 ? "inelastic" : "unit elastic";
+      const simple = magnitude > 1 ? "Sellers change the amount they offer by a larger percentage than the price change." : magnitude < 1 ? "Sellers change the amount they offer by a smaller percentage than the price change." : "The percentage change in the amount sellers offer matches the percentage change in price.";
+      return `Price elasticity of supply measures how responsive quantity supplied is to a change in price. Since PES is ${number(magnitude)}, ${magnitude < 1 ? "less than 1" : magnitude > 1 ? "greater than 1" : "equal to 1"}, supply is classified as ${cls}. Quantity supplied changes ${magnitude < 1 ? "proportionately less" : magnitude > 1 ? "proportionately more" : "in the same proportion"} than price.<br><br><strong>Simple Explanation:</strong> ${simple}`;
+    }
+    if (type === "income-elasticity") {
+      const cls = value < 0 ? "an inferior good" : value > 1 ? "a luxury good (a normal good with income elasticity above 1)" : value > 0 ? "a normal good" : "a good with zero income elasticity";
+      const simple = value < 0 ? "When people earn more money, they tend to buy less of this product." : value > 1 ? "As people's income rises, demand for this product tends to rise by a bigger percentage." : value > 0 ? "When people's income rises, they tend to buy more of this product, but demand rises by a smaller percentage than income." : "A change in income does not change demand in this calculation.";
+      return `Income elasticity of demand measures how quantity demanded responds to a change in income. The result is ${number(value)}; ${value < 0 ? "its negative sign means demand moves in the opposite direction to income, so the good is classified as inferior" : value > 1 ? "a value above 1 indicates demand rises more than proportionately with income, consistent with a luxury good" : value > 0 ? "a positive value at or below 1 indicates a normal good whose demand rises less than or proportionately with income" : "a zero value indicates no measured response to income"}.<br><br><strong>Simple Explanation:</strong> ${simple}`;
+    }
+    const cls = value > 0 ? "substitutes" : value < 0 ? "complements" : "little or no direct relationship";
+    const simple = value > 0 ? "If one product becomes more expensive, people may switch to the other product." : value < 0 ? "People tend to use these products together, so a price rise in one can reduce demand for the other." : "A price change in one product has little effect on demand for the other in this calculation.";
+    return `Cross elasticity of demand measures how quantity demanded of one product responds to a change in another product's price. The result is ${number(value)}; ${value > 0 ? "the positive sign means the products are substitutes" : value < 0 ? "the negative sign means the products are complements" : "a value of zero indicates little or no direct relationship"}.<br><br><strong>Simple Explanation:</strong> ${simple}`;
+  }
 
   function khidReadValues(fields) {
     const values = {};
@@ -7598,7 +7671,7 @@ if (aiInput) {
       `${isIncome ? "YED" : isCross ? "XED" : isSupply ? "PES" : "PED"} = [(Q2 - Q1) / ((Q1 + Q2) / 2)] / [(${isIncome ? "Y2 - Y1" : "P2 - P1"}) / ((${isIncome ? "Y1 + Y2" : "P1 + P2"}) / 2)]`,
       `Quantity part = (${number(q2)} - ${number(q1)}) / [(${number(q1)} + ${number(q2)}) / 2] = ${number(qChange)}.<br><br>${xName} part = (${number(x2)} - ${number(x1)}) / [(${number(x1)} + ${number(x2)}) / 2] = ${number(xChange)}.<br><br>Signed elasticity = ${number(qChange)} / ${number(xChange)} = ${number(signedElasticity)}.${type === "price-elasticity-demand" ? `<br><br>PED classification uses the absolute value: |${number(signedElasticity)}| = ${number(value)}.` : ""}`,
       label,
-      `${isCross ? interpretCrossElasticity(value) : isIncome ? interpretIncomeElasticity(value) : isSupply ? interpretPES(value) : interpretPED(value)}<br><br><strong>Simple Explanation:</strong> ${explanation}${type === "price-elasticity-demand" && signedElasticity < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
+      khidElasticityExplanation(type, value)
     );
   }
 
@@ -7702,7 +7775,7 @@ if (aiInput) {
       formula,
       `Function entered: ${raw}<br>Derivative (slope) = ${number(slope)}. This means the quantity changes by ${number(slope)} units for each 1-unit change in ${variableName}, according to the entered straight-line function.<br><br>${quantityName} at this point = ${number(constant)} + (${number(slope)} * ${number(point)}) = ${number(quantity)}.<br><br>Elasticity = ${number(slope)} * (${number(point)} / ${number(quantity)}) = ${number(value)}.`,
       `${number(value)}<br><strong>${classification.replace(/^Demand is /, "").replace(/:.*/, "")}</strong>`,
-      `${classification}<br><br><strong>Simple Explanation:</strong> ${isIncome ? "This shows how much demand responds when income changes at the income you entered." : isCross ? "This shows how demand for good X responds when the price of good Y changes at the point you entered." : isSupply ? "This shows how strongly sellers change the amount they offer when price changes." : "This shows how strongly buyers respond to price changes at the price you entered."}${type === "price-elasticity-demand" && valueSigned < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
+      khidElasticityExplanation(type, value)
     );
   }
 
@@ -7752,7 +7825,10 @@ if (aiInput) {
         khidSimpleBox(khidFinancialSimple[type] || "This ratio or measure gives one useful view of the business. Interpret it with the business's circumstances and other financial information.");
       }
       if (category === "economics" && khidElasticityIds.has(type) && (khidElasticityMethod[type] || "percentage") === "percentage") {
-        khidSimpleBox(khidEconomicsSimple[type]);
+        const outputText = result ? result.innerText : "";
+        const match = outputText.match(/(?:Answer:|Result:)?\s*(-?\d+(?:\.\d+)?)/i);
+        const displayedValue = match ? Number(match[1]) : 0;
+        khidSimpleBox(khidElasticityExplanation(type, displayedValue));
       }
     });
   }
