@@ -2766,20 +2766,20 @@ mathematics: {
 
     options: {
         operation: [
-            ["union", "A ∪ B — Union"],
-            ["intersection", "A ∩ B — Intersection"],
-            ["differenceAB", "A − B — Difference"],
-            ["differenceBA", "B − A — Difference"],
-            ["symmetric", "A △ B — Symmetric Difference"],
-            ["complementA", "A′ — Complement of A"],
-            ["complementB", "B′ — Complement of B"],
-            ["cardinalityA", "n(A) — Number of elements in A"],
-            ["cardinalityB", "n(B) — Number of elements in B"],
-            ["subset", "A ⊆ B — Is A a subset of B?"],
-            ["properSubset", "A ⊂ B — Is A a proper subset of B?"],
+            ["union", "A âˆª B â€” Union"],
+            ["intersection", "A âˆ© B â€” Intersection"],
+            ["differenceAB", "A âˆ’ B â€” Difference"],
+            ["differenceBA", "B âˆ’ A â€” Difference"],
+            ["symmetric", "A â–³ B â€” Symmetric Difference"],
+            ["complementA", "Aâ€² â€” Complement of A"],
+            ["complementB", "Bâ€² â€” Complement of B"],
+            ["cardinalityA", "n(A) â€” Number of elements in A"],
+            ["cardinalityB", "n(B) â€” Number of elements in B"],
+            ["subset", "A âŠ† B â€” Is A a subset of B?"],
+            ["properSubset", "A âŠ‚ B â€” Is A a proper subset of B?"],
             ["disjoint", "Are A and B disjoint?"],
-            ["cartesian", "A × B — Cartesian Product"],
-            ["powerSetA", "P(A) — Power Set of A"]
+            ["cartesian", "A Ã— B â€” Cartesian Product"],
+            ["powerSetA", "P(A) â€” Power Set of A"]
         ]
     },
 
@@ -2839,7 +2839,7 @@ mathematics: {
         function formatSet(set) {
 
             if (!set || set.length === 0) {
-                return "∅";
+                return "âˆ…";
             }
 
             return `{${set.join(", ")}}`;
@@ -2880,7 +2880,7 @@ mathematics: {
             case "union":
 
                 return resultTemplate(
-                    "A ∪ B",
+                    "A âˆª B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2889,20 +2889,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(A)}
-                    ∪
+                    âˆª
                     ${formatSet(B)}
 
                     =
                     ${formatSet(union)}
                     `,
-                    `A ∪ B = ${formatSet(union)}`
+                    `A âˆª B = ${formatSet(union)}`
                 );
 
 
             case "intersection":
 
                 return resultTemplate(
-                    "A ∩ B",
+                    "A âˆ© B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2911,20 +2911,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(A)}
-                    ∩
+                    âˆ©
                     ${formatSet(B)}
 
                     =
                     ${formatSet(intersection)}
                     `,
-                    `A ∩ B = ${formatSet(intersection)}`
+                    `A âˆ© B = ${formatSet(intersection)}`
                 );
 
 
             case "differenceAB":
 
                 return resultTemplate(
-                    "A − B",
+                    "A âˆ’ B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2933,20 +2933,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(A)}
-                    −
+                    âˆ’
                     ${formatSet(B)}
 
                     =
                     ${formatSet(differenceAB)}
                     `,
-                    `A − B = ${formatSet(differenceAB)}`
+                    `A âˆ’ B = ${formatSet(differenceAB)}`
                 );
 
 
             case "differenceBA":
 
                 return resultTemplate(
-                    "B − A",
+                    "B âˆ’ A",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2955,20 +2955,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(B)}
-                    −
+                    âˆ’
                     ${formatSet(A)}
 
                     =
                     ${formatSet(differenceBA)}
                     `,
-                    `B − A = ${formatSet(differenceBA)}`
+                    `B âˆ’ A = ${formatSet(differenceBA)}`
                 );
 
 
             case "symmetric":
 
                 return resultTemplate(
-                    "A △ B",
+                    "A â–³ B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2979,7 +2979,7 @@ mathematics: {
 
                     ${formatSet(symmetricDifference)}
                     `,
-                    `A △ B = ${formatSet(symmetricDifference)}`
+                    `A â–³ B = ${formatSet(symmetricDifference)}`
                 );
 
 
@@ -2989,22 +2989,22 @@ mathematics: {
                     U.filter(x => !A.includes(x));
 
                 return resultTemplate(
-                    "A′ — Complement of A",
+                    "Aâ€² â€” Complement of A",
                     `
                     U = ${formatSet(U)}<br>
                     A = ${formatSet(A)}<br><br>
 
-                    A′ = U − A
+                    Aâ€² = U âˆ’ A
                     <br><br>
 
                     ${formatSet(U)}
-                    −
+                    âˆ’
                     ${formatSet(A)}
 
                     =
                     ${formatSet(complementA)}
                     `,
-                    `A′ = ${formatSet(complementA)}`
+                    `Aâ€² = ${formatSet(complementA)}`
                 );
 
             }
@@ -3016,22 +3016,22 @@ mathematics: {
                     U.filter(x => !B.includes(x));
 
                 return resultTemplate(
-                    "B′ — Complement of B",
+                    "Bâ€² â€” Complement of B",
                     `
                     U = ${formatSet(U)}<br>
                     B = ${formatSet(B)}<br><br>
 
-                    B′ = U − B
+                    Bâ€² = U âˆ’ B
                     <br><br>
 
                     ${formatSet(U)}
-                    −
+                    âˆ’
                     ${formatSet(B)}
 
                     =
                     ${formatSet(complementB)}
                     `,
-                    `B′ = ${formatSet(complementB)}`
+                    `Bâ€² = ${formatSet(complementB)}`
                 );
 
             }
@@ -3094,8 +3094,8 @@ mathematics: {
                     appear in B.
                     `,
                     isSubset
-                        ? "A ⊆ B — YES"
-                        : "A ⊆ B — NO"
+                        ? "A âŠ† B â€” YES"
+                        : "A âŠ† B â€” NO"
                 );
 
             }
@@ -3120,8 +3120,8 @@ mathematics: {
                     and A must contain fewer elements.
                     `,
                     isProper
-                        ? "A ⊂ B — YES"
-                        : "A ⊂ B — NO"
+                        ? "A âŠ‚ B â€” YES"
+                        : "A âŠ‚ B â€” NO"
                 );
 
             }
@@ -3135,7 +3135,7 @@ mathematics: {
                 return resultTemplate(
                     "Disjoint Sets",
                     `
-                    A ∩ B =
+                    A âˆ© B =
                     ${formatSet(intersection)}
                     <br><br>
 
@@ -3177,11 +3177,11 @@ mathematics: {
                     <br><br>
 
                     Number of ordered pairs:
-                    ${A.length} × ${B.length}
+                    ${A.length} Ã— ${B.length}
                     =
                     ${pairs.length}
                     `,
-                    `A × B = {${pairs.join(", ")}}`
+                    `A Ã— B = {${pairs.join(", ")}}`
                 );
 
             }
@@ -3222,7 +3222,7 @@ mathematics: {
                         .map(
                             subset =>
                                 subset.length === 0
-                                    ? "∅"
+                                    ? "âˆ…"
                                     : `{${subset.join(", ")}}`
                         )
                         .join(", ");
@@ -7263,4 +7263,468 @@ if (aiInput) {
         }
     );
 
-}
+}/* =========================================================
+   KHID MULTIPURPOSE CALCULATOR - SAFE ENHANCEMENTS
+   Keeps the existing calculators and their original formulas.
+   Adds Financial Analysis Basic/Advanced modes, elasticity methods,
+   and a plain-language explanation after the existing result.
+========================================================= */
+
+(function () {
+  const khidOriginalShowCalculator = showCalculator;
+  const khidElasticityIds = new Set([
+    "price-elasticity-demand",
+    "price-elasticity-supply",
+    "income-elasticity",
+    "cross-elasticity"
+  ]);
+  const khidElasticityMethod = {};
+  let khidFinancialMode = "basic";
+
+  const khidFinancialFields = {
+    currentAssets: [
+      ["cash", "Cash and cash equivalents (â‚¦)"],
+      ["shortInvestments", "Short-term investments (â‚¦)"],
+      ["receivables", "Debtors / trade receivables (â‚¦)"],
+      ["inventory", "Stock / inventory (â‚¦)"],
+      ["prepayments", "Prepayments (â‚¦)"],
+      ["otherCurrentAssets", "Other current assets (â‚¦)"]
+    ],
+    currentLiabilities: [
+      ["payables", "Creditors / trade payables (â‚¦)"],
+      ["accruedExpenses", "Accrued expenses (â‚¦)"],
+      ["shortTermLoan", "Short-term loans / overdraft (â‚¦)"],
+      ["taxPayable", "Tax payable (â‚¦)"],
+      ["otherCurrentLiabilities", "Other current liabilities (â‚¦)"]
+    ],
+    nonCurrentAssets: [
+      ["propertyPlantEquipment", "Property, plant and equipment (â‚¦)"],
+      ["intangibleAssets", "Intangible assets (â‚¦)"],
+      ["otherNonCurrentAssets", "Other non-current assets (â‚¦)"]
+    ],
+    nonCurrentLiabilities: [
+      ["longTermLoans", "Long-term loans (â‚¦)"],
+      ["leaseLiabilities", "Lease liabilities (â‚¦)"],
+      ["otherNonCurrentLiabilities", "Other non-current liabilities (â‚¦)"]
+    ]
+  };
+
+  const khidFinancialAdvancedFields = {
+    "current-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.currentLiabilities],
+    "acid-test-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.currentLiabilities],
+    "cash-ratio": [["cash", "Cash and cash equivalents (â‚¦)"], ["shortInvestments", "Short-term investments readily convertible to cash (â‚¦)"], ...khidFinancialFields.currentLiabilities],
+    "working-capital": [...khidFinancialFields.currentAssets, ...khidFinancialFields.currentLiabilities],
+    "inventory-turnover": [["openingInventory", "Opening inventory / opening stock (â‚¦)"], ["purchases", "Purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["carriageInwards", "Carriage inwards (â‚¦)"], ["closingInventory", "Closing inventory / closing stock (â‚¦)" ]],
+    "inventory-days": [["openingInventory", "Opening inventory / opening stock (â‚¦)"], ["purchases", "Purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["carriageInwards", "Carriage inwards (â‚¦)"], ["closingInventory", "Closing inventory / closing stock (â‚¦)" ]],
+    "receivables-turnover": [["creditSales", "Credit sales (â‚¦)"], ["salesReturns", "Sales returns (â‚¦)"], ["openingReceivables", "Opening debtors / receivables (â‚¦)"], ["closingReceivables", "Closing debtors / receivables (â‚¦)" ]],
+    "receivable-days": [["creditSales", "Credit sales (â‚¦)"], ["salesReturns", "Sales returns (â‚¦)"], ["openingReceivables", "Opening debtors / receivables (â‚¦)"], ["closingReceivables", "Closing debtors / receivables (â‚¦)" ]],
+    "payables-turnover": [["creditPurchases", "Credit purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["openingPayables", "Opening creditors / payables (â‚¦)"], ["closingPayables", "Closing creditors / payables (â‚¦)" ]],
+    "payable-days": [["creditPurchases", "Credit purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["openingPayables", "Opening creditors / payables (â‚¦)"], ["closingPayables", "Closing creditors / payables (â‚¦)" ]],
+    "total-asset-turnover": [["revenue", "Revenue / sales (â‚¦)"], ["openingCurrentAssets", "Opening current assets (â‚¦)"], ["openingNonCurrentAssets", "Opening non-current assets (â‚¦)"], ["closingCurrentAssets", "Closing current assets (â‚¦)"], ["closingNonCurrentAssets", "Closing non-current assets (â‚¦)" ]],
+    "debt-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.nonCurrentAssets, ...khidFinancialFields.currentLiabilities, ...khidFinancialFields.nonCurrentLiabilities],
+    "debt-to-equity": [...khidFinancialFields.currentAssets, ...khidFinancialFields.nonCurrentAssets, ...khidFinancialFields.currentLiabilities, ...khidFinancialFields.nonCurrentLiabilities],
+    "equity-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.nonCurrentAssets, ...khidFinancialFields.currentLiabilities, ...khidFinancialFields.nonCurrentLiabilities],
+    "interest-coverage": [["profitBeforeTax", "Profit before tax (â‚¦)"], ["interestExpense", "Interest expense (â‚¦)" ]],
+    "return-on-assets": [["netIncome", "Net profit / net income for the period (â‚¦)"], ["openingCurrentAssets", "Opening current assets (â‚¦)"], ["openingNonCurrentAssets", "Opening non-current assets (â‚¦)"], ["closingCurrentAssets", "Closing current assets (â‚¦)"], ["closingNonCurrentAssets", "Closing non-current assets (â‚¦)" ]],
+    "return-on-equity": [["netIncome", "Net profit / net income for the period (â‚¦)"], ["openingEquity", "Opening equity / capital (â‚¦)"], ["closingEquity", "Closing equity / capital (â‚¦)" ]],
+    "earnings-per-share": [["netIncome", "Profit attributable to ordinary shareholders (â‚¦)"], ["preferenceDividends", "Preference dividends (â‚¦, optional)"], ["weightedShares", "Weighted average ordinary shares" ]],
+    "pe-ratio": [["marketPrice", "Market price per share (â‚¦)"], ["eps", "Earnings per share (â‚¦)" ]],
+    "dividend-per-share": [["ordinaryDividends", "Ordinary dividends (â‚¦)"], ["ordinaryShares", "Ordinary shares outstanding" ]],
+    "dividend-yield": [["dps", "Dividend per share (â‚¦)"], ["marketPrice", "Market price per share (â‚¦)" ]]
+  };
+
+  const khidFinancialSimple = {
+    "current-ratio": "This compares what the business expects to turn into cash or use up soon with what it must pay soon. A higher ratio can provide more short-term breathing room, but the quality of the assets and timing of payments also matter.",
+    "acid-test-ratio": "This checks whether the business can cover short-term bills without depending on selling its stock or using prepayments. It focuses on assets that are generally easier to use to pay bills.",
+    "cash-ratio": "This looks at how much of the short-term bills could be covered immediately with cash and near-cash funds.",
+    "working-capital": "This is what remains from short-term assets after subtracting short-term obligations. A positive amount means those assets are greater than those obligations; a negative amount means the business may need to manage cash carefully.",
+    "inventory-turnover": "This estimates how many times the business sold through and replaced its average stock during the period. Compare it with the business's past results and industry, because faster is not automatically better.",
+    "inventory-days": "This estimates how long stock stays in the business before it is sold. Fewer days can mean stock moves faster, but the right level depends on the type of business.",
+    "receivables-turnover": "This shows how frequently the business collects its average customer debts during the period. A higher figure often means customer debts are being collected more frequently.",
+    "receivable-days": "This estimates how many days customers take, on average, to pay. More days can mean cash is tied up in unpaid invoices for longer.",
+    "payables-turnover": "This estimates how frequently the business settles its average supplier debts during the period. Interpret it alongside supplier credit terms and cash flow.",
+    "payable-days": "This estimates how many days the business takes, on average, to pay suppliers. Too-fast or too-slow payment is not automatically good or bad; compare it with agreed terms and available cash.",
+    "total-asset-turnover": "This shows how much sales revenue is generated for each naira invested in average assets. It helps you see how effectively assets are being used to generate sales.",
+    "debt-ratio": "This shows the percentage of the business's assets financed by liabilities. A higher percentage means more of the assets are financed by amounts owed to others.",
+    "debt-to-equity": "This compares amounts owed to the owners' equity. It helps show how much the business relies on borrowing and other liabilities compared with owners' funds.",
+    "equity-ratio": "This shows the percentage of total assets financed by owners' equity rather than liabilities.",
+    "interest-coverage": "This estimates how many times operating earnings before interest and tax can cover the interest charge. A low figure may leave less room to pay interest if earnings fall.",
+    "return-on-assets": "This measures how much profit the business earns in relation to the assets it uses. It helps assess how productively the assets are being used to generate profit.",
+    "return-on-equity": "This measures profit in relation to the owners' average equity. It shows the return generated on the funds invested by owners, but should be considered alongside risk and debt.",
+    "earnings-per-share": "This estimates the earnings attributable to each ordinary share for the period. It is not the same as the cash dividend paid per share.",
+    "pe-ratio": "This compares a share's market price with its earnings per share. It tells you how many naira of share price investors are paying for each naira of earnings per share; it is not a guarantee of future performance.",
+    "dividend-per-share": "This shows the amount of ordinary dividend attributable to each ordinary share.",
+    "dividend-yield": "This expresses the dividend per share as a percentage of the current share price. It does not include any gain or loss in the share price."
+  };
+
+  const khidEconomicsSimple = {
+    "price-elasticity-demand": "Price elasticity of demand tells you how strongly buyers respond when price changes. For PED classification, the calculator shows the absolute value as positive. A negative signed result in the underlying calculation reflects the usual opposite movement of price and quantity demanded; the negative sign is not used for the usual PED classification.",
+    "price-elasticity-supply": "This tells you how strongly sellers change the quantity they offer when price changes. A larger elasticity means quantity supplied responds more strongly.",
+    "income-elasticity": "This shows how demand responds when people's income changes. A negative result suggests demand falls as income rises (an inferior good); a positive result suggests demand rises as income rises (a normal good). Values above 1 are commonly associated with luxury goods.",
+    "cross-elasticity": "This shows how demand for one product responds when the price of another product changes. A positive result usually points to substitutes, a negative result to complements, and a result around zero to little direct relationship."
+  };
+
+  function khidReadValues(fields) {
+    const values = {};
+    fields.forEach(([id]) => {
+      const el = document.getElementById(id);
+      const raw = el ? el.value.trim() : "";
+      values[id] = raw === "" ? 0 : Number(raw);
+      if (!Number.isFinite(values[id])) throw new Error("Please enter numbers only.");
+    });
+    return values;
+  }
+
+  function khidMakeField(id, label, type = "number", placeholder = "Enter a number") {
+    const group = document.createElement("div");
+    group.className = "input-group";
+    const lab = document.createElement("label");
+    lab.htmlFor = id;
+    lab.textContent = label;
+    group.appendChild(lab);
+    const input = document.createElement("input");
+    input.type = type;
+    input.id = id;
+    input.name = id;
+    input.placeholder = placeholder;
+    if (type === "number") input.step = "any";
+    group.appendChild(input);
+    return group;
+  }
+
+  function khidInsertModeSelect(mode, options, onChange, id = "khidMethodSelect") {
+    const group = document.createElement("div");
+    group.className = "input-group";
+    const label = document.createElement("label");
+    label.htmlFor = id;
+    label.textContent = "Calculation method";
+    group.appendChild(label);
+    const select = document.createElement("select");
+    select.id = id;
+    options.forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.appendChild(option);
+    });
+    select.value = mode;
+    select.addEventListener("change", () => onChange(select.value));
+    group.appendChild(select);
+    return group;
+  }
+
+  function khidSimpleBox(text) {
+    if (!text || !result || result.querySelector(".error-message")) return;
+    if (result.querySelector(".khid-simple-explanation")) return;
+    const box = document.createElement("div");
+    box.className = "interpretation-box khid-simple-explanation";
+    box.innerHTML = `<p><strong>Simple Explanation:</strong><br>${text}</p>`;
+    result.appendChild(box);
+  }
+
+  function khidRenderElasticity(type, method) {
+    khidElasticityMethod[type] = method;
+    khidOriginalShowCalculator(type);
+    const calculator = calculators.economics[type];
+    const selectBox = khidInsertModeSelect(method, [
+      ["percentage", "Percentage Method (existing)"],
+      ["arc", "Arc Elasticity / Midpoint Method"],
+      ["point", "Point Elasticity (linear function)" ]
+    ], next => khidRenderElasticity(type, next));
+    calculatorForm.insertBefore(selectBox, calculatorForm.firstChild);
+    if (method === "percentage") return;
+
+    calculatorForm.innerHTML = "";
+    calculatorForm.appendChild(selectBox);
+    const isIncome = type === "income-elasticity";
+    const isCross = type === "cross-elasticity";
+    const isSupply = type === "price-elasticity-supply";
+    const variableLabel = isIncome ? "Income (Y)" : isCross ? "Price of the other good (Py)" : "Price (P)";
+    const functionLabel = isIncome ? "Quantity-demand function in income Y" : isCross ? "Quantity of good X as a function of price of good Y" : isSupply ? "Quantity-supplied function in price P" : "Quantity-demand function in price P";
+
+    if (method === "arc") {
+      const fields = isIncome
+        ? [["q1", "Original quantity demanded"], ["q2", "New quantity demanded"], ["y1", "Original income (Y1)"], ["y2", "New income (Y2)"]]
+        : [["q1", isCross ? "Original quantity of good X" : isSupply ? "Original quantity supplied" : "Original quantity demanded"], ["q2", isCross ? "New quantity of good X" : isSupply ? "New quantity supplied" : "New quantity demanded"], ["p1", isCross ? "Original price of good Y" : "Original price (P1)"], ["p2", isCross ? "New price of good Y" : "New price (P2)"]];
+      fields.forEach(([id, label]) => calculatorForm.appendChild(khidMakeField(id, label)));
+      const note = document.createElement("div");
+      note.className = "formula-box";
+      note.innerHTML = "<strong>How to use</strong><p>Enter the two observed quantities and the two corresponding prices or incomes. The midpoint method divides each change by the average of its two values, which makes the comparison less dependent on which point is treated as the starting point.</p>";
+      calculatorForm.appendChild(note);
+    } else {
+      calculatorForm.appendChild(khidMakeField("khidLinearFunction", functionLabel, "text", isIncome ? "Example: Q = 20 + 3Y" : isCross ? "Example: Qx = 80 - 2Py" : isSupply ? "Example: Qs = 10 + 2P" : "Example: Qd = 100 - 2P"));
+      calculatorForm.appendChild(khidMakeField("khidPointValue", `Enter ${variableLabel}`, "number", "Enter the price or income"));
+      const note = document.createElement("div");
+      note.className = "formula-box";
+      note.innerHTML = `<strong>How to use</strong><p>Enter a straight-line function, such as <strong>${isIncome ? "Q = 20 + 3Y" : isCross ? "Qx = 80 - 2Py" : isSupply ? "Qs = 10 + 2P" : "Qd = 100 - 2P"}</strong>, then enter the price or income at which you want to measure elasticity. The calculator finds the derivative (the slope of the straight line) and the quantity at that point. Use a linear function with one variable only.</p>`;
+      calculatorForm.appendChild(note);
+    }
+    result.innerHTML = `<h3>Result</h3><p>Enter your values and click <strong>Calculate</strong>.</p>`;
+  }
+
+  showCalculator = function (type) {
+    const category = categorySelect ? categorySelect.value : "";
+    if (category === "economics" && khidElasticityIds.has(type)) {
+      khidRenderElasticity(type, khidElasticityMethod[type] || "percentage");
+      return;
+    }
+    if (category === "financial-analysis") {
+      khidOriginalShowCalculator(type);
+      const method = khidInsertModeSelect(khidFinancialMode, [
+        ["basic", "Basic Mode (enter the totals)"],
+        ["advanced", "Advanced Mode (enter account balances)" ]
+      ], next => {
+        khidFinancialMode = next;
+        showCalculator(type);
+      }, "khidFinancialMode");
+      calculatorForm.insertBefore(method, calculatorForm.firstChild);
+      if (khidFinancialMode === "advanced") {
+        calculatorForm.innerHTML = "";
+        calculatorForm.appendChild(method);
+        const fields = khidFinancialAdvancedFields[type] || [];
+        fields.forEach(([id, label]) => calculatorForm.appendChild(khidMakeField(id, label)));
+        const note = document.createElement("div");
+        note.className = "formula-box";
+        note.innerHTML = "<strong>Advanced Mode</strong><p>Enter the underlying account balances. Leave genuinely absent optional balances blank (they are treated as zero). The calculator will build the relevant totals or averages before calculating the ratio. Use figures from the same reporting period and in the same currency.</p>";
+        calculatorForm.appendChild(note);
+        result.innerHTML = `<h3>Result</h3><p>Enter your balances and click <strong>Calculate</strong>.</p>`;
+      }
+      return;
+    }
+    khidOriginalShowCalculator(type);
+  };
+
+  function khidAdvancedFinancialValues(type) {
+    const fields = khidFinancialAdvancedFields[type] || [];
+    const v = khidReadValues(fields);
+    const n = key => Number(v[key] || 0);
+    const currentAssets = khidFinancialFields.currentAssets.reduce((total, [id]) => total + n(id), 0);
+    const currentLiabilities = khidFinancialFields.currentLiabilities.reduce((total, [id]) => total + n(id), 0);
+    const nonCurrentAssets = khidFinancialFields.nonCurrentAssets.reduce((total, [id]) => total + n(id), 0);
+    const nonCurrentLiabilities = khidFinancialFields.nonCurrentLiabilities.reduce((total, [id]) => total + n(id), 0);
+    const totalAssets = currentAssets + nonCurrentAssets;
+    const totalLiabilities = currentLiabilities + nonCurrentLiabilities;
+    const totalEquity = totalAssets - totalLiabilities;
+    let working = [];
+    const add = (text) => working.push(text);
+
+    if (["current-ratio", "acid-test-ratio", "cash-ratio", "working-capital"].includes(type)) {
+      add(`Current assets = ${money(currentAssets)} (cash + short-term investments + receivables + inventory + prepayments + other current assets).`);
+      add(`Current liabilities = ${money(currentLiabilities)} (payables + accruals + short-term loans/overdraft + tax payable + other current liabilities).`);
+      if (type === "current-ratio") Object.assign(v, { currentAssets, currentLiabilities });
+      if (type === "acid-test-ratio") Object.assign(v, { currentAssets, inventory: n("inventory"), prepayments: n("prepayments"), currentLiabilities });
+      if (type === "cash-ratio") Object.assign(v, { cash: n("cash") + n("shortInvestments"), currentLiabilities });
+      if (type === "working-capital") Object.assign(v, { currentAssets, currentLiabilities });
+    }
+    if (["inventory-turnover", "inventory-days"].includes(type)) {
+      const cogs = n("openingInventory") + n("purchases") - n("purchaseReturns") + n("carriageInwards") - n("closingInventory");
+      const averageInventory = (n("openingInventory") + n("closingInventory")) / 2;
+      add(`Cost of goods sold = opening stock + purchases âˆ’ purchase returns + carriage inwards âˆ’ closing stock = ${money(cogs)}.`);
+      add(`Average inventory = (opening stock + closing stock) / 2 = ${money(averageInventory)}.`);
+      Object.assign(v, { cogs, averageInventory });
+    }
+    if (["receivables-turnover", "receivable-days"].includes(type)) {
+      const creditSales = n("creditSales") - n("salesReturns");
+      const averageReceivables = (n("openingReceivables") + n("closingReceivables")) / 2;
+      add(`Net credit sales = credit sales âˆ’ sales returns = ${money(creditSales)}.`);
+      add(`Average receivables = (opening receivables + closing receivables) / 2 = ${money(averageReceivables)}.`);
+      Object.assign(v, { creditSales, averageReceivables });
+    }
+    if (["payables-turnover", "payable-days"].includes(type)) {
+      const creditPurchases = n("creditPurchases") - n("purchaseReturns");
+      const averagePayables = (n("openingPayables") + n("closingPayables")) / 2;
+      add(`Net credit purchases = credit purchases âˆ’ purchase returns = ${money(creditPurchases)}.`);
+      add(`Average payables = (opening payables + closing payables) / 2 = ${money(averagePayables)}.`);
+      Object.assign(v, { creditPurchases, averagePayables });
+    }
+    if (["total-asset-turnover", "return-on-assets"].includes(type)) {
+      const openingAssets = n("openingCurrentAssets") + n("openingNonCurrentAssets");
+      const closingAssets = n("closingCurrentAssets") + n("closingNonCurrentAssets");
+      const averageAssets = (openingAssets + closingAssets) / 2;
+      add(`Opening total assets = opening current assets + opening non-current assets = ${money(openingAssets)}.`);
+      add(`Closing total assets = closing current assets + closing non-current assets = ${money(closingAssets)}.`);
+      add(`Average total assets = (opening total assets + closing total assets) / 2 = ${money(averageAssets)}.`);
+      Object.assign(v, { averageAssets });
+    }
+    if (["debt-ratio", "debt-to-equity", "equity-ratio"].includes(type)) {
+      add(`Total assets = current assets + non-current assets = ${money(totalAssets)}.`);
+      add(`Total liabilities = current liabilities + non-current liabilities = ${money(totalLiabilities)}.`);
+      add(`Equity (net assets) = total assets âˆ’ total liabilities = ${money(totalEquity)}.`);
+      Object.assign(v, { totalAssets, totalLiabilities, totalEquity });
+    }
+    if (type === "interest-coverage") {
+      const ebit = n("profitBeforeTax") + n("interestExpense");
+      add(`EBIT = profit before tax + interest expense = ${money(ebit)}. This assumes profit before tax is after the interest expense has been deducted.`);
+      Object.assign(v, { ebit, interestExpense: n("interestExpense") });
+    }
+    if (type === "return-on-equity") {
+      const averageEquity = (n("openingEquity") + n("closingEquity")) / 2;
+      add(`Average equity = (opening equity + closing equity) / 2 = ${money(averageEquity)}.`);
+      Object.assign(v, { averageEquity, netIncome: n("netIncome") });
+    }
+    if (["earnings-per-share", "pe-ratio", "dividend-per-share", "dividend-yield"].includes(type)) {
+      add("This calculation uses the underlying per-share figures entered above; no intermediate balance total is required for this formula.");
+    }
+    return { values: v, working };
+  }
+
+  function khidCalculateArc(type) {
+    const isIncome = type === "income-elasticity";
+    const isCross = type === "cross-elasticity";
+    const isSupply = type === "price-elasticity-supply";
+    const fields = isIncome
+      ? [["q1", "Original quantity"], ["q2", "New quantity"], ["y1", "Original income"], ["y2", "New income"]]
+      : [["q1", "Original quantity"], ["q2", "New quantity"], ["p1", "Original price"], ["p2", "New price"]];
+    const v = khidReadValues(fields);
+    const q1 = v.q1, q2 = v.q2;
+    const x1 = isIncome ? v.y1 : v.p1;
+    const x2 = isIncome ? v.y2 : v.p2;
+    if (q1 + q2 === 0 || x1 + x2 === 0 || x1 === x2) return errorMessage("The average quantity and average price/income must not be zero, and the price/income must change.");
+    const qChange = (q2 - q1) / ((q1 + q2) / 2);
+    const xChange = (x2 - x1) / ((x1 + x2) / 2);
+    const signedElasticity = qChange / xChange;
+    let value = signedElasticity;
+    let label, explanation;
+    if (type === "price-elasticity-demand") {
+      const magnitude = Math.abs(signedElasticity);
+      label = `${number(magnitude)} â€” ${interpretPED(magnitude)}`;
+      explanation = khidEconomicsSimple[type];
+      value = magnitude;
+    } else if (isSupply) {
+      value = Math.abs(signedElasticity);
+      label = `${number(value)} â€” ${interpretPES(value)}`;
+      explanation = khidEconomicsSimple[type];
+    } else if (isIncome) {
+      label = `${number(value)} â€” ${interpretIncomeElasticity(value)}`;
+      explanation = khidEconomicsSimple[type];
+    } else {
+      label = `${number(value)} â€” ${interpretCrossElasticity(value)}`;
+      explanation = khidEconomicsSimple[type];
+    }
+    const xName = isIncome ? "income" : isCross ? "price of good Y" : "price";
+    return resultTemplate(
+      `Arc elasticity = [change in quantity / average quantity] / [change in ${xName} / average ${xName}]`,
+      `Quantity part = (${number(q2)} âˆ’ ${number(q1)}) / [(${number(q1)} + ${number(q2)}) / 2] = ${number(qChange)}.<br><br>${xName} part = (${number(x2)} âˆ’ ${number(x1)}) / [(${number(x1)} + ${number(x2)}) / 2] = ${number(xChange)}.<br><br>Signed elasticity = ${number(qChange)} / ${number(xChange)} = ${number(signedElasticity)}.${type === "price-elasticity-demand" ? `<br><br>PED classification uses the absolute value: |${number(signedElasticity)}| = ${number(value)}.` : ""}`,
+      label,
+      `${isCross ? interpretCrossElasticity(value) : isIncome ? interpretIncomeElasticity(value) : isSupply ? interpretPES(value) : interpretPED(value)}<br><br><strong>Simple Explanation:</strong> ${explanation}`
+    );
+  }
+
+  function khidParseLinearFunction(raw, expectedVariable) {
+    let expression = String(raw || "").trim().replace(/[âˆ’â€“]/g, "-").replace(/Ã—/g, "*");
+    if (!expression) throw new Error("Enter a linear function first.");
+    if (expression.includes("=")) expression = expression.slice(expression.lastIndexOf("=") + 1).trim();
+    expression = expression.replace(/\s+/g, "").replace(/\*/g, "");
+    const terms = expression.match(/[+-]?[^+-]+/g);
+    if (!terms || terms.join("") !== expression) throw new Error("Use a simple straight-line function, for example Qd = 100 - 2P.");
+    let constant = 0, slope = 0, foundVariable = false;
+    for (const term of terms) {
+      const match = term.match(/^([+-]?)(?:(\d*\.?\d+)?([A-Za-z]+)|(\d*\.?\d+))$/);
+      if (!match) throw new Error("Use a simple linear function with a constant and one variable, for example Qd = 100 - 2P.");
+      const sign = match[1] === "-" ? -1 : 1;
+      if (match[3]) {
+        const variable = match[3].toUpperCase();
+        if (variable !== expectedVariable.toUpperCase()) throw new Error(`Use ${expectedVariable} as the variable in this function.`);
+        const coefficient = match[2] === undefined || match[2] === "" ? 1 : Number(match[2]);
+        slope += sign * coefficient;
+        foundVariable = true;
+      } else {
+        constant += sign * Number(match[4]);
+      }
+    }
+    if (!foundVariable || !Number.isFinite(constant) || !Number.isFinite(slope)) throw new Error("The function must include the required variable and valid numbers.");
+    return { constant, slope };
+  }
+
+  function khidCalculatePoint(type) {
+    const isIncome = type === "income-elasticity";
+    const isCross = type === "cross-elasticity";
+    const isSupply = type === "price-elasticity-supply";
+    const variable = isIncome ? "Y" : isCross ? "PY" : "P";
+    const raw = document.getElementById("khidLinearFunction").value;
+    const pointInput = document.getElementById("khidPointValue");
+    if (!pointInput || pointInput.value.trim() === "") return errorMessage("Enter the price or income where you want to measure elasticity.");
+    const point = Number(pointInput.value);
+    if (!Number.isFinite(point)) return errorMessage("Enter a valid price or income.");
+    const { constant, slope } = khidParseLinearFunction(raw, variable);
+    const quantity = constant + slope * point;
+    if (quantity === 0) return errorMessage("The calculated quantity is zero, so point elasticity cannot be calculated.");
+    const valueSigned = slope * point / quantity;
+    let value = valueSigned;
+    let classification = "";
+    if (type === "price-elasticity-demand") {
+      value = Math.abs(valueSigned);
+      classification = interpretPED(value);
+    } else if (isSupply) {
+      value = Math.abs(valueSigned);
+      classification = interpretPES(value);
+    } else if (isIncome) classification = interpretIncomeElasticity(value);
+    else classification = interpretCrossElasticity(value);
+    const quantityName = isSupply ? "quantity supplied" : "quantity demanded";
+    const variableName = isIncome ? "income (Y)" : isCross ? "price of good Y (Py)" : "price (P)";
+    const formula = isIncome ? "YED = (dQ/dY) Ã— (Y/Q)" : isCross ? "XED = (dQx/dPy) Ã— (Py/Qx)" : isSupply ? "PES = (dQs/dP) Ã— (P/Qs)" : "PED = (dQd/dP) Ã— (P/Qd)";
+    const signedNote = type === "price-elasticity-demand" ? "The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, the calculator reports the absolute value as positive." : isSupply ? "The derivative shows the slope of the supply function. The usual supply elasticity classification uses its magnitude." : "The sign is meaningful here: it helps identify whether quantity moves in the same or opposite direction as the selected price or income variable.";
+    return resultTemplate(
+      formula,
+      `Function entered: ${raw}<br>Derivative (slope) = ${number(slope)}. This means the quantity changes by ${number(slope)} units for each 1-unit change in ${variableName}, according to the entered straight-line function.<br><br>${quantityName} at this point = ${number(constant)} + (${number(slope)} Ã— ${number(point)}) = ${number(quantity)}.<br><br>Elasticity = ${number(slope)} Ã— (${number(point)} / ${number(quantity)}) = ${number(value)}.`,
+      `${number(value)}${type === "price-elasticity-demand" || isSupply ? ` â€” ${classification}` : ` â€” ${classification}`}`,
+      `${classification}<br><br><strong>Simple Explanation:</strong> ${isIncome ? "This shows how much demand responds when income changes at the income you entered." : isCross ? "This shows how demand for good X responds when the price of good Y changes at the point you entered." : isSupply ? "This shows how strongly sellers change the amount they offer when price changes." : "This shows how strongly buyers respond to price changes at the price you entered."}<br><br><small>${signedNote}</small>`
+    );
+  }
+
+  if (calculateButton) {
+    calculateButton.addEventListener("click", function (event) {
+      const category = categorySelect ? categorySelect.value : "";
+      const type = calculatorSelect ? calculatorSelect.value : "";
+      if (category === "financial-analysis" && khidFinancialMode === "advanced") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        try {
+          const { values, working } = khidAdvancedFinancialValues(type);
+          const output = calculators[category][type].calculate(values);
+          const outputCheck = document.createElement("div");
+          outputCheck.innerHTML = output;
+          if (outputCheck.querySelector(".error-message")) {
+            result.innerHTML = `<h3>Result</h3>${output}`;
+            return;
+          }
+          result.innerHTML = `<h3>Result</h3>${output}<div class="working-box"><strong>How the totals were built</strong><p>${working.join("<br><br>")}</p></div>`;
+          khidSimpleBox(khidFinancialSimple[type] || "This result helps explain one aspect of the business's financial position or performance. Consider it alongside the other financial statements and relevant business circumstances.");
+        } catch (error) {
+          result.innerHTML = errorMessage(error.message || "Please check your inputs.");
+        }
+        return;
+      }
+      if (category === "economics" && khidElasticityIds.has(type)) {
+        const method = khidElasticityMethod[type] || "percentage";
+        if (method === "arc" || method === "point") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          try {
+            result.innerHTML = `<h3>Result</h3>${method === "arc" ? khidCalculateArc(type) : khidCalculatePoint(type)}`;
+          } catch (error) {
+            result.innerHTML = errorMessage(error.message || "Please check your inputs.");
+          }
+        }
+      }
+    }, true);
+
+    // Runs after the original calculator handler. It adds a simple explanation
+    // below existing answers without changing the original result or formula.
+    calculateButton.addEventListener("click", function () {
+      const category = categorySelect ? categorySelect.value : "";
+      const type = calculatorSelect ? calculatorSelect.value : "";
+      if (category === "financial-analysis" && khidFinancialMode === "basic") {
+        khidSimpleBox(khidFinancialSimple[type] || "This ratio or measure gives one useful view of the business. Interpret it with the business's circumstances and other financial information.");
+      }
+      if (category === "economics" && khidElasticityIds.has(type) && (khidElasticityMethod[type] || "percentage") === "percentage") {
+        khidSimpleBox(khidEconomicsSimple[type]);
+      }
+    });
+  }
+
+  // Re-render the current calculator through the enhanced selector-aware renderer.
+  if (categorySelect && calculatorSelect) {
+    populateCalculators();
+  }
+})();
