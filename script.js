@@ -669,40 +669,92 @@ function inverseMatrix(M) {
     return aug.map(r=>r.slice(n));
 }
 
-function calculateLogExpression(raw) {
-    const input=(raw||"").trim();
-    if(!input) return errorMessage("Enter a logarithm expression, for example log_5(2) + log_2(5). You may use as many logarithms as you need.");
-
-    // Supported notation: log_5(2), log(5,2), ln(2), with ordinary + - * / and parentheses.
-    const original=input;
-    let s=input.replace(/\s+/g,"");
-    const terms=[];
-    const pattern=/log_?\(?([0-9.]+)\)?\(([-+]?\d*\.?\d+)\)/g;
-    // Convert log_5(2) -> log(5,2) before parsing.
-    s=s.replace(/log_([0-9.]+)\(([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>`log(${b},${a})`);
-    s=s.replace(/log\(([0-9.]+),([-+]?\d*\.?\d+)\)/gi,(m,b,a)=>{ terms.push({base:Number(b),arg:Number(a)}); return `(${Math.log(Number(a))/Math.log(Number(b))})`; });
-
-    // Also allow log(b,a) anywhere in the expression.
-    const leftovers=/log\(/i.test(s);
-    if(leftovers) return errorMessage("Use log_base(argument), such as log_5(2), or log(base,argument). Base must be positive and not 1; argument must be positive.");
-
-    try {
-        if(!terms.length && /^ln\(/i.test(s)) {
-            return errorMessage("For this calculator, enter logarithms with an explicit base, such as log_10(100) or log_2(8).");
-        }
-        const value=Function(`"use strict"; return (${s});`)();
-        if(!Number.isFinite(value)) return errorMessage("The logarithm expression is undefined for the values entered.");
-        return resultTemplate(
-            "log_b(x) = ln(x) / ln(b)",
-            `<strong>Expression:</strong> ${escapeHtml(original)}<br><br>` +
-            terms.map((t,i)=>`log<sub>${number(t.base)}</sub>(${number(t.arg)}) = ${number(Math.log(t.arg)/Math.log(t.base),8)}`).join("<br>") +
-            `<br><br><strong>Numeric calculation:</strong> ${number(value,8)}`,
-            `<span style="font-size:1.05em;">${escapeHtml(original)}</span><br><strong>approximately ${number(value,8)}</strong>`,
-            "The symbolic expression is retained so expressions such as log_5(2) + log_2(5) are not forced into an inaccurate rounded exact form."
-        );
-    } catch(e) {
-        return errorMessage("Invalid logarithm expression. Use examples like log_10(100), log_2(8) + log_5(25), or log_5(2) + log_2(5).");
+function calculateIndicesExpression(raw) {
+    const original = String(raw || "").trim();
+    if (!original) return errorMessage("Enter an expression such as 2^3 * 2^4, 3^5 / 3^2, or (2^3)^2.");
+    let expression = original.replace(/[Ã—Â·]/g, "*").replace(/Ã·/g, "/").replace(/[âˆ’â€“â€”]/g, "-").replace(/\s+/g, "");
+    if (/[^0-9.+\-*/^()]/.test(expression)) return errorMessage("Use numbers, parentheses, +, âˆ’, Ã—, Ã· and ^ for powers.");
+    // Prevent adjacent operators except a unary sign and convert ^ to JavaScript exponentiation.
+    const jsExpression = expression.replace(/\^/g, "**");
+    let value;
+    try { value = Function('"use strict"; return (' + jsExpression + ');')(); }
+    catch (_) { return errorMessage("That index expression could not be read. Check the powers and brackets."); }
+    if (!Number.isFinite(value)) return errorMessage("The expression does not produce a finite numerical answer.");
+    let simplified = expression;
+    let rule = "Evaluate the powers first, then complete the remaining operations in the correct order.";
+    let steps = `<strong>STEP 1: Identify the expression</strong><br><br>${escapeHtml(original)}<br><br><strong>STEP 2: Choose the relevant rule</strong><br><br>${rule}<br><br><strong>STEP 3: Evaluate step by step</strong><br><br>${escapeHtml(expression)}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value, 10)}`;
+    // Recognize common same-base product and quotient rules.
+    let m = expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\*\(?\1\^(-?\d+)\)?$/);
+    if (m) {
+        const a=m[1], x=Number(m[2]), y=Number(m[3]); simplified=`${a}^${x+y}`;
+        rule="Product rule: aáµ Ã— aâ¿ = aáµâºâ¿. When the bases are the same, add the indices.";
+        steps=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>aáµ Ã— aâ¿ = aáµâºâ¿</strong></span><br><br><strong>Meaning:</strong> Keep the common base and add the indices.<br><br><strong>STEP 2: Apply the formula</strong><br><br>${a}^${x} Ã— ${a}^${y} = ${a}^(${x} + ${y})<br><br><strong>STEP 3: Simplify</strong><br><br>${a}^${x+y}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value,10)}<br><br><strong>Because:</strong> multiplying powers with the same base combines the repeated factors, so their indices are added.`;
+    } else {
+      m=expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\/\(?\1\^(-?\d+)\)?$/);
+      if(m){const a=m[1],x=Number(m[2]),y=Number(m[3]);simplified=`${a}^${x-y}`;rule="Quotient rule: aáµ Ã· aâ¿ = aáµâ»â¿, for a â‰  0. Subtract the indices when dividing powers with the same base.";steps=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>aáµ Ã· aâ¿ = aáµâ»â¿</strong></span><br><br><strong>Meaning:</strong> Keep the common base and subtract the denominator's index from the numerator's index.<br><br><strong>STEP 2: Apply the formula</strong><br><br>${a}^${x} Ã· ${a}^${y} = ${a}^(${x} âˆ’ ${y})<br><br><strong>STEP 3: Simplify</strong><br><br>${a}^${x-y}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value,10)}<br><br><strong>Because:</strong> common factors cancel when dividing powers with the same non-zero base.`;}
+      else {
+        m=expression.match(/^\(([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)\^(-?\d+)$/);
+        if(m){const a=m[1],x=Number(m[2]),y=Number(m[3]);simplified=`${a}^${x*y}`;rule="Power of a power: (aáµ)â¿ = aáµâ¿. Multiply the indices.";steps=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>(aáµ)â¿ = aáµâ¿</strong></span><br><br><strong>Meaning:</strong> When a power is raised to another power, multiply the indices.<br><br><strong>STEP 2: Apply the formula</strong><br><br>(${a}^${x})^${y} = ${a}^(${x} Ã— ${y})<br><br><strong>STEP 3: Simplify</strong><br><br>${a}^${x*y}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value,10)}<br><br><strong>Because:</strong> the inner power is repeated ${y} times, so the index ${x} is multiplied by ${y}.`;}
+      }
     }
+    return resultTemplate("Laws of Indices", steps, `<strong>Index form:</strong> ${escapeHtml(simplified)}<br><br><strong>Numerical value:</strong> ${number(value,10)}`, rule);
+}
+
+function calculateLogExpression(raw) {
+    const original = String(raw || "").trim();
+    if (!original) return errorMessage("Enter an expression such as log_2(8) âˆ’ log_2(2) or log_3(2).");
+    let expr = original.replace(/[âˆ’â€“â€”]/g,"-").replace(/[Ã—Â·]/g,"*").replace(/Ã·/g,"/").replace(/\s+/g,"");
+    const logs=[];
+    // Explicit-base notation log_b(x), with numeric base and argument.
+    expr = expr.replace(/log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)/gi, (full,bs,xs) => {
+        const b=Number(bs), x=Number(xs);
+        if (!(b>0) || b===1 || !(x>0)) return "(NaN)";
+        const val=Math.log(x)/Math.log(b); logs.push({b,x,val,source:full}); return `(${val})`;
+    });
+    // Also accept log(base,argument).
+    expr=expr.replace(/log\(([0-9]+(?:\.[0-9]+)?),([0-9]+(?:\.[0-9]+)?)\)/gi,(full,bs,xs)=>{
+        const b=Number(bs),x=Number(xs); if(!(b>0)||b===1||!(x>0)) return "(NaN)";
+        const val=Math.log(x)/Math.log(b);logs.push({b,x,val,source:full});return `(${val})`;
+    });
+    if (/log|ln/i.test(expr)) return errorMessage("Use numeric logarithms in the form log_2(8), log_10(100), or log(base,argument). The base must be positive and not 1, and the argument must be positive.");
+    if (/[^0-9.+\-*/^()]/.test(expr)) return errorMessage("Use logarithms with numeric bases and arguments, combined using +, âˆ’, Ã—, Ã· and parentheses.");
+    let value;
+    try { value=Function('"use strict"; return ('+expr.replace(/\^/g,'**')+');')(); }
+    catch (_) { return errorMessage("I couldn't read that expression. Check the logarithm notation and brackets."); }
+    if (!Number.isFinite(value)) return errorMessage("The expression is undefined. Check each base and logarithm argument.");
+    const exactLog=(b,x)=>{
+        if (x===1) return "0";
+        if (x===b) return "1";
+        for(let k=2;k<=12;k++){ if(Math.abs(Math.pow(b,k)-x)<1e-9) return String(k); if(Math.abs(Math.pow(b,1/k)-x)<1e-9) return `1/${k}`; }
+        for(let p=2;p<=12;p++) for(let q=2;q<=12;q++) if(Math.abs(Math.pow(b,p/q)-x)<1e-9) return `${p}/${q}`;
+        return null;
+    };
+    let symbolic=original;
+    let exactCombined=null;
+    // Combine a simple difference/sum of two logs sharing a base using log laws.
+    const pair=original.replace(/\s+/g,"").match(/^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)([+-])log_\1\(([0-9]+(?:\.[0-9]+)?)\)$/i);
+    if(pair){
+        const b=Number(pair[1]),x=Number(pair[2]),op=pair[3],y=Number(pair[4]);
+        if(b>0&&b!==1&&x>0&&y>0){
+            const arg=op==='+'?x*y:x/y;
+            if(Number.isInteger(arg)&&arg>0){symbolic=`log_${b}(${arg})`; exactCombined=exactLog(b,arg);}
+            else if(arg>0) symbolic=`log_${b}(${Number(arg.toPrecision(10))})`;
+        }
+    }
+    const rows=logs.map((t,i)=>{
+        const ex=exactLog(t.b,t.x);
+        return `<div style="margin:10px 0;padding:10px 12px;border-left:3px solid #64748b;background:rgba(100,116,139,.08);border-radius:4px"><strong>Logarithm ${i+1}</strong><br>log<sub>${number(t.b)}</sub>(${number(t.x)}) = ${ex!==null?ex+" (exact)":"approximately "+number(t.val,8)}</div>`;
+    }).join("");
+    let lawText="Use the change-of-base formula to evaluate each logarithm: log_b(x) = log(x) / log(b). Then carry out the indicated operations.";
+    let formula="log_b(x) = log(x) / log(b)";
+    let working=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>${formula}</strong></span><br><br><strong>Meaning:</strong> The change-of-base formula lets us evaluate a logarithm using a calculator's common logarithm or natural logarithm.<br><br><strong>STEP 2: Evaluate each logarithm</strong>${rows||"<br>No separate logarithm terms were detected."}<br><br><strong>STEP 3: Combine the values</strong><br><br>${escapeHtml(original)}<br><br>Numerical calculation = ${number(value,8)}<br><br><strong>STEP 4: Final answer</strong><br><br>${escapeHtml(symbolic)}<br><br><strong>Because:</strong> logarithms and powers are inverse operations: log_b(x) asks what power of b gives x.`;
+    if(pair){
+        const b=Number(pair[1]),x=Number(pair[2]),op=pair[3],y=Number(pair[4]);
+        const combined=op==='+'?x*y:x/y;
+        working=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>${op==='+'?'log_b(M) + log_b(N) = log_b(MN)':'log_b(M) âˆ’ log_b(N) = log_b(M/N)'}</strong></span><br><br><strong>Meaning:</strong> When logarithms have the same base, addition combines their arguments by multiplication, while subtraction combines them by division.<br><br><strong>STEP 2: Apply the formula</strong><br><br>${escapeHtml(original)}<br><br>= log<sub>${number(b)}</sub>(${number(x)} ${op==='+'?'Ã—':'Ã·'} ${number(y)})<br><br><strong>STEP 3: Simplify</strong><br><br>= ${escapeHtml(symbolic)}<br><br><strong>STEP 4: Numerical answer</strong><br><br>${number(value,8)}<br><br><strong>Because:</strong> both logarithms have the same base, so the logarithm law allows the two terms to be combined into one logarithm.`;
+    }
+    const answer=`<strong>Logarithmic form:</strong> ${escapeHtml(symbolic)}${exactCombined!==null?`<br><br><strong>Exact numerical answer:</strong> ${exactCombined}`:""}<br><br><strong>Numerical value:</strong> ${number(value,8)}`;
+    return resultTemplate("Logarithm laws and change of base",working,answer,lawText);
 }
 
 /* =========================================================
@@ -1950,57 +2002,50 @@ finance: {
 
 "annuity": {
 
-    title: "Future Value of an Annuity",
+    title: "Annuity Calculator",
 
     fields: [
+        ["annuityType", "Annuity Type", "select"],
         ["payment", "Periodic Payment (NGN)", "number"],
         ["rate", "Interest Rate per Period (%)", "number"],
         ["periods", "Number of Periods", "number"]
     ],
 
-    formula:
-        "FV = PMT * [(1 + r)^n - 1] / r",
+    options: {
+        annuityType: [
+            ["future", "Future Value of an Annuity (FVA)"],
+            ["present", "Present Value of an Annuity (PVA)"]
+        ]
+    },
+
+    formula: "Choose Future Value or Present Value of an Annuity.",
 
     calculate(v) {
-
         const PMT = getNumber(v, "payment");
         const r = getNumber(v, "rate") / 100;
         const n = getNumber(v, "periods");
-
-        if (r === 0) {
-
-            const FV =
-                PMT * n;
-
-            return resultTemplate(
-                "FV = PMT * n when r = 0",
-                `${money(PMT)} * ${n}`,
-                money(FV)
-            );
-
+        const type = v.annuityType || "future";
+        if (PMT < 0 || r < 0 || n <= 0 || !Number.isFinite(n)) {
+            return errorMessage("Enter a non-negative payment and rate, and a number of periods greater than zero.");
         }
-
-        const FV =
-            PMT *
-            ((Math.pow(1 + r, n) - 1) / r);
-
-        return resultTemplate(
-
-            "FV = PMT * [(1 + r)^n - 1] / r",
-
-            `
-            = ${money(PMT)}
-              * [ (1 + ${r})^${n} - 1 ]
-              / ${r}
-            `,
-
-            money(FV)
-        );
-
+        const label = type === "present" ? "Present Value of an Annuity (PVA)" : "Future Value of an Annuity (FVA)";
+        const formula = type === "present"
+            ? "PVA = PMT Ã— [1 âˆ’ (1 + r)â»â¿] / r"
+            : "FVA = PMT Ã— [(1 + r)â¿ âˆ’ 1] / r";
+        let answer, working;
+        if (r === 0) {
+            answer = PMT * n;
+            working = `Since the interest rate is 0%, use the zero-rate form:<br><br><strong>Formula</strong><br>Value = PMT Ã— n<br><br><strong>Substitute</strong><br>${money(PMT)} Ã— ${number(n)} = ${money(answer)}<br><br>With no interest, the value is simply the total of all payments.`;
+        } else if (type === "present") {
+            answer = PMT * (1 - Math.pow(1 + r, -n)) / r;
+            working = `<strong>STEP 1: Identify the formula</strong><br><br>${formula}<br><br><strong>What it means:</strong> Discount each future payment to today's value, then combine the payments.<br><br><strong>STEP 2: Substitute the values</strong><br><br>PVA = ${money(PMT)} Ã— [1 âˆ’ (1 + ${number(r, 6)})â»${number(n)}] / ${number(r, 6)}<br><br><strong>STEP 3: Simplify</strong><br><br>PVA = ${money(answer)}<br><br><strong>Because:</strong> money received in the future is worth less today when the discount rate is positive.`;
+        } else {
+            answer = PMT * (Math.pow(1 + r, n) - 1) / r;
+            working = `<strong>STEP 1: Identify the formula</strong><br><br>${formula}<br><br><strong>What it means:</strong> Grow each regular payment by the interest it earns until the end of the selected period.<br><br><strong>STEP 2: Substitute the values</strong><br><br>FVA = ${money(PMT)} Ã— [(1 + ${number(r, 6)})${"<sup>"+number(n)+"</sup>"} âˆ’ 1] / ${number(r, 6)}<br><br><strong>STEP 3: Simplify</strong><br><br>FVA = ${money(answer)}<br><br><strong>Because:</strong> each payment earns interest for the time it remains invested, so the accumulated value includes payments plus interest.`;
+        }
+        return resultTemplate(label, working, money(answer), type === "present" ? "This is the value today of the specified regular future payments." : "This is the accumulated value of the specified regular payments at the end of the period.");
     }
-
 },
-
 
 "payment": {
 
@@ -2648,35 +2693,13 @@ mathematics: {
 
 
 "indices": {
-
     title: "Indices / Exponents",
-
-    fields: [
-        ["base", "Base", "number"],
-        ["power", "Power", "number"]
-    ],
-
-    formula:
-        "an",
-
+    fields: [["indexExpression", "Expression involving indices", "text"]],
+    formula: "Use the law of indices that matches the expression.",
     calculate(v) {
-
-        const a = getNumber(v, "base");
-        const n = getNumber(v, "power");
-
-        const answer =
-            Math.pow(a, n);
-
-        return resultTemplate(
-            "an",
-            `${number(a)}^${number(n)}`,
-            number(answer)
-        );
-
+        return calculateIndicesExpression(v.indexExpression);
     }
-
 },
-
 
 "logarithm": {
 
@@ -6375,7 +6398,7 @@ function showCalculator(type) {
     }
 
 
-    if (category === "mathematics" && ["differentiation", "integration", "logarithm", "matrices"].includes(type)) {
+    if (category === "mathematics" && ["differentiation", "integration", "logarithm", "indices", "matrices"].includes(type)) {
 
         // Advanced mathematics has its own guided interface.
         const addGroup = (label, id, inputType="text", options=[]) => {
@@ -6423,7 +6446,12 @@ function showCalculator(type) {
             kind.addEventListener("change",refresh); refresh();
         } else if (type === "logarithm") {
             const expr=addGroup("Logarithm Expression","logExpression","text");
-            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>Examples</strong><p>log_10(100)<br>log_2(8) + log_5(25)<br>log_5(2) + log_2(5)<br>You can use as many logarithms as needed and combine them with +, -, * and /.</p><p><small>Base &gt; 0, base not equal to  1, and argument &gt; 0.</small></p>`; calculatorForm.appendChild(note);
+            expr.placeholder="e.g. log_2(8) - log_2(2)";
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to enter a logarithm</strong><p>Use <strong>log_base(argument)</strong>, for example <strong>log_2(8)</strong> or <strong>log_10(100)</strong>.</p><p>You can combine logarithms with +, âˆ’, Ã— and Ã·. The calculator shows the relevant law, each step, the simplified logarithmic form when possible, and the numerical value.</p><p><strong>Conditions:</strong> the base must be positive and not equal to 1; the argument must be positive.</p>`; calculatorForm.appendChild(note);
+        } else if (type === "indices") {
+            const expr=addGroup("Expression involving indices","indexExpression","text");
+            expr.placeholder="e.g. 2^3 * 2^4 or (2^3)^2";
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to enter indices</strong><p>Use <strong>^</strong> for a power, <strong>*</strong> for multiplication, and <strong>/</strong> for division.</p><p>Examples: <strong>2^3 * 2^4</strong>, <strong>3^5 / 3^2</strong>, <strong>(2^3)^2</strong>.</p><p>The result includes the relevant law, step-by-step working, simplified index form where recognized, and numerical value.</p>`; calculatorForm.appendChild(note);
         } else if (type === "matrices") {
             const op=addGroup("Matrix Operation","matrixOperation","select",calculator.options.matrixOperation);
             const ra=addGroup("Rows of A","matrixRowsA","number"); const ca=addGroup("Columns of A","matrixColsA","number");
