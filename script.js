@@ -4757,7 +4757,7 @@ economics: {
 
         return resultTemplate(
 
-            "PES = %DeltaQs / %DeltaP",
+            "PES = (Percentage change in quantity supplied) / (Percentage change in price)",
 
             `
             % change in Qs =
@@ -4823,10 +4823,10 @@ economics: {
             percentQ / percentY;
 
         return resultTemplate(
-            "YED = %DeltaQ / %DeltaY",
+            "YED = (Percentage change in quantity demanded) / (Percentage change in income)",
             `
-            %DeltaQ = ${percent(percentQ)}<br>
-            %DeltaY = ${percent(percentY)}<br><br>
+            Percentage change in quantity demanded = ${percent(percentQ)}<br>
+            Percentage change in income = ${percent(percentY)}<br><br>
             YED = ${number(yed)}
             `,
             number(yed),
@@ -4881,10 +4881,10 @@ economics: {
             percentQ / percentP;
 
         return resultTemplate(
-            "XED = %DeltaQx / %DeltaPy",
+            "XED = (Percentage change in quantity demanded of Good X) / (Percentage change in price of Good Y)",
             `
-            %DeltaQx = ${percent(percentQ)}<br>
-            %DeltaPy = ${percent(percentP)}<br><br>
+            Percentage change in quantity demanded of Good X = ${percent(percentQ)}<br>
+            Percentage change in price of Good Y = ${percent(percentP)}<br><br>
             XED = ${number(xed)}
             `,
             number(xed),
@@ -7603,25 +7603,67 @@ if (aiInput) {
   }
 
   function khidParseLinearFunction(raw, expectedVariable) {
-    let expression = String(raw || "").trim().replace(/[--]/g, "-").replace(/*/g, "*");
+    // Safe parser for a straight-line expression: constant + coefficient * variable.
+    // Supports +, -, explicit or implicit multiplication, division by constants,
+    // decimal coefficients, and bracketed numeric coefficients such as (3/2)P.
+    let expression = String(raw || "").trim()
+      .replace(/[âˆ’â€“â€”]/g, "-").replace(/[Ã—Â·]/g, "*").replace(/Ã·/g, "/");
     if (!expression) throw new Error("Enter a linear function first.");
     if (expression.includes("=")) expression = expression.slice(expression.lastIndexOf("=") + 1).trim();
-    expression = expression.replace(/\s+/g, "").replace(/\*/g, "");
-    const terms = expression.match(/[+-]?[^+-]+/g);
-    if (!terms || terms.join("") !== expression) throw new Error("Use a simple straight-line function, for example Qd = 100 - 2P.");
+    expression = expression.replace(/\s+/g, "").replace(/[{}]/g, "");
+    const variable = expectedVariable.toUpperCase();
+    // Normalize common names for cross elasticity.
+    if (variable === "PY") expression = expression.replace(/P[_]?Y/ig, "V").replace(/PY/ig, "V");
+    else expression = expression.replace(new RegExp(variable, "ig"), "V");
+    if (/[^0-9V.+\-*/()]/.test(expression)) throw new Error(`Use ${expectedVariable} as the only variable in a straight-line function.`);
+    // Convert implicit multiplication (2V, (3/2)V, V(2) is not supported).
+    expression = expression.replace(/(\d|\))(?=V)/g, "$1*").replace(/V(?=\d|\()/g, "V*");
+    // Terms are split only at top-level + or - signs.
+    const terms = [];
+    let depth = 0, from = 0;
+    for (let i = 0; i < expression.length; i++) {
+      const ch = expression[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") { depth--; if (depth < 0) throw new Error("Check the brackets in your function."); }
+      else if ((ch === "+" || ch === "-") && i > from && depth === 0) {
+        // Do not split a sign immediately after an exponent (scientific notation isn't otherwise needed).
+        terms.push(expression.slice(from, i)); from = i;
+      }
+    }
+    if (depth !== 0) throw new Error("Check the brackets in your function.");
+    terms.push(expression.slice(from));
     let constant = 0, slope = 0, foundVariable = false;
-    for (const term of terms) {
-      const match = term.match(/^([+-]?)(?:(\d*\.?\d+)?([A-Za-z]+)|(\d*\.?\d+))$/);
-      if (!match) throw new Error("Use a simple linear function with a constant and one variable, for example Qd = 100 - 2P.");
-      const sign = match[1] === "-" ? -1 : 1;
-      if (match[3]) {
-        const variable = match[3].toUpperCase();
-        if (variable !== expectedVariable.toUpperCase()) throw new Error(`Use ${expectedVariable} as the variable in this function.`);
-        const coefficient = match[2] === undefined || match[2] === "" ? 1 : Number(match[2]);
-        slope += sign * coefficient;
-        foundVariable = true;
+    function numeric(expr) {
+      if (!/^[+\-]?(?:\d+(?:\.\d*)?|\.\d+)(?:\/(?:\d+(?:\.\d*)?|\.\d+))?$/.test(expr)) throw new Error("Use numbers and a linear variable only. Example: Qd = 100 - (3/2)P.");
+      const parts = expr.split("/");
+      const n = Number(parts[0]) / (parts.length > 1 ? Number(parts[1]) : 1);
+      if (!Number.isFinite(n) || (parts.length > 1 && Number(parts[1]) === 0)) throw new Error("The coefficient must be a valid number and cannot divide by zero.");
+      return n;
+    }
+    for (let term of terms) {
+      if (!term) continue;
+      const sign = term[0] === "-" ? -1 : 1;
+      if (term[0] === "+" || term[0] === "-") term = term.slice(1);
+      if (!term) throw new Error("Check the signs in your function.");
+      if (term.includes("V")) {
+        if ((term.match(/V/g) || []).length !== 1) throw new Error("Use a straight-line function with one occurrence of the variable.");
+        const pieces = term.split("V");
+        let coefficientText = pieces[0];
+        let coefficient;
+        if (pieces[1] && /^\/\d+(?:\.\d+)?$/.test(pieces[1])) {
+          if (coefficientText && coefficientText !== "*") throw new Error("For division, write the variable as P/2 or use a numeric coefficient such as (3/2)P.");
+          coefficient = 1 / Number(pieces[1].slice(1));
+        } else if (pieces[1] !== "") {
+          throw new Error("Use a straight-line term such as 2P, P/2, or (3/2)P.");
+        } else {
+          coefficientText = coefficientText.replace(/\*$/, "").replace(/^\((.*)\)$/, "$1");
+          if (coefficientText === "") coefficient = 1;
+          else coefficient = numeric(coefficientText);
+        }
+        if (!Number.isFinite(coefficient)) throw new Error("The coefficient must be a valid number.");
+        slope += sign * coefficient; foundVariable = true;
       } else {
-        constant += sign * Number(match[4]);
+        constant += sign * numeric(term);
       }
     }
     if (!foundVariable || !Number.isFinite(constant) || !Number.isFinite(slope)) throw new Error("The function must include the required variable and valid numbers.");
