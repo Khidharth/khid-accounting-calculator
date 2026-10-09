@@ -2766,20 +2766,20 @@ mathematics: {
 
     options: {
         operation: [
-            ["union", "A âˆª B â€” Union"],
-            ["intersection", "A âˆ© B â€” Intersection"],
-            ["differenceAB", "A âˆ’ B â€” Difference"],
-            ["differenceBA", "B âˆ’ A â€” Difference"],
-            ["symmetric", "A â–³ B â€” Symmetric Difference"],
-            ["complementA", "Aâ€² â€” Complement of A"],
-            ["complementB", "Bâ€² â€” Complement of B"],
-            ["cardinalityA", "n(A) â€” Number of elements in A"],
-            ["cardinalityB", "n(B) â€” Number of elements in B"],
-            ["subset", "A âŠ† B â€” Is A a subset of B?"],
-            ["properSubset", "A âŠ‚ B â€” Is A a proper subset of B?"],
+            ["union", "A union B - Union"],
+            ["intersection", "A intersection B - Intersection"],
+            ["differenceAB", "A minus B - Difference"],
+            ["differenceBA", "B minus A - Difference"],
+            ["symmetric", "A symmetric difference B - Symmetric Difference"],
+            ["complementA", "Complement of A"],
+            ["complementB", "Complement of B"],
+            ["cardinalityA", "n(A) - Number of elements in A"],
+            ["cardinalityB", "n(B) - Number of elements in B"],
+            ["subset", "Is A a subset of B?"],
+            ["properSubset", "Is A a proper subset of B?"],
             ["disjoint", "Are A and B disjoint?"],
-            ["cartesian", "A Ã— B â€” Cartesian Product"],
-            ["powerSetA", "P(A) â€” Power Set of A"]
+            ["cartesian", "A cartesian product B - Cartesian Product"],
+            ["powerSetA", "P(A) - Power Set of A"]
         ]
     },
 
@@ -2839,7 +2839,7 @@ mathematics: {
         function formatSet(set) {
 
             if (!set || set.length === 0) {
-                return "âˆ…";
+                return "empty set";
             }
 
             return `{${set.join(", ")}}`;
@@ -2880,7 +2880,7 @@ mathematics: {
             case "union":
 
                 return resultTemplate(
-                    "A âˆª B",
+                    "A union B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2889,20 +2889,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(A)}
-                    âˆª
+                    union
                     ${formatSet(B)}
 
                     =
                     ${formatSet(union)}
                     `,
-                    `A âˆª B = ${formatSet(union)}`
+                    `A union B = ${formatSet(union)}`
                 );
 
 
             case "intersection":
 
                 return resultTemplate(
-                    "A âˆ© B",
+                    "A intersection B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2911,20 +2911,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(A)}
-                    âˆ©
+                    intersection
                     ${formatSet(B)}
 
                     =
                     ${formatSet(intersection)}
                     `,
-                    `A âˆ© B = ${formatSet(intersection)}`
+                    `A intersection B = ${formatSet(intersection)}`
                 );
 
 
             case "differenceAB":
 
                 return resultTemplate(
-                    "A âˆ’ B",
+                    "A minus B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2933,20 +2933,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(A)}
-                    âˆ’
+                    -
                     ${formatSet(B)}
 
                     =
                     ${formatSet(differenceAB)}
                     `,
-                    `A âˆ’ B = ${formatSet(differenceAB)}`
+                    `A minus B = ${formatSet(differenceAB)}`
                 );
 
 
             case "differenceBA":
 
                 return resultTemplate(
-                    "B âˆ’ A",
+                    "B - A",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2955,20 +2955,20 @@ mathematics: {
                     <br><br>
 
                     ${formatSet(B)}
-                    âˆ’
+                    -
                     ${formatSet(A)}
 
                     =
                     ${formatSet(differenceBA)}
                     `,
-                    `B âˆ’ A = ${formatSet(differenceBA)}`
+                    `B - A = ${formatSet(differenceBA)}`
                 );
 
 
             case "symmetric":
 
                 return resultTemplate(
-                    "A â–³ B",
+                    "A symmetric difference B",
                     `
                     A = ${formatSet(A)}<br>
                     B = ${formatSet(B)}<br><br>
@@ -2979,7 +2979,7 @@ mathematics: {
 
                     ${formatSet(symmetricDifference)}
                     `,
-                    `A â–³ B = ${formatSet(symmetricDifference)}`
+                    `A symmetric difference B = ${formatSet(symmetricDifference)}`
                 );
 
 
@@ -2989,22 +2989,22 @@ mathematics: {
                     U.filter(x => !A.includes(x));
 
                 return resultTemplate(
-                    "Aâ€² â€” Complement of A",
+                    "Complement of A",
                     `
                     U = ${formatSet(U)}<br>
                     A = ${formatSet(A)}<br><br>
 
-                    Aâ€² = U âˆ’ A
+                    Complement of A = U minus A
                     <br><br>
 
                     ${formatSet(U)}
-                    âˆ’
+                    -
                     ${formatSet(A)}
 
                     =
                     ${formatSet(complementA)}
                     `,
-                    `Aâ€² = ${formatSet(complementA)}`
+                    `Complement of A = ${formatSet(complementA)}`
                 );
 
             }
@@ -3016,22 +3016,22 @@ mathematics: {
                     U.filter(x => !B.includes(x));
 
                 return resultTemplate(
-                    "Bâ€² â€” Complement of B",
+                    "Complement of B",
                     `
                     U = ${formatSet(U)}<br>
                     B = ${formatSet(B)}<br><br>
 
-                    Bâ€² = U âˆ’ B
+                    B' = U - B
                     <br><br>
 
                     ${formatSet(U)}
-                    âˆ’
+                    -
                     ${formatSet(B)}
 
                     =
                     ${formatSet(complementB)}
                     `,
-                    `Bâ€² = ${formatSet(complementB)}`
+                    `B' = ${formatSet(complementB)}`
                 );
 
             }
@@ -3094,8 +3094,8 @@ mathematics: {
                     appear in B.
                     `,
                     isSubset
-                        ? "A âŠ† B â€” YES"
-                        : "A âŠ† B â€” NO"
+                        ? "A is a subset of B - YES"
+                        : "A is a subset of B - NO"
                 );
 
             }
@@ -3120,8 +3120,8 @@ mathematics: {
                     and A must contain fewer elements.
                     `,
                     isProper
-                        ? "A âŠ‚ B â€” YES"
-                        : "A âŠ‚ B â€” NO"
+                        ? "A is a proper subset of B - YES"
+                        : "A is a proper subset of B - NO"
                 );
 
             }
@@ -3135,7 +3135,7 @@ mathematics: {
                 return resultTemplate(
                     "Disjoint Sets",
                     `
-                    A âˆ© B =
+                    A intersection B =
                     ${formatSet(intersection)}
                     <br><br>
 
@@ -3177,11 +3177,11 @@ mathematics: {
                     <br><br>
 
                     Number of ordered pairs:
-                    ${A.length} Ã— ${B.length}
+                    ${A.length} * ${B.length}
                     =
                     ${pairs.length}
                     `,
-                    `A Ã— B = {${pairs.join(", ")}}`
+                    `Cartesian product A x B = {${pairs.join(", ")}}`
                 );
 
             }
@@ -3222,7 +3222,7 @@ mathematics: {
                         .map(
                             subset =>
                                 subset.length === 0
-                                    ? "âˆ…"
+                                    ? "empty set"
                                     : `{${subset.join(", ")}}`
                         )
                         .join(", ");
@@ -4673,7 +4673,7 @@ economics: {
 
         return resultTemplate(
 
-            "PED = %DeltaQd / %DeltaP",
+            "PED = (% change in quantity demanded) / (% change in price)",
 
             `
             % change in Qd =
@@ -4690,17 +4690,9 @@ economics: {
             ${number(absolutePED)}
             `,
 
-            `PED = ${number(absolutePED)}`,
+            `${number(absolutePED)}<br><strong>${interpretPED(absolutePED).replace(/^Demand is /, "").replace(/:.*/, "")}</strong>`,
 
-            `${interpretPED(absolutePED)}<br><br>
-
-            <small>
-            <strong>Note:</strong>
-            PED is shown as a positive value because the
-            negative sign reflects the inverse relationship
-            between price and quantity demanded. The absolute
-            value shows the degree of responsiveness.
-            </small>`
+            `${interpretPED(absolutePED)}${ped < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
         );
 
     }
@@ -7283,54 +7275,54 @@ if (aiInput) {
 
   const khidFinancialFields = {
     currentAssets: [
-      ["cash", "Cash and cash equivalents (â‚¦)"],
-      ["shortInvestments", "Short-term investments (â‚¦)"],
-      ["receivables", "Debtors / trade receivables (â‚¦)"],
-      ["inventory", "Stock / inventory (â‚¦)"],
-      ["prepayments", "Prepayments (â‚¦)"],
-      ["otherCurrentAssets", "Other current assets (â‚¦)"]
+      ["cash", "Cash and cash equivalents (NGN )"],
+      ["shortInvestments", "Short-term investments (NGN )"],
+      ["receivables", "Debtors / trade receivables (NGN )"],
+      ["inventory", "Stock / inventory (NGN )"],
+      ["prepayments", "Prepayments (NGN )"],
+      ["otherCurrentAssets", "Other current assets (NGN )"]
     ],
     currentLiabilities: [
-      ["payables", "Creditors / trade payables (â‚¦)"],
-      ["accruedExpenses", "Accrued expenses (â‚¦)"],
-      ["shortTermLoan", "Short-term loans / overdraft (â‚¦)"],
-      ["taxPayable", "Tax payable (â‚¦)"],
-      ["otherCurrentLiabilities", "Other current liabilities (â‚¦)"]
+      ["payables", "Creditors / trade payables (NGN )"],
+      ["accruedExpenses", "Accrued expenses (NGN )"],
+      ["shortTermLoan", "Short-term loans / overdraft (NGN )"],
+      ["taxPayable", "Tax payable (NGN )"],
+      ["otherCurrentLiabilities", "Other current liabilities (NGN )"]
     ],
     nonCurrentAssets: [
-      ["propertyPlantEquipment", "Property, plant and equipment (â‚¦)"],
-      ["intangibleAssets", "Intangible assets (â‚¦)"],
-      ["otherNonCurrentAssets", "Other non-current assets (â‚¦)"]
+      ["propertyPlantEquipment", "Property, plant and equipment (NGN )"],
+      ["intangibleAssets", "Intangible assets (NGN )"],
+      ["otherNonCurrentAssets", "Other non-current assets (NGN )"]
     ],
     nonCurrentLiabilities: [
-      ["longTermLoans", "Long-term loans (â‚¦)"],
-      ["leaseLiabilities", "Lease liabilities (â‚¦)"],
-      ["otherNonCurrentLiabilities", "Other non-current liabilities (â‚¦)"]
+      ["longTermLoans", "Long-term loans (NGN )"],
+      ["leaseLiabilities", "Lease liabilities (NGN )"],
+      ["otherNonCurrentLiabilities", "Other non-current liabilities (NGN )"]
     ]
   };
 
   const khidFinancialAdvancedFields = {
     "current-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.currentLiabilities],
     "acid-test-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.currentLiabilities],
-    "cash-ratio": [["cash", "Cash and cash equivalents (â‚¦)"], ["shortInvestments", "Short-term investments readily convertible to cash (â‚¦)"], ...khidFinancialFields.currentLiabilities],
+    "cash-ratio": [["cash", "Cash and cash equivalents (NGN )"], ["shortInvestments", "Short-term investments readily convertible to cash (NGN )"], ...khidFinancialFields.currentLiabilities],
     "working-capital": [...khidFinancialFields.currentAssets, ...khidFinancialFields.currentLiabilities],
-    "inventory-turnover": [["openingInventory", "Opening inventory / opening stock (â‚¦)"], ["purchases", "Purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["carriageInwards", "Carriage inwards (â‚¦)"], ["closingInventory", "Closing inventory / closing stock (â‚¦)" ]],
-    "inventory-days": [["openingInventory", "Opening inventory / opening stock (â‚¦)"], ["purchases", "Purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["carriageInwards", "Carriage inwards (â‚¦)"], ["closingInventory", "Closing inventory / closing stock (â‚¦)" ]],
-    "receivables-turnover": [["creditSales", "Credit sales (â‚¦)"], ["salesReturns", "Sales returns (â‚¦)"], ["openingReceivables", "Opening debtors / receivables (â‚¦)"], ["closingReceivables", "Closing debtors / receivables (â‚¦)" ]],
-    "receivable-days": [["creditSales", "Credit sales (â‚¦)"], ["salesReturns", "Sales returns (â‚¦)"], ["openingReceivables", "Opening debtors / receivables (â‚¦)"], ["closingReceivables", "Closing debtors / receivables (â‚¦)" ]],
-    "payables-turnover": [["creditPurchases", "Credit purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["openingPayables", "Opening creditors / payables (â‚¦)"], ["closingPayables", "Closing creditors / payables (â‚¦)" ]],
-    "payable-days": [["creditPurchases", "Credit purchases (â‚¦)"], ["purchaseReturns", "Purchase returns (â‚¦)"], ["openingPayables", "Opening creditors / payables (â‚¦)"], ["closingPayables", "Closing creditors / payables (â‚¦)" ]],
-    "total-asset-turnover": [["revenue", "Revenue / sales (â‚¦)"], ["openingCurrentAssets", "Opening current assets (â‚¦)"], ["openingNonCurrentAssets", "Opening non-current assets (â‚¦)"], ["closingCurrentAssets", "Closing current assets (â‚¦)"], ["closingNonCurrentAssets", "Closing non-current assets (â‚¦)" ]],
+    "inventory-turnover": [["openingInventory", "Opening inventory / opening stock (NGN )"], ["purchases", "Purchases (NGN )"], ["purchaseReturns", "Purchase returns (NGN )"], ["carriageInwards", "Carriage inwards (NGN )"], ["closingInventory", "Closing inventory / closing stock (NGN )" ]],
+    "inventory-days": [["openingInventory", "Opening inventory / opening stock (NGN )"], ["purchases", "Purchases (NGN )"], ["purchaseReturns", "Purchase returns (NGN )"], ["carriageInwards", "Carriage inwards (NGN )"], ["closingInventory", "Closing inventory / closing stock (NGN )" ]],
+    "receivables-turnover": [["creditSales", "Credit sales (NGN )"], ["salesReturns", "Sales returns (NGN )"], ["openingReceivables", "Opening debtors / receivables (NGN )"], ["closingReceivables", "Closing debtors / receivables (NGN )" ]],
+    "receivable-days": [["creditSales", "Credit sales (NGN )"], ["salesReturns", "Sales returns (NGN )"], ["openingReceivables", "Opening debtors / receivables (NGN )"], ["closingReceivables", "Closing debtors / receivables (NGN )" ]],
+    "payables-turnover": [["creditPurchases", "Credit purchases (NGN )"], ["purchaseReturns", "Purchase returns (NGN )"], ["openingPayables", "Opening creditors / payables (NGN )"], ["closingPayables", "Closing creditors / payables (NGN )" ]],
+    "payable-days": [["creditPurchases", "Credit purchases (NGN )"], ["purchaseReturns", "Purchase returns (NGN )"], ["openingPayables", "Opening creditors / payables (NGN )"], ["closingPayables", "Closing creditors / payables (NGN )" ]],
+    "total-asset-turnover": [["revenue", "Revenue / sales (NGN )"], ["openingCurrentAssets", "Opening current assets (NGN )"], ["openingNonCurrentAssets", "Opening non-current assets (NGN )"], ["closingCurrentAssets", "Closing current assets (NGN )"], ["closingNonCurrentAssets", "Closing non-current assets (NGN )" ]],
     "debt-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.nonCurrentAssets, ...khidFinancialFields.currentLiabilities, ...khidFinancialFields.nonCurrentLiabilities],
     "debt-to-equity": [...khidFinancialFields.currentAssets, ...khidFinancialFields.nonCurrentAssets, ...khidFinancialFields.currentLiabilities, ...khidFinancialFields.nonCurrentLiabilities],
     "equity-ratio": [...khidFinancialFields.currentAssets, ...khidFinancialFields.nonCurrentAssets, ...khidFinancialFields.currentLiabilities, ...khidFinancialFields.nonCurrentLiabilities],
-    "interest-coverage": [["profitBeforeTax", "Profit before tax (â‚¦)"], ["interestExpense", "Interest expense (â‚¦)" ]],
-    "return-on-assets": [["netIncome", "Net profit / net income for the period (â‚¦)"], ["openingCurrentAssets", "Opening current assets (â‚¦)"], ["openingNonCurrentAssets", "Opening non-current assets (â‚¦)"], ["closingCurrentAssets", "Closing current assets (â‚¦)"], ["closingNonCurrentAssets", "Closing non-current assets (â‚¦)" ]],
-    "return-on-equity": [["netIncome", "Net profit / net income for the period (â‚¦)"], ["openingEquity", "Opening equity / capital (â‚¦)"], ["closingEquity", "Closing equity / capital (â‚¦)" ]],
-    "earnings-per-share": [["netIncome", "Profit attributable to ordinary shareholders (â‚¦)"], ["preferenceDividends", "Preference dividends (â‚¦, optional)"], ["weightedShares", "Weighted average ordinary shares" ]],
-    "pe-ratio": [["marketPrice", "Market price per share (â‚¦)"], ["eps", "Earnings per share (â‚¦)" ]],
-    "dividend-per-share": [["ordinaryDividends", "Ordinary dividends (â‚¦)"], ["ordinaryShares", "Ordinary shares outstanding" ]],
-    "dividend-yield": [["dps", "Dividend per share (â‚¦)"], ["marketPrice", "Market price per share (â‚¦)" ]]
+    "interest-coverage": [["profitBeforeTax", "Profit before tax (NGN )"], ["interestExpense", "Interest expense (NGN )" ]],
+    "return-on-assets": [["netIncome", "Net profit / net income for the period (NGN )"], ["openingCurrentAssets", "Opening current assets (NGN )"], ["openingNonCurrentAssets", "Opening non-current assets (NGN )"], ["closingCurrentAssets", "Closing current assets (NGN )"], ["closingNonCurrentAssets", "Closing non-current assets (NGN )" ]],
+    "return-on-equity": [["netIncome", "Net profit / net income for the period (NGN )"], ["openingEquity", "Opening equity / capital (NGN )"], ["closingEquity", "Closing equity / capital (NGN )" ]],
+    "earnings-per-share": [["netIncome", "Profit attributable to ordinary shareholders (NGN )"], ["preferenceDividends", "Preference dividends (NGN , optional)"], ["weightedShares", "Weighted average ordinary shares" ]],
+    "pe-ratio": [["marketPrice", "Market price per share (NGN )"], ["eps", "Earnings per share (NGN )" ]],
+    "dividend-per-share": [["ordinaryDividends", "Ordinary dividends (NGN )"], ["ordinaryShares", "Ordinary shares outstanding" ]],
+    "dividend-yield": [["dps", "Dividend per share (NGN )"], ["marketPrice", "Market price per share (NGN )" ]]
   };
 
   const khidFinancialSimple = {
@@ -7519,21 +7511,21 @@ if (aiInput) {
     if (["inventory-turnover", "inventory-days"].includes(type)) {
       const cogs = n("openingInventory") + n("purchases") - n("purchaseReturns") + n("carriageInwards") - n("closingInventory");
       const averageInventory = (n("openingInventory") + n("closingInventory")) / 2;
-      add(`Cost of goods sold = opening stock + purchases âˆ’ purchase returns + carriage inwards âˆ’ closing stock = ${money(cogs)}.`);
+      add(`Cost of goods sold = opening stock + purchases - purchase returns + carriage inwards - closing stock = ${money(cogs)}.`);
       add(`Average inventory = (opening stock + closing stock) / 2 = ${money(averageInventory)}.`);
       Object.assign(v, { cogs, averageInventory });
     }
     if (["receivables-turnover", "receivable-days"].includes(type)) {
       const creditSales = n("creditSales") - n("salesReturns");
       const averageReceivables = (n("openingReceivables") + n("closingReceivables")) / 2;
-      add(`Net credit sales = credit sales âˆ’ sales returns = ${money(creditSales)}.`);
+      add(`Net credit sales = credit sales - sales returns = ${money(creditSales)}.`);
       add(`Average receivables = (opening receivables + closing receivables) / 2 = ${money(averageReceivables)}.`);
       Object.assign(v, { creditSales, averageReceivables });
     }
     if (["payables-turnover", "payable-days"].includes(type)) {
       const creditPurchases = n("creditPurchases") - n("purchaseReturns");
       const averagePayables = (n("openingPayables") + n("closingPayables")) / 2;
-      add(`Net credit purchases = credit purchases âˆ’ purchase returns = ${money(creditPurchases)}.`);
+      add(`Net credit purchases = credit purchases - purchase returns = ${money(creditPurchases)}.`);
       add(`Average payables = (opening payables + closing payables) / 2 = ${money(averagePayables)}.`);
       Object.assign(v, { creditPurchases, averagePayables });
     }
@@ -7549,7 +7541,7 @@ if (aiInput) {
     if (["debt-ratio", "debt-to-equity", "equity-ratio"].includes(type)) {
       add(`Total assets = current assets + non-current assets = ${money(totalAssets)}.`);
       add(`Total liabilities = current liabilities + non-current liabilities = ${money(totalLiabilities)}.`);
-      add(`Equity (net assets) = total assets âˆ’ total liabilities = ${money(totalEquity)}.`);
+      add(`Equity (net assets) = total assets - total liabilities = ${money(totalEquity)}.`);
       Object.assign(v, { totalAssets, totalLiabilities, totalEquity });
     }
     if (type === "interest-coverage") {
@@ -7587,31 +7579,31 @@ if (aiInput) {
     let label, explanation;
     if (type === "price-elasticity-demand") {
       const magnitude = Math.abs(signedElasticity);
-      label = `${number(magnitude)} â€” ${interpretPED(magnitude)}`;
+      label = `${number(magnitude)}<br><strong>${interpretPED(magnitude).replace(/^Demand is /, "").replace(/:.*/, "")}</strong>`;
       explanation = khidEconomicsSimple[type];
       value = magnitude;
     } else if (isSupply) {
       value = Math.abs(signedElasticity);
-      label = `${number(value)} â€” ${interpretPES(value)}`;
+      label = `${number(value)}<br><strong>${interpretPES(value).replace(/\.$/, "")}</strong>`;
       explanation = khidEconomicsSimple[type];
     } else if (isIncome) {
-      label = `${number(value)} â€” ${interpretIncomeElasticity(value)}`;
+      label = `${number(value)}<br><strong>${interpretIncomeElasticity(value)}</strong>`;
       explanation = khidEconomicsSimple[type];
     } else {
-      label = `${number(value)} â€” ${interpretCrossElasticity(value)}`;
+      label = `${number(value)}<br><strong>${interpretCrossElasticity(value)}</strong>`;
       explanation = khidEconomicsSimple[type];
     }
     const xName = isIncome ? "income" : isCross ? "price of good Y" : "price";
     return resultTemplate(
-      `Arc elasticity = [change in quantity / average quantity] / [change in ${xName} / average ${xName}]`,
-      `Quantity part = (${number(q2)} âˆ’ ${number(q1)}) / [(${number(q1)} + ${number(q2)}) / 2] = ${number(qChange)}.<br><br>${xName} part = (${number(x2)} âˆ’ ${number(x1)}) / [(${number(x1)} + ${number(x2)}) / 2] = ${number(xChange)}.<br><br>Signed elasticity = ${number(qChange)} / ${number(xChange)} = ${number(signedElasticity)}.${type === "price-elasticity-demand" ? `<br><br>PED classification uses the absolute value: |${number(signedElasticity)}| = ${number(value)}.` : ""}`,
+      `${isIncome ? "YED" : isCross ? "XED" : isSupply ? "PES" : "PED"} = [(Q2 - Q1) / ((Q1 + Q2) / 2)] / [(${isIncome ? "Y2 - Y1" : "P2 - P1"}) / ((${isIncome ? "Y1 + Y2" : "P1 + P2"}) / 2)]`,
+      `Quantity part = (${number(q2)} - ${number(q1)}) / [(${number(q1)} + ${number(q2)}) / 2] = ${number(qChange)}.<br><br>${xName} part = (${number(x2)} - ${number(x1)}) / [(${number(x1)} + ${number(x2)}) / 2] = ${number(xChange)}.<br><br>Signed elasticity = ${number(qChange)} / ${number(xChange)} = ${number(signedElasticity)}.${type === "price-elasticity-demand" ? `<br><br>PED classification uses the absolute value: |${number(signedElasticity)}| = ${number(value)}.` : ""}`,
       label,
-      `${isCross ? interpretCrossElasticity(value) : isIncome ? interpretIncomeElasticity(value) : isSupply ? interpretPES(value) : interpretPED(value)}<br><br><strong>Simple Explanation:</strong> ${explanation}`
+      `${isCross ? interpretCrossElasticity(value) : isIncome ? interpretIncomeElasticity(value) : isSupply ? interpretPES(value) : interpretPED(value)}<br><br><strong>Simple Explanation:</strong> ${explanation}${type === "price-elasticity-demand" && signedElasticity < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
     );
   }
 
   function khidParseLinearFunction(raw, expectedVariable) {
-    let expression = String(raw || "").trim().replace(/[âˆ’â€“]/g, "-").replace(/Ã—/g, "*");
+    let expression = String(raw || "").trim().replace(/[--]/g, "-").replace(/*/g, "*");
     if (!expression) throw new Error("Enter a linear function first.");
     if (expression.includes("=")) expression = expression.slice(expression.lastIndexOf("=") + 1).trim();
     expression = expression.replace(/\s+/g, "").replace(/\*/g, "");
@@ -7662,13 +7654,13 @@ if (aiInput) {
     else classification = interpretCrossElasticity(value);
     const quantityName = isSupply ? "quantity supplied" : "quantity demanded";
     const variableName = isIncome ? "income (Y)" : isCross ? "price of good Y (Py)" : "price (P)";
-    const formula = isIncome ? "YED = (dQ/dY) Ã— (Y/Q)" : isCross ? "XED = (dQx/dPy) Ã— (Py/Qx)" : isSupply ? "PES = (dQs/dP) Ã— (P/Qs)" : "PED = (dQd/dP) Ã— (P/Qd)";
+    const formula = isIncome ? "YED = (dQ/dY) &times; (Y/Q)" : isCross ? "XED = (dQx/dPy) &times; (Py/Qx)" : isSupply ? "PES = (dQs/dP) &times; (P/Qs)" : "PED = (dQd/dP) &times; (P/Qd)";
     const signedNote = type === "price-elasticity-demand" ? "The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, the calculator reports the absolute value as positive." : isSupply ? "The derivative shows the slope of the supply function. The usual supply elasticity classification uses its magnitude." : "The sign is meaningful here: it helps identify whether quantity moves in the same or opposite direction as the selected price or income variable.";
     return resultTemplate(
       formula,
-      `Function entered: ${raw}<br>Derivative (slope) = ${number(slope)}. This means the quantity changes by ${number(slope)} units for each 1-unit change in ${variableName}, according to the entered straight-line function.<br><br>${quantityName} at this point = ${number(constant)} + (${number(slope)} Ã— ${number(point)}) = ${number(quantity)}.<br><br>Elasticity = ${number(slope)} Ã— (${number(point)} / ${number(quantity)}) = ${number(value)}.`,
-      `${number(value)}${type === "price-elasticity-demand" || isSupply ? ` â€” ${classification}` : ` â€” ${classification}`}`,
-      `${classification}<br><br><strong>Simple Explanation:</strong> ${isIncome ? "This shows how much demand responds when income changes at the income you entered." : isCross ? "This shows how demand for good X responds when the price of good Y changes at the point you entered." : isSupply ? "This shows how strongly sellers change the amount they offer when price changes." : "This shows how strongly buyers respond to price changes at the price you entered."}<br><br><small>${signedNote}</small>`
+      `Function entered: ${raw}<br>Derivative (slope) = ${number(slope)}. This means the quantity changes by ${number(slope)} units for each 1-unit change in ${variableName}, according to the entered straight-line function.<br><br>${quantityName} at this point = ${number(constant)} + (${number(slope)} * ${number(point)}) = ${number(quantity)}.<br><br>Elasticity = ${number(slope)} * (${number(point)} / ${number(quantity)}) = ${number(value)}.`,
+      `${number(value)}<br><strong>${classification.replace(/^Demand is /, "").replace(/:.*/, "")}</strong>`,
+      `${classification}<br><br><strong>Simple Explanation:</strong> ${isIncome ? "This shows how much demand responds when income changes at the income you entered." : isCross ? "This shows how demand for good X responds when the price of good Y changes at the point you entered." : isSupply ? "This shows how strongly sellers change the amount they offer when price changes." : "This shows how strongly buyers respond to price changes at the price you entered."}${type === "price-elasticity-demand" && valueSigned < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
     );
   }
 
