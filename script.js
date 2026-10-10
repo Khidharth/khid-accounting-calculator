@@ -598,9 +598,22 @@ function astToString(n, parent=0) {
     if(n.kind==="neg") return `-${needsParens(n.arg,3)?"("+astToString(n.arg)+")":astToString(n.arg)}`;
     if(n.kind==="func") return `${n.name}(${astToString(n.arg)})`;
     const prec={"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind];
+    // Print common algebra in conventional notation, e.g. 3x^2 instead of 3 * x^2.
+    if(n.kind==="*" && isConst(n.left) && n.left.value===0) return "0";
+    if(n.kind==="*" && isConst(n.right) && n.right.value===0) return "0";
+    if(n.kind==="*" && isConst(n.left) && n.left.value===1) return astToString(n.right,parent);
+    if(n.kind==="*" && isConst(n.right) && n.right.value===1) return astToString(n.left,parent);
+    if(n.kind==="*" && n.left.kind==="/" && n.right.kind==="pow" && n.right.left.kind==="var") {
+        return `(${astToString(n.left)})x${astToString(n.right.right)==="1"?"":"^"+astToString(n.right.right)}`;
+    }
+    if(n.kind==="*" && isConst(n.left) && n.right.kind==="pow" && n.right.left.kind==="var") {
+        return `${astToString(n.left)}x${astToString(n.right.right)==="1"?"":"^"+astToString(n.right.right)}`;
+    }
+    if(n.kind==="*" && isConst(n.left) && n.right.kind==="var") return `${astToString(n.left)}x`;
+    if(n.kind==="*" && n.left.kind==="var" && n.right.kind==="pow" && n.right.left.kind==="var") return `x^${astToString(n.right.right)==="1"?"2":"1+"+astToString(n.right.right)}`;
     let a=astToString(n.left,prec), b=astToString(n.right,prec);
     if(n.kind==="pow") return `${wrapIf(n.left,n.kind)}^${wrapIf(n.right,n.kind)}`;
-    let out=`${a} ${n.kind} ${b}`;
+    let out=n.kind==="*" ? `${a}${n.right.kind==="const"?" Ã— ":""}${n.right.kind==="const"?b:b}` : `${a} ${n.kind} ${b}`;
     if(prec<parent) out=`(${out})`;
     return out;
 }
@@ -646,9 +659,66 @@ function containsSingularity(ast, lower, upper) {
     return false;
 }
 
+/* Polynomial normaliser: combines like terms and orders powers from highest to lowest.
+   Supports polynomials built from constants, x, +, -, multiplication, non-negative integer powers,
+   and division by a non-zero constant. Returns null for non-polynomial expressions. */
+function polynomialCoefficients(node) {
+    const clean = map => { for (const [k,v] of map) if (Math.abs(v)<1e-12) map.delete(k); return map; };
+    const add = (a,b,sign=1) => { const out=new Map(a); for(const [k,v] of b) out.set(k,(out.get(k)||0)+sign*v); return clean(out); };
+    const multiply = (a,b) => { const out=new Map(); for(const [i,x] of a) for(const [j,y] of b) out.set(i+j,(out.get(i+j)||0)+x*y); return clean(out); };
+    function visit(n) {
+        if(!n) return null;
+        if(n.kind==="const") return new Map([[0,n.value]]);
+        if(n.kind==="var") return new Map([[1,1]]);
+        if(n.kind==="neg") { const a=visit(n.arg); return a && new Map([...a].map(([k,v])=>[k,-v])); }
+        if(["+","-","*","/","pow"].includes(n.kind)) {
+            const a=visit(n.left), b=visit(n.right); if(!a||!b) return null;
+            if(n.kind==="+") return add(a,b);
+            if(n.kind==="-") return add(a,b,-1);
+            if(n.kind==="*") return multiply(a,b);
+            if(n.kind==="/") { if(b.size!==1||!b.has(0)||Math.abs(b.get(0))<1e-12) return null; return new Map([...a].map(([k,v])=>[k,v/b.get(0)])); }
+            if(n.kind==="pow") { if(b.size!==1||!b.has(0)||!Number.isInteger(b.get(0))||b.get(0)<0||b.get(0)>100) return null; let out=new Map([[0,1]]); for(let i=0;i<b.get(0);i++) out=multiply(out,a); return out; }
+        }
+        return null;
+    }
+    return visit(node);
+}
+function polynomialAst(map) {
+    const terms=[...map.entries()].filter(([,c])=>Math.abs(c)>1e-12).sort((a,b)=>b[0]-a[0]);
+    if(!terms.length) return constAst(0);
+    function coefficientAst(value) {
+        if (Math.abs(value-Math.round(value))<1e-10) return constAst(Math.round(value));
+        // Prefer a small exact fraction for common integration coefficients (1/2, 1/3, 1/6, etc.).
+        for (let denominator=2; denominator<=10000; denominator++) {
+            const numerator=Math.round(value*denominator);
+            if (Math.abs(value-numerator/denominator)<1e-10) {
+                const g=(a,b)=>b?g(b,a%b):Math.abs(a);
+                const d=g(numerator,denominator);
+                return {kind:"/",left:constAst(numerator/d),right:constAst(denominator/d)};
+            }
+        }
+        return constAst(Number(value.toFixed(8)));
+    }
+    let out=null;
+    for(const [power,coef] of terms) {
+        let term;
+        const negative = coef < 0, absCoef=Math.abs(coef);
+        if(power===0) term=coefficientAst(absCoef);
+        else {
+            const x=power===1?{kind:"var"}:{kind:"pow",left:{kind:"var"},right:constAst(power)};
+            term=absCoef===1 ? x : {kind:"*",left:coefficientAst(absCoef),right:x};
+        }
+        if(!out) out = negative ? {kind:"neg",arg:term} : term;
+        else if(negative) out={kind:"-",left:out,right:term};
+        else out={kind:"+",left:out,right:term};
+    }
+    return out;
+}
+function normalisePolynomial(node) { const map=polynomialCoefficients(node); return map===null? simplifyAst(node): polynomialAst(map); }
+
 function matrixHtml(M) {
     return `<table style="border-collapse:collapse; margin:8px 0;"><tbody>` +
-        M.map(row => `<tr>${row.map(x => `<td style="border:1px solid #999; padding:8px; min-width:45px; text-align:center;">${number(x,4)}</td>`).join("")}</tr>`).join("") +
+        M.map(row => `<tr>${row.map(x => `<td style="border:1px solid #999; padding:8px; min-width:45px; text-align:center;">${mathNumber(x)}</td>`).join("")}</tr>`).join("") +
         `</tbody></table>`;
 }
 function readMatrix(v,prefix,rows,cols) {
@@ -688,137 +758,453 @@ function inverseMatrix(M) {
 }
 
 function calculateIndicesExpression(raw) {
-    const original = String(raw || "").trim();
-    if (!original) return errorMessage("Enter an index expression, e.g. 2^3 * 2^4, 3^5 / 3^2, or (2^3)^2.");
+    const original = String(raw ?? "").trim();
 
+    if (!original) {
+        return errorMessage(
+            "Enter an index expression, e.g. 2^3 * 2^4, 3^5 / 3^2, (2^3)^2, or 2^-3."
+        );
+    }
+
+    // Normalize mathematical operators to standard JavaScript characters.
     const expression = original
-        .replace(/[Ã—Â·]/g, "*")
-        .replace(/Ã·/g, "/")
-        .replace(/[âˆ’â€“â€”]/g, "-")
+        .replace(/[×·]/g, "*")
+        .replace(/÷/g, "/")
+        .replace(/[−–—]/g, "-")
         .replace(/\s+/g, "");
 
-    if (/[^0-9.+\-* /^()]/.test(expression) || /[^0-9.+\-* /^()]/.test(expression.replace(/\s/g, ""))) {
-        return errorMessage("Use numbers, brackets, +, -, *, / and ^ for powers.");
+    // Allow only supported mathematical characters.
+    if (/[^0-9.+\-*/^()]/.test(expression)) {
+        return errorMessage(
+            "Use numbers, brackets, +, -, *, / and ^ for powers."
+        );
     }
-    if (/\*\*\*|\/\/|\^\^|[+*/^.-]{3,}/.test(expression)) {
-        return errorMessage("Check the operators and brackets in your expression.");
+
+    // Reject malformed operator combinations.
+    if (
+        !expression ||
+        /(?:\*\*|\/\/|\^\^|\+\+|--|\+\*|\+\/|\*\+|\/\+|\*\^|\/\^|\^\*|\^\/)/.test(expression)
+    ) {
+        return errorMessage(
+            "Check the operators and brackets in your expression."
+        );
     }
 
     let value;
+
     try {
-        value = Function('"use strict"; return (' + expression.replace(/\^/g, "**") + ');')();
+        value = evaluateAst(parseMathExpression(expression), 0);
     } catch (_) {
-        return errorMessage("That index expression could not be read. Check the powers and brackets.");
+        return errorMessage(
+            "That index expression could not be read. Check the powers and brackets."
+        );
     }
-    if (!Number.isFinite(value)) return errorMessage("The expression does not produce a finite numerical answer.");
 
-    let law = "Evaluate powers first, then complete the remaining operations in the correct order.";
+    if (!Number.isFinite(value)) {
+        return errorMessage(
+            "The expression is undefined or too large to evaluate. Check for division by zero and invalid powers."
+        );
+    }
+
+    const num = n => mathNumber(n);
+
+    let law =
+        "Apply the order of operations: brackets, powers, multiplication and division, then addition and subtraction.";
+
     let simplified = expression;
-    let working = `Expression: <strong>${escapeHtml(original)}</strong><br><br>Evaluate the powers, then complete the remaining operations.`;
 
-    let m = expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\*\(?\1\^(-?\d+)\)?$/);
-    if (m) {
-        const base = m[1], a = Number(m[2]), b = Number(m[3]);
-        simplified = `${base}^${a + b}`;
-        law = "Product rule: a^m Ã— a^n = a^(m+n)";
-        working = `${base}^${a} Ã— ${base}^${b} = ${base}^(${a} + ${b}) = <strong>${simplified}</strong>`;
+    let working =
+        `Expression: <strong>${escapeHtml(original)}</strong><br><br>` +
+        "Evaluate powers first, then multiplication and division, followed by addition and subtraction.";
+
+    // Product law: a^m * a^n = a^(m+n)
+    let m = expression.match(
+        /^\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?\*\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?$/
+    );
+
+    if (m && Number(m[1]) === Number(m[3])) {
+        const base = m[1];
+        const a = Number(m[2]);
+        const b = Number(m[4]);
+        const power = a + b;
+
+        simplified = `${base}^${power}`;
+        law = "Product law: a^m * a^n = a^(m+n), for the same non-zero base.";
+
+        working =
+            `\\(${base}^{${a}} \\times ${base}^{${b}}\\)<br><br>` +
+            `\\(= ${base}^{${a}+${b}}\\)<br><br>` +
+            `\\(= ${base}^{${power}}\\)`;
+
     } else {
-        m = expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\/\(?\1\^(-?\d+)\)?$/);
-        if (m) {
-            const base = m[1], a = Number(m[2]), b = Number(m[3]);
-            simplified = `${base}^${a - b}`;
-            law = "Quotient rule: a^m / a^n = a^(m-n), where a is not zero";
-            working = `${base}^${a} / ${base}^${b} = ${base}^(${a} - ${b}) = <strong>${simplified}</strong>`;
+        // Quotient law: a^m / a^n = a^(m-n)
+        m = expression.match(
+            /^\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?\/\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?$/
+        );
+
+        if (
+            m &&
+            Number(m[1]) === Number(m[3]) &&
+            Number(m[1]) !== 0
+        ) {
+            const base = m[1];
+            const a = Number(m[2]);
+            const b = Number(m[4]);
+            const power = a - b;
+
+            simplified = `${base}^${power}`;
+            law = "Quotient law: a^m / a^n = a^(m-n), where a is non-zero.";
+
+            working =
+                `\\(\\frac{${base}^{${a}}}{${base}^{${b}}}\\)<br><br>` +
+                `\\(= ${base}^{${a}-${b}}\\)<br><br>` +
+                `\\(= ${base}^{${power}}\\)`;
+
         } else {
-            m = expression.match(/^\(([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)\^(-?\d+)$/);
+            // Power of a power: (a^m)^n = a^(m*n)
+            m = expression.match(
+                /^\(\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?\)\^\(?(-?\d+)\)?$/
+            );
+
             if (m) {
-                const base = m[1], a = Number(m[2]), b = Number(m[3]);
-                simplified = `${base}^${a * b}`;
-                law = "Power of a power: (a^m)^n = a^(m Ã— n)";
-                working = `(${base}^${a})^${b} = ${base}^(${a} Ã— ${b}) = <strong>${simplified}</strong>`;
+                const base = m[1];
+                const a = Number(m[2]);
+                const b = Number(m[3]);
+                const power = a * b;
+
+                simplified = `${base}^${power}`;
+                law = "Power of a power: (a^m)^n = a^(m*n).";
+
+                working =
+                    `\\((${base}^{${a}})^{${b}}\\)<br><br>` +
+                    `\\(= ${base}^{${a} \\times ${b}}\\)<br><br>` +
+                    `\\(= ${base}^{${power}}\\)`;
+
+            } else {
+                // Single power: a^n
+                const pair = expression.match(
+                    /^\(?([0-9]+(?:\.[0-9]+)?)\)?\^(-?\d+)$/
+                );
+
+                if (pair) {
+                    const base = Number(pair[1]);
+                    const exponent = Number(pair[2]);
+
+                    if (exponent === 0 && base !== 0) {
+                        simplified = "1";
+                        law = "Zero exponent law: a^0 = 1, for a non-zero base.";
+                        working = `\\(${base}^{0} = 1\\)`;
+
+                    } else if (exponent < 0 && base !== 0) {
+                        simplified = `1/(${base}^${Math.abs(exponent)})`;
+
+                        law =
+                            "Negative exponent law: a^(-n) = 1/a^n, for a non-zero base.";
+
+                        working =
+                            `\\(${base}^{${exponent}}\\)<br><br>` +
+                            `\\(= \\frac{1}{${base}^{${Math.abs(exponent)}}}\\)<br><br>` +
+                            `\\(= ${num(value)}\\)`;
+
+                    } else if (exponent === 1) {
+                        simplified = String(base);
+                        law = "First power law: a^1 = a.";
+                        working = `\\(${base}^{1} = ${base}\\)`;
+                    }
+                }
             }
         }
     }
 
-    const displayIndex = escapeHtml(simplified).replace(/\^(-?\d+)/g, "^{$1}");
-    // Keep the working as ordinary readable HTML; only the compact final form
-    // is typeset by MathJax, avoiding markup inside a math delimiter.
-    const displayWorking = working.replace(/\^(-?\d+)/g, "<sup>$1</sup>");
+    // Format mathematical expressions for readable display.
+    function formatMath(text) {
+        return escapeHtml(String(text))
+            .replace(/\^(-?\d+)/g, "^{$1}")
+            .replace(/\*/g, " \\times ")
+            .replace(/\//g, " / ");
+    }
+
+    const displayIndex = formatMath(simplified);
+    const displayExpression = formatMath(expression);
+
     return resultTemplate(
         "Laws of Indices",
-        displayWorking,
-        `<strong>Index form:</strong><br><br>\\(${displayIndex}\\)<br><br><strong>Numerical answer:</strong><br>${mathNumber(value)}`,
+
+        `${working}<br><br>` +
+        `<strong>Numerical evaluation:</strong><br><br>` +
+        `\\(${displayExpression} = ${num(value)}\\)`,
+
+        `<strong>Simplified index form:</strong><br><br>` +
+        `\\(${displayIndex}\\)<br><br>` +
+        `<strong>Numerical answer:</strong><br>` +
+        `${num(value)}`,
+
         law
     );
 }
 
 function calculateLogExpression(raw) {
-    const original = String(raw || "").trim();
-    if (!original) return errorMessage("Enter a logarithm, e.g. log_2(8), log_10(100), or log_2(8) - log_2(2).");
+    const original = String(raw ?? "").trim();
 
+    if (!original) {
+        return errorMessage(
+            "Enter a logarithm, e.g. log_2(8), log_10(100), or log_2(8) - log_2(2)."
+        );
+    }
+
+    // Convert mathematical operators to standard JavaScript characters.
     let expr = original
-        .replace(/[âˆ’â€“â€”]/g, "-")
-        .replace(/[Ã—Â·]/g, "*")
-        .replace(/Ã·/g, "/")
+        .replace(/[−–—]/g, "-")
+        .replace(/[×·]/g, "*")
+        .replace(/÷/g, "/")
         .replace(/\s+/g, "");
 
     const logs = [];
-    const replaceLog = (full, baseText, argumentText) => {
-        const base = Number(baseText), argument = Number(argumentText);
-        if (!(base > 0) || base === 1 || !(argument > 0)) return "(NaN)";
-        const value = Math.log(argument) / Math.log(base);
-        logs.push({ base, argument, value });
-        return `(${value})`;
-    };
 
-    expr = expr.replace(/log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)/gi, replaceLog);
-    expr = expr.replace(/log\(([0-9]+(?:\.[0-9]+)?),([0-9]+(?:\.[0-9]+)?)\)/gi, replaceLog);
+    // Evaluate logarithms with numeric bases and arguments.
+    expr = expr.replace(
+        /log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)/gi,
+        (full, b, a) => {
+            const base = Number(b);
+            const arg = Number(a);
+
+            if (!(base > 0) || base === 1 || !(arg > 0)) {
+                return "(NaN)";
+            }
+
+            const val = Math.log(arg) / Math.log(base);
+
+            logs.push({
+                base,
+                arg,
+                value: val,
+                full
+            });
+
+            return `(${val})`;
+        }
+    );
 
     if (/log|ln/i.test(expr)) {
-        return errorMessage("Use log_base(argument), for example log_2(8). The base must be positive and not 1, and the argument must be positive.");
+        return errorMessage(
+            "Use log_base(argument), e.g. log_2(8). The base must be positive and not 1; the argument must be positive."
+        );
     }
-    if (/[^0-9.+\-* /^()]/.test(expr)) return errorMessage("Use numeric logarithms with +, -, *, / and brackets.");
+
+    if (/[^0-9.+\-*/^()]/.test(expr)) {
+        return errorMessage(
+            "Use logarithms with numeric bases and arguments, combined with +, -, *, / and brackets."
+        );
+    }
 
     let value;
+
     try {
-        value = Function('"use strict"; return (' + expr.replace(/\^/g, "**") + ');')();
+        value = evaluateAst(parseMathExpression(expr), 0);
     } catch (_) {
-        return errorMessage("I couldn't read that expression. Check the logarithm notation and brackets.");
+        return errorMessage(
+            "I couldn't read that expression. Check the logarithm notation and brackets."
+        );
     }
-    if (!Number.isFinite(value)) return errorMessage("The expression is undefined. Check each base and logarithm argument.");
 
-    let law = "Change of base: log_b(x) = log(x) / log(b)";
-    let working = logs.map(item =>
-        `log_${mathNumber(item.base)}(${mathNumber(item.argument)}) = ${mathNumber(item.value)}`
-    ).join("<br>");
-    if (!working) working = `Expression: ${escapeHtml(original)}`;
-    working += `<br><br>Evaluate the logarithm(s), then complete the indicated operations.`;
+    if (!Number.isFinite(value)) {
+        return errorMessage(
+            "The expression is undefined. Check each logarithm base and argument."
+        );
+    }
 
-    const pair = original.replace(/\s+/g, "").match(/^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)([+-])log_\1\(([0-9]+(?:\.[0-9]+)?)\)$/i);
+    // Detect exact integer powers.
+    function powerRep(n) {
+        if (!Number.isInteger(n) || n < 2) return null;
+
+        for (let power = 12; power >= 2; power--) {
+            const root = Math.round(Math.pow(n, 1 / power));
+
+            if (root > 1 && Math.pow(root, power) === n) {
+                return { root, power };
+            }
+        }
+
+        return null;
+    }
+
     let simplified = original;
-    if (pair) {
-        const base = Number(pair[1]), x = Number(pair[2]), op = pair[3], y = Number(pair[4]);
-        const combined = op === "+" ? x * y : x / y;
-        if (combined > 0 && Number.isFinite(combined)) {
-            simplified = `log_${mathNumber(base)}(${mathNumber(combined)})`;
-            law = op === "+"
-                ? "Product rule: log_b(x) + log_b(y) = log_b(x Ã— y)"
-                : "Quotient rule: log_b(x) - log_b(y) = log_b(x / y)";
-            working = `${escapeHtml(original)}<br><br>= ${simplified}<br><br>= <strong>${mathNumber(value)}</strong>`;
+    let law = "Change-of-base law: log_b(x) = ln(x) / ln(b).";
+    let working = "";
+
+    const single = original.replace(/\s+/g, "").match(
+        /^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)$/i
+    );
+
+    if (single) {
+        const base = Number(single[1]);
+        const arg = Number(single[2]);
+
+        let exactPower = null;
+
+        if (
+            Number.isInteger(base) &&
+            Number.isInteger(arg) &&
+            base > 1 &&
+            arg >= 1
+        ) {
+            let p = 1;
+
+            for (let k = 0; k <= 100; k++) {
+                if (p === arg) {
+                    exactPower = k;
+                    break;
+                }
+
+                p *= base;
+
+                if (p > arg) break;
+            }
+        }
+
+        const br = powerRep(base);
+        const ar = powerRep(arg);
+
+        if (exactPower !== null) {
+            simplified = String(exactPower);
+
+            working =
+                `Find the power n such that ${base}^n = ${arg}.` +
+                `<br><br>\\(${base}^{${exactPower}} = ${arg}\\)` +
+                `<br><br>Therefore, \\(\\log_{${base}}(${arg}) = ${exactPower}\\).`;
+
+            law = "Definition: log_b(x) = y means b^y = x.";
+
+        } else if (br && ar) {
+            const gcd = (a, b) => b ? gcd(b, a % b) : a;
+
+            const common = gcd(br.power, ar.power);
+            const m = br.power / common;
+            const n = ar.power / common;
+
+            const coefficient = n / m;
+
+            const coefficientText =
+                n === m ? "1" : `${n}/${m}`;
+
+            const coefficientMath =
+                n === m ? "1" : `\\frac{${n}}{${m}}`;
+
+            if (br.root === ar.root) {
+                simplified = coefficientText;
+            } else if (n === m) {
+                simplified = `log_${br.root}(${ar.root})`;
+            } else {
+                simplified =
+                    `(${coefficientText}) log_${br.root}(${ar.root})`;
+            }
+
+            if (br.root === ar.root) {
+                working =
+                    `Express the base and argument as powers:` +
+                    `<br><br>\\(${base} = ${br.root}^{${br.power}}\\)` +
+                    `<br>\\(${arg} = ${ar.root}^{${ar.power}}\\)` +
+                    `<br><br>Apply the power rule:` +
+                    `<br><br>\\(\\log_{${br.root}^{${br.power}}}` +
+                    `(${ar.root}^{${ar.power}})\\)` +
+                    `<br><br>\\(= \\frac{${ar.power}}{${br.power}}\\)` +
+                    `<br><br>\\(= ${coefficientMath} = ${mathNumber(value)}\\)`;
+
+            } else {
+                const reducedLog =
+                    n === m
+                        ? `\\log_{${br.root}}(${ar.root})`
+                        : `${coefficientMath}\\log_{${br.root}}(${ar.root})`;
+
+                working =
+                    `Express the base and argument as powers:` +
+                    `<br><br>\\(${base} = ${br.root}^{${br.power}}\\)` +
+                    `<br>\\(${arg} = ${ar.root}^{${ar.power}}\\)` +
+                    `<br><br>Apply the power rule:` +
+                    `<br><br>\\(\\log_{${br.root}^{${br.power}}}` +
+                    `(${ar.root}^{${ar.power}})\\)` +
+                    `<br><br>\\(= \\frac{${ar.power}}{${br.power}}` +
+                    `\\log_{${br.root}}(${ar.root})\\)` +
+                    `<br><br>Reduced form: \\(${reducedLog}\\)` +
+                    `<br><br>Numerical answer: \\(${mathNumber(value)}\\)`;
+            }
+
+            law =
+                "Power law: log_(a^m)(b^n) = (n/m) log_a(b), for valid positive bases and arguments.";
+
+        } else {
+            working =
+                `Use the change-of-base formula:` +
+                `<br><br>\\(\\log_{${base}}(${arg})` +
+                `= \\frac{\\ln(${arg})}{\\ln(${base})}\\)` +
+                `<br><br>\\(= \\frac{${mathNumber(Math.log(arg))}}` +
+                `{${mathNumber(Math.log(base))}}\\)` +
+                `<br><br>\\(= ${mathNumber(value)}\\)`;
         }
     }
 
+    // Simplify addition and subtraction of logarithms with the same base.
+    const pair = original.replace(/\s+/g, "").match(
+        /^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)([+\-*/])log_\1\(([0-9]+(?:\.[0-9]+)?)\)$/i
+    );
+
+    if (pair) {
+        const b = Number(pair[1]);
+        const x = Number(pair[2]);
+        const op = pair[3];
+        const y = Number(pair[4]);
+
+        if ((op === "+" || op === "-") && b > 0 && b !== 1) {
+            const inside = op === "+" ? x * y : x / y;
+
+            if (inside > 0 && Number.isFinite(inside)) {
+                simplified =
+                    `log_${mathNumber(b)}(${mathNumber(inside)})`;
+
+                law =
+                    op === "+"
+                        ? "Product law: log_b(x) + log_b(y) = log_b(xy)."
+                        : "Quotient law: log_b(x) - log_b(y) = log_b(x/y).";
+
+                working =
+                    `\\(\\log_{${b}}(${x}) ${op} \\log_{${b}}(${y})\\)` +
+                    `<br><br>\\(= \\log_{${b}}` +
+                    `\\left(${op === "+" ? `${x} \\times ${y}` : `${x} / ${y}`}\\right)\\)` +
+                    `<br><br>\\(= \\log_{${b}}(${mathNumber(inside)})\\)` +
+                    `<br><br>Numerical answer: \\(${mathNumber(value)}\\)`;
+            }
+        }
+    }
+
+    if (!working) {
+        working = logs
+            .map(z =>
+                `\\(\\log_{${z.base}}(${z.arg})` +
+                `= \\frac{\\ln(${z.arg})}{\\ln(${z.base})}` +
+                `= ${mathNumber(z.value)}\\)`
+            )
+            .join("<br><br>");
+
+        if (!working) {
+            working =
+                `Expression: ${escapeHtml(original)}` +
+                `<br><br>Evaluate each logarithm using the change-of-base law.`;
+        }
+    }
+
+    // Prepare readable mathematical notation.
     const displayLog = escapeHtml(simplified)
         .replace(/log_([0-9.]+)/gi, "\\log_{$1}")
-        .replace(/\^(-?\d+)/g, "^{$1}");
-    // Use HTML subscript notation in the working so it stays clean and readable.
-    const displayLogWorking = working
-        .replace(/log_([0-9.]+)/gi, "log<sub>$1</sub>")
-        .replace(/\^(-?\d+)/g, "<sup>$1</sup>");
+        .replace(/\^(-?\d+)/g, "^{$1}")
+        .replace(/\*/g, " \\times ")
+        .replace(/(^|[^\\])\//g, "$1 / ");
+
     return resultTemplate(
         "Logarithms",
-        displayLogWorking,
-        `<strong>Simplified logarithmic form:</strong><br><br>\\(${displayLog}\\)<br><br><strong>Numerical answer:</strong><br>${mathNumber(value)}`,
+        working,
+        `<strong>Simplified logarithmic form:</strong><br><br>` +
+        `\\(${displayLog}\\)<br><br>` +
+        `<strong>Numerical answer:</strong><br>${mathNumber(value)}`,
         law
     );
 }
@@ -1819,12 +2205,21 @@ accounting: {
             Total Transaction Price = ${money(transactionPrice)}<br>
             Total Stand-Alone Selling Prices = ${money(totalSSP)}<br><br>
 
-            Each obligation receives:<br>
-            SSP / Total SSP * Transaction Price<br><br>
-
-            For partially satisfied obligations:<br>
-            Recognised Revenue = Allocated Revenue * % Satisfied<br><br>
-
+            <strong>Allocation working for each obligation</strong><br><br>
+            ${rows.map(row => {
+                const allocatedRaw = row.ssp / totalSSP * transactionPrice;
+                const pct = row.status === "satisfied" ? 100 : row.status === "partial" ? row.percentSatisfied : 0;
+                const recognisedRaw = allocatedRaw * pct / 100;
+                return `<div style="margin:0 0 18px; padding:12px; border-radius:10px; background:rgba(120,130,160,.08);">
+                    <strong>Obligation ${row.number}</strong><br>
+                    Allocation = SSP / Total SSP Ã— Transaction Price<br>
+                    = ${compactNumber(row.ssp, 2)} / ${compactNumber(totalSSP, 2)} Ã— ${compactNumber(transactionPrice, 2)}<br>
+                    = ${money(allocatedRaw)}<br><br>
+                    Revenue recognised = Allocation Ã— Percentage satisfied / 100<br>
+                    = ${money(allocatedRaw)} Ã— ${compactNumber(pct, 2)} / 100<br>
+                    = ${money(recognisedRaw)}
+                </div>`;
+            }).join("")}
             <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; margin-top:10px;">
                     <thead>
@@ -2088,28 +2483,39 @@ finance: {
 
     calculate(v) {
         const PMT = getNumber(v, "payment");
-        const r = getNumber(v, "rate") / 100;
+        const ratePercent = getNumber(v, "rate");
+        const r = ratePercent / 100;
         const n = getNumber(v, "periods");
         const type = v.annuityType || "future";
-        if (PMT < 0 || r < 0 || n <= 0 || !Number.isFinite(n)) {
-            return errorMessage("Enter a non-negative payment and rate, and a number of periods greater than zero.");
+        if (PMT < 0 || ratePercent < 0 || n <= 0 || !Number.isFinite(n) || !Number.isInteger(n)) {
+            return errorMessage("Enter a non-negative payment and interest rate, and a positive whole number of periods.");
         }
         const label = type === "present" ? "Present Value of an Annuity (PVA)" : "Future Value of an Annuity (FVA)";
         const formula = type === "present"
-            ? "\\(\\mathrm{PVA}=\\mathrm{PMT}\\times\\frac{1-(1+r)^{-n}}{r}\\)"
-            : "\\(\\mathrm{FVA}=\\mathrm{PMT}\\times\\frac{(1+r)^n-1}{r}\\)";
+            ? "\\(\\mathrm{PVA}=\\mathrm{PMT}\\left[\\frac{1-(1+r)^{-n}}{r}\\right]\\)"
+            : "\\(\\mathrm{FVA}=\\mathrm{PMT}\\left[\\frac{(1+r)^n-1}{r}\\right]\\)";
         let answer, working;
+        const pmtText = compactNumber(PMT, 2);
+        const rText = compactNumber(r, 6);
+        const nText = compactNumber(n, 0);
         if (r === 0) {
             answer = PMT * n;
-            working = `Since the interest rate is 0%, use the zero-rate form:<br><br><strong>Formula</strong><br>Value = PMT Ã— n<br><br><strong>Substitute</strong><br>${money(PMT)} Ã— ${number(n)} = ${money(answer)}<br><br>With no interest, the value is simply the total of all payments.`;
-        } else if (type === "present") {
-            answer = PMT * (1 - Math.pow(1 + r, -n)) / r;
-            working = `<strong>Substitute:</strong><br><br>\\(\\mathrm{PVA}=${money(PMT)}\times\frac{1-(1+${compactNumber(r)})^{-${compactNumber(n)}}}{${compactNumber(r)}}\\)<br><br><strong>Calculated value:</strong> ${money(answer)}<br><br>This is the value today of the future payments.`;
+            working = `The interest rate is 0%, so there is no discounting or growth.<br><br>\\(\\text{Value}=PMT\\times n\\)<br><br>Substitute the values:<br>\\(${pmtText}\\times ${nText}=${compactNumber(answer, 2)}\\)<br><br>Each payment is simply added together.`;
         } else {
-            answer = PMT * (Math.pow(1 + r, n) - 1) / r;
-            working = `<strong>Substitute:</strong><br><br>\\(\\mathrm{FVA}=${money(PMT)}\times\frac{(1+${compactNumber(r)})^{${compactNumber(n)}}-1}{${compactNumber(r)}}\\)<br><br><strong>Calculated value:</strong> ${money(answer)}<br><br>This is the accumulated value of the regular payments at the end of the period.`;
+            const growth = Math.pow(1 + r, n);
+            const powerText = compactNumber(growth, 8);
+            if (type === "present") {
+                const discountFactor = Math.pow(1 + r, -n);
+                const annuityFactor = (1 - discountFactor) / r;
+                answer = PMT * annuityFactor;
+                working = `Interest rate per period:<br>\\(r=${compactNumber(ratePercent, 4)}\\%\\div100=${rText}\\)<br><br>Substitute into the PVA formula:<br>\\(PVA=${pmtText}\\left[\\frac{1-(1+${rText})^{-${nText}}}{${rText}}\\right]\\)<br><br>Evaluate the power:<br>\\((1+${rText})^{${nText}}=${powerText}\\)<br><br>Find the discount factor:<br>\\((1+${rText})^{-${nText}}=${compactNumber(discountFactor, 8)}\\)<br><br>Calculate the annuity factor:<br>\\(\\frac{1-${compactNumber(discountFactor, 8)}}{${rText}}=${compactNumber(annuityFactor, 8)}\\)<br><br>Multiply by the payment:<br>\\(${pmtText}\\times${compactNumber(annuityFactor, 8)}=${compactNumber(answer, 2)}\\)<br><br>The PVA is the value today of the future regular payments.`;
+            } else {
+                const annuityFactor = (growth - 1) / r;
+                answer = PMT * annuityFactor;
+                working = `Interest rate per period:<br>\\(r=${compactNumber(ratePercent, 4)}\\%\\div100=${rText}\\)<br><br>Substitute into the FVA formula:<br>\\(FVA=${pmtText}\\left[\\frac{(1+${rText})^{${nText}}-1}{${rText}}\\right]\\)<br><br>Evaluate the power:<br>\\((1+${rText})^{${nText}}=${powerText}\\)<br><br>Subtract 1:<br>\\(${powerText}-1=${compactNumber(growth - 1, 8)}\\)<br><br>Calculate the annuity factor:<br>\\(\\frac{${compactNumber(growth - 1, 8)}}{${rText}}=${compactNumber(annuityFactor, 8)}\\)<br><br>Multiply by the payment:<br>\\(${pmtText}\\times${compactNumber(annuityFactor, 8)}=${compactNumber(answer, 2)}\\)<br><br>The FVA is the accumulated value of the regular payments at the end of the period.`;
+            }
         }
-        return resultTemplate(label, working, money(answer), type === "present" ? "This is the value today of the specified regular future payments." : "This is the accumulated value of the specified regular payments at the end of the period.");
+        return resultTemplate(formula, working, money(answer), type === "present" ? "This is the value today of the specified regular future payments." : "This is the accumulated value of the specified regular payments at the end of the period.");
     }
 },
 
@@ -3495,7 +3901,9 @@ mathematics: {
                 ast = parseMathExpression(expression);
             }
 
-            const derivative = simplifyAst(derivativeAst(ast));
+            const rawDerivative = derivativeAst(ast);
+            const rawDerivativeText = astToString(rawDerivative);
+            const derivative = normalisePolynomial(rawDerivative);
             const derivativeText = astToString(derivative);
 
             let evaluation = "";
@@ -3505,7 +3913,7 @@ mathematics: {
                 if (!Number.isFinite(x)) return errorMessage("Enter a valid numerical x value.");
                 const value = evaluateAst(derivative, x);
                 if (!Number.isFinite(value)) return errorMessage("The derivative cannot be evaluated at that x value.");
-                evaluation = `<br><br><strong>At x = ${number(x)}:</strong> f'(x) = ${number(value, 6)}`;
+                evaluation = `<br><br><strong>At x = ${mathNumber(x)}:</strong> f'(x) = ${mathNumber(value)}`;
             }
 
             const methodNote = {
@@ -3520,7 +3928,8 @@ mathematics: {
                 "Differentiate with respect to x",
                 `<strong>Original expression:</strong> ${escapeHtml(expression)}<br><br>` +
                 `<strong>Method:</strong> ${methodNote}<br><br>` +
-                `<strong>Derivative:</strong> ${escapeHtml(derivativeText)}${evaluation}`,
+                `<strong>Apply the rule:</strong> ${escapeHtml(rawDerivativeText)}<br><br>` +
+                `<strong>Simplify and combine like terms:</strong> ${escapeHtml(derivativeText)}${evaluation}`,
                 mode === "with"
                     ? `f'(x) = ${escapeHtml(derivativeText)}<br>Numerical value = ${evaluation.replace(/.*f'\(x\) = /, '').replace(/<br>.*/, '')}`
                     : `f'(x) = ${escapeHtml(derivativeText)}`
@@ -3561,7 +3970,10 @@ mathematics: {
 
         try {
             const ast = parseMathExpression(expression);
-            const integral = simplifyAst(integrateAst(ast));
+            const polynomial = polynomialCoefficients(ast);
+            const integral = polynomial !== null
+                ? polynomialAst(new Map([...polynomial.entries()].map(([power, coefficient]) => [power + 1, coefficient / (power + 1)])))
+                : normalisePolynomial(integrateAst(ast));
             const integralText = astToString(integral);
 
             if (type === "indefinite") {
@@ -3595,10 +4007,10 @@ mathematics: {
             return resultTemplate(
                 "Integralfrom a to b f(x) dx = F(b) - F(a)",
                 `<strong>Antiderivative:</strong> ${escapeHtml(integralText)}<br><br>` +
-                `F(${number(upper)}) = ${number(upperValue, 6)}<br>` +
-                `F(${number(lower)}) = ${number(lowerValue, 6)}<br><br>` +
-                `Integral = ${number(upperValue, 6)} - ${number(lowerValue, 6)}`,
-                number(answer, 6),
+                `F(${mathNumber(upper)}) = ${mathNumber(upperValue)}<br>` +
+                `F(${mathNumber(lower)}) = ${mathNumber(lowerValue)}<br><br>` +
+                `Integral = ${mathNumber(upperValue)} - ${mathNumber(lowerValue)}`,
+                mathNumber(answer),
                 "A definite integral gives the signed net accumulation over the stated interval."
             );
         } catch (error) {
@@ -4763,7 +5175,7 @@ economics: {
         const explanation = elasticityExplanation("price-elasticity-demand", absolutePED);
         return resultTemplate(
             "PED = percentage change in quantity demanded / percentage change in price",
-            `% change in quantity demanded = ${percent(percentQ)}<br><br>% change in price = ${percent(percentP)}<br><br>PED = ${number(percentQ, 4)} / ${number(percentP, 4)} = ${mathNumber(absolutePED)}`,
+            `<strong>Percentage change in quantity demanded:</strong><br>\\(\\frac{Q_2-Q_1}{Q_1}\\times100=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{${mathNumber(q1)}}\\times100=${mathNumber(percentQ)}\\%\\)<br><br><strong>Percentage change in price:</strong><br>\\(\\frac{P_2-P_1}{P_1}\\times100=\\frac{${mathNumber(p2)}-${mathNumber(p1)}}{${mathNumber(p1)}}\\times100=${mathNumber(percentP)}\\%\\)<br><br><strong>PED:</strong><br>\\(\\frac{${mathNumber(percentQ)}\\%}{${mathNumber(percentP)}\\%}=${mathNumber(ped)}\\)<br>Absolute value used = ${mathNumber(absolutePED)}`,
             `${mathNumber(absolutePED)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
             `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}${ped < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. The usual PED classification uses the absolute value, so the answer is shown as positive.</small>` : ""}`
         );
@@ -4898,7 +5310,7 @@ economics: {
         const explanation = elasticityExplanation("income-elasticity", yed);
         return resultTemplate(
             "YED = percentage change in quantity demanded / percentage change in income",
-            `Percentage change in quantity demanded = ${percent(percentQ)}<br><br>Percentage change in income = ${percent(percentY)}<br><br>YED = ${number(percentQ, 4)} / ${number(percentY, 4)} = ${mathNumber(yed)}`,
+            `<strong>Percentage change in quantity demanded:</strong><br>\\(\\frac{Q_2-Q_1}{Q_1}\\times100=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{${mathNumber(q1)}}\\times100=${mathNumber(percentQ)}\\%\\)<br><br><strong>Percentage change in income:</strong><br>\\(\\frac{Y_2-Y_1}{Y_1}\\times100=\\frac{${mathNumber(y2)}-${mathNumber(y1)}}{${mathNumber(y1)}}\\times100=${mathNumber(percentY)}\\%\\)<br><br><strong>YED:</strong><br>\\(\\frac{${mathNumber(percentQ)}\\%}{${mathNumber(percentY)}\\%}=${mathNumber(yed)}\\)`,
             `${mathNumber(yed)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
             `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}`
         );
@@ -4953,7 +5365,7 @@ economics: {
         const explanation = elasticityExplanation("cross-elasticity", xed);
         return resultTemplate(
             "XED = percentage change in quantity demanded of Good X / percentage change in price of Good Y",
-            `Percentage change in quantity demanded of Good X = ${percent(percentQ)}<br><br>Percentage change in price of Good Y = ${percent(percentP)}<br><br>XED = ${number(percentQ, 4)} / ${number(percentP, 4)} = ${mathNumber(xed)}`,
+            `<strong>Percentage change in quantity of Good X:</strong><br>\\(\\frac{Q_2-Q_1}{Q_1}\\times100=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{${mathNumber(q1)}}\\times100=${mathNumber(percentQ)}\\%\\)<br><br><strong>Percentage change in price of Good Y:</strong><br>\\(\\frac{P_2-P_1}{P_1}\\times100=\\frac{${mathNumber(p2)}-${mathNumber(p1)}}{${mathNumber(p1)}}\\times100=${mathNumber(percentP)}\\%\\)<br><br><strong>XED:</strong><br>\\(\\frac{${mathNumber(percentQ)}\\%}{${mathNumber(percentP)}\\%}=${mathNumber(xed)}\\)`,
             `${mathNumber(xed)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
             `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}`
         );
@@ -7666,7 +8078,7 @@ if (aiInput) {
 
     return resultTemplate(
       `${code} = percentage change in quantity / percentage change in ${xName}`,
-      `Quantity change (midpoint method) = ${mathNumber(qChange * 100)}%<br><br>${xName} change (midpoint method) = ${mathNumber(xChange * 100)}%<br><br>${code} = ${mathNumber(qChange)} / ${mathNumber(xChange)} = ${mathNumber(value)}${type === "price-elasticity-demand" ? `<br><br>Absolute value used for PED = ${mathNumber(value)}` : ""}`,
+      `<strong>Percentage change in quantity:</strong><br>\\(\\frac{Q_2-Q_1}{(Q_1+Q_2)/2}\\times100\\)<br>\\(=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{(${mathNumber(q1)}+${mathNumber(q2)})/2}\\times100\\)<br>\\(=\\frac{${mathNumber(q2-q1)}}{${mathNumber((q1+q2)/2)}}\\times100=${mathNumber(qChange*100)}\\%\\)<br><br><strong>Percentage change in ${xName}:</strong><br>\\(\\frac{X_2-X_1}{(X_1+X_2)/2}\\times100\\)<br>\\(=\\frac{${mathNumber(x2)}-${mathNumber(x1)}}{(${mathNumber(x1)}+${mathNumber(x2)})/2}\\times100\\)<br>\\(=\\frac{${mathNumber(x2-x1)}}{${mathNumber((x1+x2)/2)}}\\times100=${mathNumber(xChange*100)}\\%\\)<br><br><strong>${code}:</strong><br>\\(\\frac{${mathNumber(qChange*100)}\\%}{${mathNumber(xChange*100)}\\%}=${mathNumber(signedElasticity)}\\)<br>${type === "price-elasticity-demand" ? `Absolute value used for PED = <strong>${mathNumber(value)}</strong>` : `Elasticity = <strong>${mathNumber(value)}</strong>`}`,
       `${mathNumber(value)}<br><br><strong>Classification: ${classification}</strong>`,
       `<strong>Normal Explanation:</strong> ${normal}<br><br><strong>Simple Explanation:</strong> ${simple}${type === "price-elasticity-demand" && signedElasticity < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. PED classification uses the absolute value.</small>` : ""}`
     );
