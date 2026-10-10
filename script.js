@@ -90,14 +90,36 @@ function number(value, decimals = 2) {
         return "Undefined";
     }
 
-    return Number(value).toLocaleString(
-        "en-US",
-        {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }
-    );
+    return Number(value).toLocaleString("en-US", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
 
+}
+
+/* Compact formatting for ratios and mathematical answers:
+   keep meaningful decimals, remove unnecessary trailing zeros. */
+function compactNumber(value, maxDecimals = 4) {
+    if (!Number.isFinite(value)) return "Undefined";
+    const rounded = Number(value.toFixed(maxDecimals));
+    return rounded.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: maxDecimals
+    });
+}
+
+/* Mathematics results use whole numbers when possible, otherwise up to 4 decimals. */
+function mathNumber(value) {
+    return compactNumber(value, 4);
+}
+
+function cleanMathOutput(html) {
+    // Format numeric output only: whole numbers lose .0000 and genuine decimals
+    // are rounded to at most four places with trailing zeros removed.
+    return String(html).replace(/-?\d[\d,]*\.\d+/g, match => {
+        const value = Number(match.replace(/,/g, ""));
+        return Number.isFinite(value) ? mathNumber(value) : match;
+    });
 }
 
 
@@ -199,7 +221,7 @@ function resultTemplate(
 
     return `
 
-        <div class="formula-box">
+        <div class="formula-box formula">
 
             <strong>Formula</strong>
 
@@ -208,7 +230,7 @@ function resultTemplate(
         </div>
 
 
-        <div class="working-box">
+        <div class="working-box working">
 
             <strong>Working</strong>
 
@@ -217,7 +239,7 @@ function resultTemplate(
         </div>
 
 
-        <div class="interpretation-box">
+        <div class="interpretation-box answer">
 
             <strong>Answer</strong>
 
@@ -247,132 +269,128 @@ function errorMessage(message) {
 }
 
 
+/* Typeset newly inserted calculator formulas with MathJax when available. */
+function typesetMath(container) {
+    if (!container || !window.MathJax || typeof window.MathJax.typesetPromise !== "function") return;
+    if (typeof window.MathJax.typesetClear === "function") {
+        window.MathJax.typesetClear([container]);
+    }
+    window.MathJax.typesetPromise([container]).catch(error => {
+        console.warn("MathJax could not typeset this calculator result:", error);
+    });
+}
+
+
 /* =========================================================
    INTERPRETATION HELPERS
 ========================================================= */
 
 function interpretPED(value) {
-
     const x = Math.abs(value);
-
-    if (!Number.isFinite(x)) {
-        return "The elasticity cannot be determined from the values entered.";
-    }
-
-    if (x > 1) {
-        return "Demand is elastic: quantity demanded responds more than proportionately to price.";
-    }
-
-    if (x < 1) {
-        return "Demand is inelastic: quantity demanded responds less than proportionately to price.";
-    }
-
-    return "Demand has unit elasticity: quantity demanded changes proportionately with price.";
-
+    if (!Number.isFinite(x)) return "Demand elasticity cannot be determined from the values entered.";
+    if (x === 0) return "Perfectly inelastic demand";
+    if (x > 1) return "Elastic demand";
+    if (x < 1) return "Inelastic demand";
+    return "Unit elastic demand";
 }
-
 
 function interpretPES(value) {
-
     const x = Math.abs(value);
-
-    if (x > 1) {
-        return "Supply is elastic.";
-    }
-
-    if (x < 1) {
-        return "Supply is inelastic.";
-    }
-
-    return "Supply has unit elasticity.";
-
+    if (!Number.isFinite(x)) return "Supply elasticity cannot be determined from the values entered.";
+    if (x === 0) return "Perfectly inelastic supply";
+    if (x > 1) return "Elastic supply";
+    if (x < 1) return "Inelastic supply";
+    return "Unit elastic supply";
 }
-
 
 function interpretIncomeElasticity(value) {
-
-    if (value < 0) {
-        return "The good is an inferior good.";
-    }
-
-    if (value > 1) {
-        return "The good is a luxury good.";
-    }
-
-    if (value > 0 && value <= 1) {
-        return "The good is a normal necessity.";
-    }
-
-    return "The relationship is unitary.";
+    if (!Number.isFinite(value)) return "Income elasticity cannot be determined from the values entered.";
+    if (value < 0) return "Inferior good";
+    if (value === 0) return "Zero income elasticity";
+    if (value > 1) return "Luxury good";
+    if (value === 1) return "Unit income elastic";
+    return "Normal necessity";
 }
-
 
 function interpretCrossElasticity(value) {
-
-    if (value > 0) {
-        return "The goods are substitutes.";
-    }
-
-    if (value < 0) {
-        return "The goods are complements.";
-    }
-
-    return "The goods are unrelated.";
+    if (!Number.isFinite(value)) return "Cross elasticity cannot be determined from the values entered.";
+    if (value > 0) return "Substitute goods";
+    if (value < 0) return "Complementary goods";
+    return "Unrelated goods (zero cross elasticity)";
 }
 
-
-function interpretCorrelation(r) {
-
-    const x = Math.abs(r);
-
-    if (x >= 0.8) {
-        return "Very strong correlation.";
+/* Result-specific explanations for PED, XED and YED. */
+function elasticityExplanation(type, value) {
+    const v = Number(value);
+    if (type === "price-elasticity-demand") {
+        const x = Math.abs(v);
+        let classification, normal, simple;
+        if (x === 0) {
+            classification = "Perfectly Inelastic Demand";
+            normal = "Quantity demanded does not change when price changes; the calculated elasticity is zero.";
+            simple = "Even when the price changes, buyers purchase the same quantity. For example, they may still need the same amount of an essential medicine.";
+        } else if (x > 1) {
+            classification = "Elastic Demand";
+            normal = "The percentage change in quantity demanded is greater than the percentage change in price.";
+            simple = "Buyers respond strongly to price changes. A small price increase may cause them to reduce purchases by a larger percentage.";
+        } else if (x < 1) {
+            classification = "Inelastic Demand";
+            normal = "The percentage change in quantity demanded is smaller than the percentage change in price.";
+            simple = "Buyers do not change how much they buy very much when the price changes, often because the product is important or has few alternatives.";
+        } else {
+            classification = "Unit Elastic Demand";
+            normal = "The percentage change in quantity demanded is equal in magnitude to the percentage change in price.";
+            simple = "If price rises by 10%, quantity demanded falls by about 10%. The two percentage changes are equal in size.";
+        }
+        return { classification, normal, simple };
     }
 
-    if (x >= 0.6) {
-        return "Strong correlation.";
+    if (type === "cross-elasticity") {
+        let classification, normal, simple;
+        if (v > 0) {
+            classification = "Substitute Goods";
+            normal = "Cross elasticity is positive, meaning demand for Good X moves in the same direction as the price of Good Y.";
+            simple = "The goods can replace each other. For example, if tea becomes more expensive, some people may buy more coffee instead.";
+        } else if (v < 0) {
+            classification = "Complementary Goods";
+            normal = "Cross elasticity is negative, meaning demand for Good X moves in the opposite direction to the price of Good Y.";
+            simple = "The goods are often used together. For example, if the price of printers rises and fewer printers are bought, demand for printer ink may also fall.";
+        } else {
+            classification = "Unrelated Goods";
+            normal = "Cross elasticity is zero, indicating that a price change in Good Y produces no measured change in demand for Good X.";
+            simple = "Changing the price of one product does not affect how much people buy of the other, such as two products with no meaningful connection.";
+        }
+        return { classification, normal, simple };
     }
 
-    if (x >= 0.4) {
-        return "Moderate correlation.";
+    if (type === "income-elasticity") {
+        let classification, normal, simple;
+        if (v < 0) {
+            classification = "Inferior Good";
+            normal = "Income elasticity is negative, so demand falls as consumer income rises.";
+            simple = "When people have more money, they may switch away from this cheaper option to a preferred alternative.";
+        } else if (v === 0) {
+            classification = "Zero Income Elasticity";
+            normal = "The measured quantity demanded does not respond to the change in income.";
+            simple = "Even when people's income changes, they buy about the same amount of this product.";
+        } else if (v > 1) {
+            classification = "Luxury Good";
+            normal = "Income elasticity is greater than one, so demand changes by a larger percentage than income.";
+            simple = "As people earn more, they increase purchases of this product by an even larger percentage, such as expensive holidays or luxury items.";
+        } else if (v === 1) {
+            classification = "Unit Income Elasticity";
+            normal = "Demand changes by the same percentage as consumer income.";
+            simple = "If income rises by 10%, demand rises by about 10%.";
+        } else {
+            classification = "Normal Necessity";
+            normal = "Income elasticity is positive but less than one, so demand rises by a smaller percentage than income.";
+            simple = "When people earn more, they buy somewhat more of the product, but not as sharply as their income increases.";
+        }
+        return { classification, normal, simple };
     }
 
-    if (x >= 0.2) {
-        return "Weak correlation.";
-    }
-
-    return "Very weak or no linear correlation.";
+    return { classification: "", normal: "", simple: "" };
 }
-
-
-function interpretSkewness(value) {
-
-    if (value > 0) {
-        return "The distribution is positively skewed.";
-    }
-
-    if (value < 0) {
-        return "The distribution is negatively skewed.";
-    }
-
-    return "The distribution is approximately symmetrical.";
-}
-
-
-function interpretKurtosis(beta2) {
-
-    if (beta2 > 3) {
-        return "The distribution is leptokurtic.";
-    }
-
-    if (beta2 < 3) {
-        return "The distribution is platykurtic.";
-    }
-
-    return "The distribution is mesokurtic.";
-}
-
-
 
 /* =========================================================
    ADVANCED MATHEMATICS ENGINE
@@ -671,90 +689,138 @@ function inverseMatrix(M) {
 
 function calculateIndicesExpression(raw) {
     const original = String(raw || "").trim();
-    if (!original) return errorMessage("Enter an expression such as 2^3 * 2^4, 3^5 / 3^2, or (2^3)^2.");
-    let expression = original.replace(/[Ã—Â·]/g, "*").replace(/Ã·/g, "/").replace(/[âˆ’â€“â€”]/g, "-").replace(/\s+/g, "");
-    if (/[^0-9.+\-*/^()]/.test(expression)) return errorMessage("Use numbers, parentheses, +, âˆ’, Ã—, Ã· and ^ for powers.");
-    // Prevent adjacent operators except a unary sign and convert ^ to JavaScript exponentiation.
-    const jsExpression = expression.replace(/\^/g, "**");
+    if (!original) return errorMessage("Enter an index expression, e.g. 2^3 * 2^4, 3^5 / 3^2, or (2^3)^2.");
+
+    const expression = original
+        .replace(/[Ã—Â·]/g, "*")
+        .replace(/Ã·/g, "/")
+        .replace(/[âˆ’â€“â€”]/g, "-")
+        .replace(/\s+/g, "");
+
+    if (/[^0-9.+\-* /^()]/.test(expression) || /[^0-9.+\-* /^()]/.test(expression.replace(/\s/g, ""))) {
+        return errorMessage("Use numbers, brackets, +, -, *, / and ^ for powers.");
+    }
+    if (/\*\*\*|\/\/|\^\^|[+*/^.-]{3,}/.test(expression)) {
+        return errorMessage("Check the operators and brackets in your expression.");
+    }
+
     let value;
-    try { value = Function('"use strict"; return (' + jsExpression + ');')(); }
-    catch (_) { return errorMessage("That index expression could not be read. Check the powers and brackets."); }
+    try {
+        value = Function('"use strict"; return (' + expression.replace(/\^/g, "**") + ');')();
+    } catch (_) {
+        return errorMessage("That index expression could not be read. Check the powers and brackets.");
+    }
     if (!Number.isFinite(value)) return errorMessage("The expression does not produce a finite numerical answer.");
+
+    let law = "Evaluate powers first, then complete the remaining operations in the correct order.";
     let simplified = expression;
-    let rule = "Evaluate the powers first, then complete the remaining operations in the correct order.";
-    let steps = `<strong>STEP 1: Identify the expression</strong><br><br>${escapeHtml(original)}<br><br><strong>STEP 2: Choose the relevant rule</strong><br><br>${rule}<br><br><strong>STEP 3: Evaluate step by step</strong><br><br>${escapeHtml(expression)}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value, 10)}`;
-    // Recognize common same-base product and quotient rules.
+    let working = `Expression: <strong>${escapeHtml(original)}</strong><br><br>Evaluate the powers, then complete the remaining operations.`;
+
     let m = expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\*\(?\1\^(-?\d+)\)?$/);
     if (m) {
-        const a=m[1], x=Number(m[2]), y=Number(m[3]); simplified=`${a}^${x+y}`;
-        rule="Product rule: aáµ Ã— aâ¿ = aáµâºâ¿. When the bases are the same, add the indices.";
-        steps=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>aáµ Ã— aâ¿ = aáµâºâ¿</strong></span><br><br><strong>Meaning:</strong> Keep the common base and add the indices.<br><br><strong>STEP 2: Apply the formula</strong><br><br>${a}^${x} Ã— ${a}^${y} = ${a}^(${x} + ${y})<br><br><strong>STEP 3: Simplify</strong><br><br>${a}^${x+y}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value,10)}<br><br><strong>Because:</strong> multiplying powers with the same base combines the repeated factors, so their indices are added.`;
+        const base = m[1], a = Number(m[2]), b = Number(m[3]);
+        simplified = `${base}^${a + b}`;
+        law = "Product rule: a^m Ã— a^n = a^(m+n)";
+        working = `${base}^${a} Ã— ${base}^${b} = ${base}^(${a} + ${b}) = <strong>${simplified}</strong>`;
     } else {
-      m=expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\/\(?\1\^(-?\d+)\)?$/);
-      if(m){const a=m[1],x=Number(m[2]),y=Number(m[3]);simplified=`${a}^${x-y}`;rule="Quotient rule: aáµ Ã· aâ¿ = aáµâ»â¿, for a â‰  0. Subtract the indices when dividing powers with the same base.";steps=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>aáµ Ã· aâ¿ = aáµâ»â¿</strong></span><br><br><strong>Meaning:</strong> Keep the common base and subtract the denominator's index from the numerator's index.<br><br><strong>STEP 2: Apply the formula</strong><br><br>${a}^${x} Ã· ${a}^${y} = ${a}^(${x} âˆ’ ${y})<br><br><strong>STEP 3: Simplify</strong><br><br>${a}^${x-y}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value,10)}<br><br><strong>Because:</strong> common factors cancel when dividing powers with the same non-zero base.`;}
-      else {
-        m=expression.match(/^\(([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)\^(-?\d+)$/);
-        if(m){const a=m[1],x=Number(m[2]),y=Number(m[3]);simplified=`${a}^${x*y}`;rule="Power of a power: (aáµ)â¿ = aáµâ¿. Multiply the indices.";steps=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>(aáµ)â¿ = aáµâ¿</strong></span><br><br><strong>Meaning:</strong> When a power is raised to another power, multiply the indices.<br><br><strong>STEP 2: Apply the formula</strong><br><br>(${a}^${x})^${y} = ${a}^(${x} Ã— ${y})<br><br><strong>STEP 3: Simplify</strong><br><br>${a}^${x*y}<br><br><strong>STEP 4: Numerical value</strong><br><br>${number(value,10)}<br><br><strong>Because:</strong> the inner power is repeated ${y} times, so the index ${x} is multiplied by ${y}.`;}
-      }
+        m = expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\/\(?\1\^(-?\d+)\)?$/);
+        if (m) {
+            const base = m[1], a = Number(m[2]), b = Number(m[3]);
+            simplified = `${base}^${a - b}`;
+            law = "Quotient rule: a^m / a^n = a^(m-n), where a is not zero";
+            working = `${base}^${a} / ${base}^${b} = ${base}^(${a} - ${b}) = <strong>${simplified}</strong>`;
+        } else {
+            m = expression.match(/^\(([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)\^(-?\d+)$/);
+            if (m) {
+                const base = m[1], a = Number(m[2]), b = Number(m[3]);
+                simplified = `${base}^${a * b}`;
+                law = "Power of a power: (a^m)^n = a^(m Ã— n)";
+                working = `(${base}^${a})^${b} = ${base}^(${a} Ã— ${b}) = <strong>${simplified}</strong>`;
+            }
+        }
     }
-    return resultTemplate("Laws of Indices", steps, `<strong>Index form:</strong> ${escapeHtml(simplified)}<br><br><strong>Numerical value:</strong> ${number(value,10)}`, rule);
+
+    const displayIndex = escapeHtml(simplified).replace(/\^(-?\d+)/g, "^{$1}");
+    // Keep the working as ordinary readable HTML; only the compact final form
+    // is typeset by MathJax, avoiding markup inside a math delimiter.
+    const displayWorking = working.replace(/\^(-?\d+)/g, "<sup>$1</sup>");
+    return resultTemplate(
+        "Laws of Indices",
+        displayWorking,
+        `<strong>Index form:</strong><br><br>\\(${displayIndex}\\)<br><br><strong>Numerical answer:</strong><br>${mathNumber(value)}`,
+        law
+    );
 }
 
 function calculateLogExpression(raw) {
     const original = String(raw || "").trim();
-    if (!original) return errorMessage("Enter an expression such as log_2(8) âˆ’ log_2(2) or log_3(2).");
-    let expr = original.replace(/[âˆ’â€“â€”]/g,"-").replace(/[Ã—Â·]/g,"*").replace(/Ã·/g,"/").replace(/\s+/g,"");
-    const logs=[];
-    // Explicit-base notation log_b(x), with numeric base and argument.
-    expr = expr.replace(/log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)/gi, (full,bs,xs) => {
-        const b=Number(bs), x=Number(xs);
-        if (!(b>0) || b===1 || !(x>0)) return "(NaN)";
-        const val=Math.log(x)/Math.log(b); logs.push({b,x,val,source:full}); return `(${val})`;
-    });
-    // Also accept log(base,argument).
-    expr=expr.replace(/log\(([0-9]+(?:\.[0-9]+)?),([0-9]+(?:\.[0-9]+)?)\)/gi,(full,bs,xs)=>{
-        const b=Number(bs),x=Number(xs); if(!(b>0)||b===1||!(x>0)) return "(NaN)";
-        const val=Math.log(x)/Math.log(b);logs.push({b,x,val,source:full});return `(${val})`;
-    });
-    if (/log|ln/i.test(expr)) return errorMessage("Use numeric logarithms in the form log_2(8), log_10(100), or log(base,argument). The base must be positive and not 1, and the argument must be positive.");
-    if (/[^0-9.+\-*/^()]/.test(expr)) return errorMessage("Use logarithms with numeric bases and arguments, combined using +, âˆ’, Ã—, Ã· and parentheses.");
-    let value;
-    try { value=Function('"use strict"; return ('+expr.replace(/\^/g,'**')+');')(); }
-    catch (_) { return errorMessage("I couldn't read that expression. Check the logarithm notation and brackets."); }
-    if (!Number.isFinite(value)) return errorMessage("The expression is undefined. Check each base and logarithm argument.");
-    const exactLog=(b,x)=>{
-        if (x===1) return "0";
-        if (x===b) return "1";
-        for(let k=2;k<=12;k++){ if(Math.abs(Math.pow(b,k)-x)<1e-9) return String(k); if(Math.abs(Math.pow(b,1/k)-x)<1e-9) return `1/${k}`; }
-        for(let p=2;p<=12;p++) for(let q=2;q<=12;q++) if(Math.abs(Math.pow(b,p/q)-x)<1e-9) return `${p}/${q}`;
-        return null;
+    if (!original) return errorMessage("Enter a logarithm, e.g. log_2(8), log_10(100), or log_2(8) - log_2(2).");
+
+    let expr = original
+        .replace(/[âˆ’â€“â€”]/g, "-")
+        .replace(/[Ã—Â·]/g, "*")
+        .replace(/Ã·/g, "/")
+        .replace(/\s+/g, "");
+
+    const logs = [];
+    const replaceLog = (full, baseText, argumentText) => {
+        const base = Number(baseText), argument = Number(argumentText);
+        if (!(base > 0) || base === 1 || !(argument > 0)) return "(NaN)";
+        const value = Math.log(argument) / Math.log(base);
+        logs.push({ base, argument, value });
+        return `(${value})`;
     };
-    let symbolic=original;
-    let exactCombined=null;
-    // Combine a simple difference/sum of two logs sharing a base using log laws.
-    const pair=original.replace(/\s+/g,"").match(/^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)([+-])log_\1\(([0-9]+(?:\.[0-9]+)?)\)$/i);
-    if(pair){
-        const b=Number(pair[1]),x=Number(pair[2]),op=pair[3],y=Number(pair[4]);
-        if(b>0&&b!==1&&x>0&&y>0){
-            const arg=op==='+'?x*y:x/y;
-            if(Number.isInteger(arg)&&arg>0){symbolic=`log_${b}(${arg})`; exactCombined=exactLog(b,arg);}
-            else if(arg>0) symbolic=`log_${b}(${Number(arg.toPrecision(10))})`;
+
+    expr = expr.replace(/log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)/gi, replaceLog);
+    expr = expr.replace(/log\(([0-9]+(?:\.[0-9]+)?),([0-9]+(?:\.[0-9]+)?)\)/gi, replaceLog);
+
+    if (/log|ln/i.test(expr)) {
+        return errorMessage("Use log_base(argument), for example log_2(8). The base must be positive and not 1, and the argument must be positive.");
+    }
+    if (/[^0-9.+\-* /^()]/.test(expr)) return errorMessage("Use numeric logarithms with +, -, *, / and brackets.");
+
+    let value;
+    try {
+        value = Function('"use strict"; return (' + expr.replace(/\^/g, "**") + ');')();
+    } catch (_) {
+        return errorMessage("I couldn't read that expression. Check the logarithm notation and brackets.");
+    }
+    if (!Number.isFinite(value)) return errorMessage("The expression is undefined. Check each base and logarithm argument.");
+
+    let law = "Change of base: log_b(x) = log(x) / log(b)";
+    let working = logs.map(item =>
+        `log_${mathNumber(item.base)}(${mathNumber(item.argument)}) = ${mathNumber(item.value)}`
+    ).join("<br>");
+    if (!working) working = `Expression: ${escapeHtml(original)}`;
+    working += `<br><br>Evaluate the logarithm(s), then complete the indicated operations.`;
+
+    const pair = original.replace(/\s+/g, "").match(/^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)([+-])log_\1\(([0-9]+(?:\.[0-9]+)?)\)$/i);
+    let simplified = original;
+    if (pair) {
+        const base = Number(pair[1]), x = Number(pair[2]), op = pair[3], y = Number(pair[4]);
+        const combined = op === "+" ? x * y : x / y;
+        if (combined > 0 && Number.isFinite(combined)) {
+            simplified = `log_${mathNumber(base)}(${mathNumber(combined)})`;
+            law = op === "+"
+                ? "Product rule: log_b(x) + log_b(y) = log_b(x Ã— y)"
+                : "Quotient rule: log_b(x) - log_b(y) = log_b(x / y)";
+            working = `${escapeHtml(original)}<br><br>= ${simplified}<br><br>= <strong>${mathNumber(value)}</strong>`;
         }
     }
-    const rows=logs.map((t,i)=>{
-        const ex=exactLog(t.b,t.x);
-        return `<div style="margin:10px 0;padding:10px 12px;border-left:3px solid #64748b;background:rgba(100,116,139,.08);border-radius:4px"><strong>Logarithm ${i+1}</strong><br>log<sub>${number(t.b)}</sub>(${number(t.x)}) = ${ex!==null?ex+" (exact)":"approximately "+number(t.val,8)}</div>`;
-    }).join("");
-    let lawText="Use the change-of-base formula to evaluate each logarithm: log_b(x) = log(x) / log(b). Then carry out the indicated operations.";
-    let formula="log_b(x) = log(x) / log(b)";
-    let working=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>${formula}</strong></span><br><br><strong>Meaning:</strong> The change-of-base formula lets us evaluate a logarithm using a calculator's common logarithm or natural logarithm.<br><br><strong>STEP 2: Evaluate each logarithm</strong>${rows||"<br>No separate logarithm terms were detected."}<br><br><strong>STEP 3: Combine the values</strong><br><br>${escapeHtml(original)}<br><br>Numerical calculation = ${number(value,8)}<br><br><strong>STEP 4: Final answer</strong><br><br>${escapeHtml(symbolic)}<br><br><strong>Because:</strong> logarithms and powers are inverse operations: log_b(x) asks what power of b gives x.`;
-    if(pair){
-        const b=Number(pair[1]),x=Number(pair[2]),op=pair[3],y=Number(pair[4]);
-        const combined=op==='+'?x*y:x/y;
-        working=`<strong>STEP 1: Identify the formula</strong><br><br><span style="font-size:1.1em"><strong>${op==='+'?'log_b(M) + log_b(N) = log_b(MN)':'log_b(M) âˆ’ log_b(N) = log_b(M/N)'}</strong></span><br><br><strong>Meaning:</strong> When logarithms have the same base, addition combines their arguments by multiplication, while subtraction combines them by division.<br><br><strong>STEP 2: Apply the formula</strong><br><br>${escapeHtml(original)}<br><br>= log<sub>${number(b)}</sub>(${number(x)} ${op==='+'?'Ã—':'Ã·'} ${number(y)})<br><br><strong>STEP 3: Simplify</strong><br><br>= ${escapeHtml(symbolic)}<br><br><strong>STEP 4: Numerical answer</strong><br><br>${number(value,8)}<br><br><strong>Because:</strong> both logarithms have the same base, so the logarithm law allows the two terms to be combined into one logarithm.`;
-    }
-    const answer=`<strong>Logarithmic form:</strong> ${escapeHtml(symbolic)}${exactCombined!==null?`<br><br><strong>Exact numerical answer:</strong> ${exactCombined}`:""}<br><br><strong>Numerical value:</strong> ${number(value,8)}`;
-    return resultTemplate("Logarithm laws and change of base",working,answer,lawText);
+
+    const displayLog = escapeHtml(simplified)
+        .replace(/log_([0-9.]+)/gi, "\\log_{$1}")
+        .replace(/\^(-?\d+)/g, "^{$1}");
+    // Use HTML subscript notation in the working so it stays clean and readable.
+    const displayLogWorking = working
+        .replace(/log_([0-9.]+)/gi, "log<sub>$1</sub>")
+        .replace(/\^(-?\d+)/g, "<sup>$1</sup>");
+    return resultTemplate(
+        "Logarithms",
+        displayLogWorking,
+        `<strong>Simplified logarithmic form:</strong><br><br>\\(${displayLog}\\)<br><br><strong>Numerical answer:</strong><br>${mathNumber(value)}`,
+        law
+    );
 }
 
 /* =========================================================
@@ -2030,18 +2096,18 @@ finance: {
         }
         const label = type === "present" ? "Present Value of an Annuity (PVA)" : "Future Value of an Annuity (FVA)";
         const formula = type === "present"
-            ? "PVA = PMT Ã— [1 âˆ’ (1 + r)â»â¿] / r"
-            : "FVA = PMT Ã— [(1 + r)â¿ âˆ’ 1] / r";
+            ? "\\(\\mathrm{PVA}=\\mathrm{PMT}\\times\\frac{1-(1+r)^{-n}}{r}\\)"
+            : "\\(\\mathrm{FVA}=\\mathrm{PMT}\\times\\frac{(1+r)^n-1}{r}\\)";
         let answer, working;
         if (r === 0) {
             answer = PMT * n;
             working = `Since the interest rate is 0%, use the zero-rate form:<br><br><strong>Formula</strong><br>Value = PMT Ã— n<br><br><strong>Substitute</strong><br>${money(PMT)} Ã— ${number(n)} = ${money(answer)}<br><br>With no interest, the value is simply the total of all payments.`;
         } else if (type === "present") {
             answer = PMT * (1 - Math.pow(1 + r, -n)) / r;
-            working = `<strong>STEP 1: Identify the formula</strong><br><br>${formula}<br><br><strong>What it means:</strong> Discount each future payment to today's value, then combine the payments.<br><br><strong>STEP 2: Substitute the values</strong><br><br>PVA = ${money(PMT)} Ã— [1 âˆ’ (1 + ${number(r, 6)})â»${number(n)}] / ${number(r, 6)}<br><br><strong>STEP 3: Simplify</strong><br><br>PVA = ${money(answer)}<br><br><strong>Because:</strong> money received in the future is worth less today when the discount rate is positive.`;
+            working = `<strong>Substitute:</strong><br><br>\\(\\mathrm{PVA}=${money(PMT)}\times\frac{1-(1+${compactNumber(r)})^{-${compactNumber(n)}}}{${compactNumber(r)}}\\)<br><br><strong>Calculated value:</strong> ${money(answer)}<br><br>This is the value today of the future payments.`;
         } else {
             answer = PMT * (Math.pow(1 + r, n) - 1) / r;
-            working = `<strong>STEP 1: Identify the formula</strong><br><br>${formula}<br><br><strong>What it means:</strong> Grow each regular payment by the interest it earns until the end of the selected period.<br><br><strong>STEP 2: Substitute the values</strong><br><br>FVA = ${money(PMT)} Ã— [(1 + ${number(r, 6)})${"<sup>"+number(n)+"</sup>"} âˆ’ 1] / ${number(r, 6)}<br><br><strong>STEP 3: Simplify</strong><br><br>FVA = ${money(answer)}<br><br><strong>Because:</strong> each payment earns interest for the time it remains invested, so the accumulated value includes payments plus interest.`;
+            working = `<strong>Substitute:</strong><br><br>\\(\\mathrm{FVA}=${money(PMT)}\times\frac{(1+${compactNumber(r)})^{${compactNumber(n)}}-1}{${compactNumber(r)}}\\)<br><br><strong>Calculated value:</strong> ${money(answer)}<br><br>This is the accumulated value of the regular payments at the end of the period.`;
         }
         return resultTemplate(label, working, money(answer), type === "present" ? "This is the value today of the specified regular future payments." : "This is the accumulated value of the specified regular payments at the end of the period.");
     }
@@ -4694,28 +4760,12 @@ economics: {
         const absolutePED =
             Math.abs(ped);
 
+        const explanation = elasticityExplanation("price-elasticity-demand", absolutePED);
         return resultTemplate(
-
-            "PED = (% change in quantity demanded) / (% change in price)",
-
-            `
-            % change in Qd =
-            ${percent(percentQ)}<br><br>
-
-            % change in Price =
-            ${percent(percentP)}<br><br>
-
-            PED =
-            ${number(percentQ, 4)}
-            /
-            ${number(percentP, 4)}
-            =
-            ${number(absolutePED)}
-            `,
-
-            `${number(absolutePED)}<br><strong>${interpretPED(absolutePED).replace(/^Demand is /, "").replace(/:.*/, "")}</strong>`,
-
-            `${interpretPED(absolutePED)}${ped < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
+            "PED = percentage change in quantity demanded / percentage change in price",
+            `% change in quantity demanded = ${percent(percentQ)}<br><br>% change in price = ${percent(percentP)}<br><br>PED = ${number(percentQ, 4)} / ${number(percentP, 4)} = ${mathNumber(absolutePED)}`,
+            `${mathNumber(absolutePED)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
+            `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}${ped < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. The usual PED classification uses the absolute value, so the answer is shown as positive.</small>` : ""}`
         );
 
     }
@@ -4845,15 +4895,12 @@ economics: {
         const yed =
             percentQ / percentY;
 
+        const explanation = elasticityExplanation("income-elasticity", yed);
         return resultTemplate(
-            "YED = (Percentage change in quantity demanded) / (Percentage change in income)",
-            `
-            Percentage change in quantity demanded = ${percent(percentQ)}<br>
-            Percentage change in income = ${percent(percentY)}<br><br>
-            YED = ${number(yed)}
-            `,
-            number(yed),
-            interpretIncomeElasticity(yed)
+            "YED = percentage change in quantity demanded / percentage change in income",
+            `Percentage change in quantity demanded = ${percent(percentQ)}<br><br>Percentage change in income = ${percent(percentY)}<br><br>YED = ${number(percentQ, 4)} / ${number(percentY, 4)} = ${mathNumber(yed)}`,
+            `${mathNumber(yed)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
+            `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}`
         );
 
     }
@@ -4903,15 +4950,12 @@ economics: {
         const xed =
             percentQ / percentP;
 
+        const explanation = elasticityExplanation("cross-elasticity", xed);
         return resultTemplate(
-            "XED = (Percentage change in quantity demanded of Good X) / (Percentage change in price of Good Y)",
-            `
-            Percentage change in quantity demanded of Good X = ${percent(percentQ)}<br>
-            Percentage change in price of Good Y = ${percent(percentP)}<br><br>
-            XED = ${number(xed)}
-            `,
-            number(xed),
-            interpretCrossElasticity(xed)
+            "XED = percentage change in quantity demanded of Good X / percentage change in price of Good Y",
+            `Percentage change in quantity demanded of Good X = ${percent(percentQ)}<br><br>Percentage change in price of Good Y = ${percent(percentP)}<br><br>XED = ${number(percentQ, 4)} / ${number(percentP, 4)} = ${mathNumber(xed)}`,
+            `${mathNumber(xed)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
+            `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}`
         );
 
     }
@@ -5669,7 +5713,7 @@ economics: {
                 const assets=getNumber(v,"currentAssets"), liabilities=getNumber(v,"currentLiabilities");
                 if (liabilities===0) return errorMessage("Current liabilities cannot be zero.");
                 const ratio=assets/liabilities;
-                return resultTemplate("Current Ratio = Current Assets / Current Liabilities", `${money(assets)} / ${money(liabilities)} = ${number(ratio)}:1`, `${number(ratio)}:1`, "This ratio measures the amount of current assets available to cover each unit of current liabilities.");
+                return resultTemplate("Current Ratio = Current Assets / Current Liabilities", `${money(assets)} / ${money(liabilities)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This ratio measures the amount of current assets available to cover each unit of current liabilities.");
             }
         },
 
@@ -5686,7 +5730,7 @@ economics: {
                 const assets=getNumber(v,"currentAssets"), inventory=getNumber(v,"inventory"), prepayments=v.prepayments===""?0:getNumber(v,"prepayments"), liabilities=getNumber(v,"currentLiabilities");
                 if (liabilities===0) return errorMessage("Current liabilities cannot be zero.");
                 const quickAssets=assets-inventory-prepayments, ratio=quickAssets/liabilities;
-                return resultTemplate("Quick Ratio = Quick Assets / Current Liabilities", `Quick Assets = ${money(assets)} - ${money(inventory)} - ${money(prepayments)} = ${money(quickAssets)}<br><br>${money(quickAssets)} / ${money(liabilities)} = ${number(ratio)}:1`, `${number(ratio)}:1`, "This ratio focuses on current assets that are generally more readily available to meet short-term liabilities.");
+                return resultTemplate("Quick Ratio = Quick Assets / Current Liabilities", `Quick Assets = ${money(assets)} - ${money(inventory)} - ${money(prepayments)} = ${money(quickAssets)}<br><br>${money(quickAssets)} / ${money(liabilities)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This ratio focuses on current assets that are generally more readily available to meet short-term liabilities.");
             }
         },
 
@@ -5698,7 +5742,7 @@ economics: {
                 const cash=getNumber(v,"cash"), liabilities=getNumber(v,"currentLiabilities");
                 if(liabilities===0) return errorMessage("Current liabilities cannot be zero.");
                 const ratio=cash/liabilities;
-                return resultTemplate("Cash Ratio = Cash and Cash Equivalents / Current Liabilities", `${money(cash)} / ${money(liabilities)} = ${number(ratio)}:1`, `${number(ratio)}:1`, "This measures immediate coverage of current liabilities using cash and cash equivalents.");
+                return resultTemplate("Cash Ratio = Cash and Cash Equivalents / Current Liabilities", `${money(cash)} / ${money(liabilities)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This measures immediate coverage of current liabilities using cash and cash equivalents.");
             }
         },
 
@@ -5816,7 +5860,7 @@ economics: {
                 const debt=getNumber(v,"totalLiabilities"), equity=getNumber(v,"totalEquity");
                 if(equity===0) return errorMessage("Total equity cannot be zero.");
                 const ratio=debt/equity;
-                return resultTemplate("Debt-to-Equity Ratio = Total Liabilities / Total Equity", `${money(debt)} / ${money(equity)} = ${number(ratio)}:1`, `${number(ratio)}:1`, "This compares financing provided by liabilities with financing provided by equity.");
+                return resultTemplate("Debt-to-Equity Ratio = Total Liabilities / Total Equity", `${money(debt)} / ${money(equity)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This compares financing provided by liabilities with financing provided by equity.");
             }
         },
 
@@ -6805,8 +6849,11 @@ function calculateCurrent() {
 
     try {
 
-        const output =
-            calculator.calculate(values);
+        let output = calculator.calculate(values);
+
+        if (category === "mathematics") {
+            output = cleanMathOutput(output);
+        }
 
         result.innerHTML = `
 
@@ -6815,6 +6862,7 @@ function calculateCurrent() {
             ${output}
 
         `;
+        typesetMath(result);
 
     } catch (error) {
 
@@ -7599,38 +7647,32 @@ if (aiInput) {
     const q1 = v.q1, q2 = v.q2;
     const x1 = isIncome ? v.y1 : v.p1;
     const x2 = isIncome ? v.y2 : v.p2;
-    if (q1 + q2 === 0 || x1 + x2 === 0 || x1 === x2) return errorMessage("The average quantity and average price/income must not be zero, and the price/income must change.");
+    if (q1 + q2 === 0 || x1 + x2 === 0 || x1 === x2) {
+        return errorMessage("The average quantity and average price/income must not be zero, and the price/income must change.");
+    }
+
     const qChange = (q2 - q1) / ((q1 + q2) / 2);
     const xChange = (x2 - x1) / ((x1 + x2) / 2);
     const signedElasticity = qChange / xChange;
     let value = signedElasticity;
-    let label, explanation;
-    if (type === "price-elasticity-demand") {
-      const magnitude = Math.abs(signedElasticity);
-      label = `${number(magnitude)}<br><strong>${interpretPED(magnitude).replace(/^Demand is /, "").replace(/:.*/, "")}</strong>`;
-      explanation = khidEconomicsSimple[type];
-      value = magnitude;
-    } else if (isSupply) {
-      value = Math.abs(signedElasticity);
-      label = `${number(value)}<br><strong>${interpretPES(value).replace(/\.$/, "")}</strong>`;
-      explanation = khidEconomicsSimple[type];
-    } else if (isIncome) {
-      label = `${number(value)}<br><strong>${interpretIncomeElasticity(value)}</strong>`;
-      explanation = khidEconomicsSimple[type];
-    } else {
-      label = `${number(value)}<br><strong>${interpretCrossElasticity(value)}</strong>`;
-      explanation = khidEconomicsSimple[type];
-    }
-    const xName = isIncome ? "income" : isCross ? "price of good Y" : "price";
-    return resultTemplate(
-      `${isIncome ? "YED" : isCross ? "XED" : isSupply ? "PES" : "PED"} = [(Q2 - Q1) / ((Q1 + Q2) / 2)] / [(${isIncome ? "Y2 - Y1" : "P2 - P1"}) / ((${isIncome ? "Y1 + Y2" : "P1 + P2"}) / 2)]`,
-      `Quantity part = (${number(q2)} - ${number(q1)}) / [(${number(q1)} + ${number(q2)}) / 2] = ${number(qChange)}.<br><br>${xName} part = (${number(x2)} - ${number(x1)}) / [(${number(x1)} + ${number(x2)}) / 2] = ${number(xChange)}.<br><br>Signed elasticity = ${number(qChange)} / ${number(xChange)} = ${number(signedElasticity)}.${type === "price-elasticity-demand" ? `<br><br>PED classification uses the absolute value: |${number(signedElasticity)}| = ${number(value)}.` : ""}`,
-      label,
-      `${isCross ? interpretCrossElasticity(value) : isIncome ? interpretIncomeElasticity(value) : isSupply ? interpretPES(value) : interpretPED(value)}<br><br><strong>Simple Explanation:</strong> ${explanation}${type === "price-elasticity-demand" && signedElasticity < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
-    );
-  }
+    if (type === "price-elasticity-demand" || isSupply) value = Math.abs(signedElasticity);
 
-  function khidParseLinearFunction(raw, expectedVariable) {
+    const explanation = !isSupply ? elasticityExplanation(type, value) : null;
+    const classification = explanation ? explanation.classification : interpretPES(value);
+    const xName = isIncome ? "income" : isCross ? "price of Good Y" : "price";
+    const code = isIncome ? "YED" : isCross ? "XED" : isSupply ? "PES" : "PED";
+    const normal = explanation ? explanation.normal : "The absolute value measures how strongly quantity supplied responds to a change in price.";
+    const simple = explanation ? explanation.simple : "This shows how strongly sellers change the quantity they offer when price changes.";
+
+    return resultTemplate(
+      `${code} = percentage change in quantity / percentage change in ${xName}`,
+      `Quantity change (midpoint method) = ${mathNumber(qChange * 100)}%<br><br>${xName} change (midpoint method) = ${mathNumber(xChange * 100)}%<br><br>${code} = ${mathNumber(qChange)} / ${mathNumber(xChange)} = ${mathNumber(value)}${type === "price-elasticity-demand" ? `<br><br>Absolute value used for PED = ${mathNumber(value)}` : ""}`,
+      `${mathNumber(value)}<br><br><strong>Classification: ${classification}</strong>`,
+      `<strong>Normal Explanation:</strong> ${normal}<br><br><strong>Simple Explanation:</strong> ${simple}${type === "price-elasticity-demand" && signedElasticity < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. PED classification uses the absolute value.</small>` : ""}`
+    );
+}
+
+function khidParseLinearFunction(raw, expectedVariable) {
     // Safe parser for a straight-line expression: constant + coefficient * variable.
     // Supports +, -, explicit or implicit multiplication, division by constants,
     // decimal coefficients, and bracketed numeric coefficients such as (3/2)P.
@@ -7726,11 +7768,18 @@ if (aiInput) {
     const variableName = isIncome ? "income (Y)" : isCross ? "price of good Y (Py)" : "price (P)";
     const formula = isIncome ? "YED = (dQ/dY) &times; (Y/Q)" : isCross ? "XED = (dQx/dPy) &times; (Py/Qx)" : isSupply ? "PES = (dQs/dP) &times; (P/Qs)" : "PED = (dQd/dP) &times; (P/Qd)";
     const signedNote = type === "price-elasticity-demand" ? "The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, the calculator reports the absolute value as positive." : isSupply ? "The derivative shows the slope of the supply function. The usual supply elasticity classification uses its magnitude." : "The sign is meaningful here: it helps identify whether quantity moves in the same or opposite direction as the selected price or income variable.";
+    const tailored = khidElasticityIds.has(type) && !isSupply
+      ? elasticityExplanation(type, value)
+      : null;
+    const normalExplanation = tailored ? tailored.normal : classification;
+    const simpleExplanation = tailored ? tailored.simple : (isSupply
+      ? "This describes how strongly sellers change the amount they offer when price changes."
+      : "This describes the response of quantity to the selected price or income.");
     return resultTemplate(
       formula,
-      `Function entered: ${raw}<br>Derivative (slope) = ${number(slope)}. This means the quantity changes by ${number(slope)} units for each 1-unit change in ${variableName}, according to the entered straight-line function.<br><br>${quantityName} at this point = ${number(constant)} + (${number(slope)} * ${number(point)}) = ${number(quantity)}.<br><br>Elasticity = ${number(slope)} * (${number(point)} / ${number(quantity)}) = ${number(value)}.`,
-      `${number(value)}<br><strong>${classification.replace(/^Demand is /, "").replace(/:.*/, "")}</strong>`,
-      `${classification}<br><br><strong>Simple Explanation:</strong> ${isIncome ? "This shows how much demand responds when income changes at the income you entered." : isCross ? "This shows how demand for good X responds when the price of good Y changes at the point you entered." : isSupply ? "This shows how strongly sellers change the amount they offer when price changes." : "This shows how strongly buyers respond to price changes at the price you entered."}${type === "price-elasticity-demand" && valueSigned < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. For PED classification, we use the absolute value, so the result is shown as positive.</small>` : ""}`
+      `Function entered: ${escapeHtml(raw)}<br><br>Slope = ${mathNumber(slope)}<br>${quantityName} at this point = ${mathNumber(constant)} + (${mathNumber(slope)} Ã— ${mathNumber(point)}) = ${mathNumber(quantity)}<br><br>Elasticity = ${mathNumber(slope)} Ã— (${mathNumber(point)} / ${mathNumber(quantity)}) = ${mathNumber(value)}.`,
+      `${mathNumber(value)}<br><br><strong>Classification: ${tailored ? tailored.classification : classification}</strong>`,
+      `<strong>Normal Explanation:</strong> ${normalExplanation}<br><br><strong>Simple Explanation:</strong> ${simpleExplanation}${type === "price-elasticity-demand" && valueSigned < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. The usual PED classification uses the absolute value.</small>` : ""}`
     );
   }
 
@@ -7750,7 +7799,8 @@ if (aiInput) {
             result.innerHTML = `<h3>Result</h3>${output}`;
             return;
           }
-          result.innerHTML = `<h3>Result</h3>${output}<div class="working-box"><strong>How the totals were built</strong><p>${working.join("<br><br>")}</p></div>`;
+          result.innerHTML = `<h3>Result</h3>${output}<div class="working-box working"><strong>How the totals were built</strong><p>${working.join("<br><br>")}</p></div>`;
+          typesetMath(result);
           khidSimpleBox(khidFinancialSimple[type] || "This result helps explain one aspect of the business's financial position or performance. Consider it alongside the other financial statements and relevant business circumstances.");
         } catch (error) {
           result.innerHTML = errorMessage(error.message || "Please check your inputs.");
@@ -7764,6 +7814,7 @@ if (aiInput) {
           event.stopImmediatePropagation();
           try {
             result.innerHTML = `<h3>Result</h3>${method === "arc" ? khidCalculateArc(type) : khidCalculatePoint(type)}`;
+          typesetMath(result);
           } catch (error) {
             result.innerHTML = errorMessage(error.message || "Please check your inputs.");
           }
@@ -7779,9 +7830,8 @@ if (aiInput) {
       if (category === "financial-analysis" && khidFinancialMode === "basic") {
         khidSimpleBox(khidFinancialSimple[type] || "This ratio or measure gives one useful view of the business. Interpret it with the business's circumstances and other financial information.");
       }
-      if (category === "economics" && khidElasticityIds.has(type) && (khidElasticityMethod[type] || "percentage") === "percentage") {
-        khidSimpleBox(khidEconomicsSimple[type]);
-      }
+      // PED, XED and YED now render their own result-specific normal and simple explanations.
+      // Do not append the old generic explanation a second time.
     });
   }
 
