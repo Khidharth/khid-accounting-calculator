@@ -1953,6 +1953,13 @@ finance: {
         return resultTemplate(r===0?"\\(PMT=P/n\\)":"\\(PMT=\\frac{Pr(1+r)^n}{(1+r)^n-1}\\)",`${working}<br><br>Step ${r===0?2:4} \u2014 Calculate total payments:<br>Total = PMT \u00D7 n = ${money(payment)} \u00D7 ${n} = ${money(total)}<br><br>Step ${r===0?3:5} \u2014 Calculate total interest:<br>Interest = Total payments \u2212 Principal = ${money(total)} \u2212 ${money(P)} = ${money(interest)}`,`Payment per period: ${money(payment)}<br>Total payments: ${money(total)}<br>Total interest: ${money(interest)}`,"The calculation assumes a fixed periodic rate and equal payments throughout the loan term.");
     }
 },
+
+
+/* =========================================================
+   MATHEMATICS SECTION
+   (Quadratic Equation and the mathematics calculators below)
+========================================================= */
+
 "quadratic-equation": {
     title: "Quadratic Equation",
     fields: [["a", "Coefficient a", "number"], ["b", "Coefficient b", "number"], ["c", "Coefficient c", "number"]],
