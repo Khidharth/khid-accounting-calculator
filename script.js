@@ -114,9 +114,7 @@ function mathNumber(value) {
 }
 
 function cleanMathOutput(html) {
-    // Format numeric output only: whole numbers lose .0000 and genuine decimals
-    // are rounded to at most four places with trailing zeros removed.
-    return String(html).replace(/-?\d[\d,]*\.\d+/g, match => {
+    return String(html).replace(/-?\\d[\\d,]*\\.\\d+/g, match => {
         const value = Number(match.replace(/,/g, ""));
         return Number.isFinite(value) ? mathNumber(value) : match;
     });
@@ -212,44 +210,98 @@ function getArray(value) {
    RESULT TEMPLATE
 ========================================================= */
 
+function formatLearningSteps(working) {
+    const html = String(working ?? "").trim();
+    if (!html) return "No working was supplied for this calculation.";
+
+    // Keep detailed, manually authored workings and schedules exactly as they are.
+    if (/<table\b/i.test(html) || /<strong>\s*Step\s*\d+/i.test(html) || /\bStep\s*\d+\s*[:\u2014\u2013-]/i.test(html) || /<strong>Formula:?<\/strong>/i.test(html) || /<strong>Substitute:?<\/strong>/i.test(html)) {
+        return html;
+    }
+
+    let parts = html.split(/<br\s*\/?>\s*<br\s*\/?>/i).map(part => part.trim()).filter(Boolean);
+    // Older calculators sometimes separate stages with a single line break only.
+    if (parts.length === 1 && /<br\s*\/?>/i.test(parts[0])) {
+        parts = parts[0].split(/<br\s*\/?>/i).map(part => part.trim()).filter(Boolean);
+    }
+    if (!parts.length) return html;
+
+    // Number each meaningful working stage. This gives older calculators a consistent
+    // learning structure without changing their calculations or answer values.
+    return `<div class="learning-steps">${parts.map((part, index) =>
+        `<div class="learning-step" style="margin:0 0 12px 0;"><strong>Step ${index + 1}:</strong> ${part}</div>`
+    ).join("")}</div>`;
+}
+
+/* Convert stored LaTeX-like strings into readable browser-safe mathematical notation.
+   This avoids raw commands such as \\frac or broken escape sequences appearing in results. */
+function formatMathNotation(value) {
+    let out = String(value ?? "");
+    // Repair common mojibake/control characters if they entered a stored formula string.
+    out = out.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+    out = out.replace(/\\\(/g, "").replace(/\\\)/g, "")
+             .replace(/\\\[/g, "").replace(/\\\]/g, "");
+    out = out.replace(/\\left/g, "").replace(/\\right/g, "")
+             .replace(/\\quad/g, " ").replace(/\\qquad/g, " ")
+             .replace(/\\,/g, " ").replace(/\\!/g, "");
+    out = out.replace(/\\text\{([^{}]*)\}/g, "$1")
+             .replace(/\\mathrm\{([^{}]*)\}/g, "$1");
+    // Resolve nested square roots and fractions from the inside out. Fractions are displayed plainly.
+    for (let i = 0; i < 10; i++) {
+        const next = out.replace(/\\sqrt\{([^{}]*)\}/g, "\u221A($1)")
+                        .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, "($1) / ($2)");
+        if (next === out) break;
+        out = next;
+    }
+    out = out.replace(/\\sqrt\{([^{}]*)\}/g, "\u221A($1)")
+             .replace(/\\bar\{([^{}]*)\}/g, "$1\u0304")
+             .replace(/\\times/g, "\u00D7").replace(/\\cdot/g, "\u00B7")
+             .replace(/\\pm/g, "\u00B1").replace(/\\Delta/g, "\u0394")
+             .replace(/\\Sigma/g, "\u03A3").replace(/\\sum/g, "\u03A3")
+             .replace(/\\pi/g, "\u03C0").replace(/\\theta/g, "\u03B8")
+             .replace(/\\leq/g, "\u2264").replace(/\\geq/g, "\u2265")
+             .replace(/\\neq/g, "\u2260").replace(/\\infty/g, "\u221E")
+             .replace(/\\cdots/g, "\u2026")
+             .replace(/\bsqrt\(/g, "\u221A(");
+    // Use actual mathematical symbols instead of English spellings in formula labels.
+    out = out.replace(/\bDelta(?=(?:TR|TP|Q|L)\b)/g, "\u0394")
+             .replace(/\bDelta(TR|TP|Q|L)\b/g, "\u0394$1")
+             .replace(/\bDelta\b/g, "\u0394");
+    // Remove LaTeX grouping braces around powers/subscripts before formatting them.
+    out = out.replace(/\^\{([^{}]*)\}/g, "^$1").replace(/_\{([^{}]*)\}/g, "_$1");
+    // Convert common variable subscripts and powers to proper mathematical typography.
+    out = out.replace(/<[^>]*>|([A-Za-z\u0391-\u03A9\u03B1-\u03C9]+)_([A-Za-z0-9]+)/g, (match, name, index) => match.startsWith("<") ? match : `${name}<sub>${index}</sub>`)
+             .replace(/<[^>]*>|([A-Za-z\u0391-\u03A9\u03B1-\u03C90-9)])\^(\([^)]*\)|[+-]?[A-Za-z0-9]+)/g, (match, base, power) => match.startsWith("<") ? match : `${base}<sup>${power}</sup>`);
+    out = out.replace(/\s\*\s/g, " \u00D7 ").replace(/\s\/\s/g, " \u00F7 ")
+             .replace(/\bDeltaTR\b/g, "\u0394TR").replace(/\bDeltaQ\b/g, "\u0394Q")
+             .replace(/\bDeltaTP\b/g, "\u0394TP").replace(/\bDeltaL\b/g, "\u0394L");
+    return out;
+}
+
 function resultTemplate(
     formula,
     working,
     answer,
     interpretation = ""
 ) {
-
+    const displayFormula = formatMathNotation(formula);
+    const displayWorking = formatMathNotation(working);
+    const displayAnswer = formatMathNotation(answer);
+    const displayInterpretation = formatMathNotation(interpretation);
+    const learningWorking = formatLearningSteps(displayWorking);
     return `
-
-        <div class="formula-box formula">
-
-            <strong>Formula</strong>
-
-            <p>${formula}</p>
-
+        <div class="formula-box">
+            <strong>Formula / Method</strong>
+            <p>${displayFormula}</p>
         </div>
-
-
-        <div class="working-box working">
-
-            <strong>Working</strong>
-
-            <p>${working}</p>
-
+        <div class="working-box">
+            <strong>Step-by-Step Working</strong>
+            <div>${learningWorking}</div>
         </div>
-
-
-        <div class="interpretation-box answer">
-
-            <strong>Answer</strong>
-
-            <p>${answer}</p>
-
-            ${
-                interpretation
-                ? `<p><strong>Interpretation:</strong><br>${interpretation}</p>`
-                : ""
-            }
+        <div class="interpretation-box">
+            <strong>Final Answer</strong>
+            <p>${displayAnswer}</p>
+            ${displayInterpretation ? `<p><strong>Clarification:</strong><br>${displayInterpretation}</p>` : ""}
 
         </div>
 
@@ -266,18 +318,6 @@ function errorMessage(message) {
         </div>
     `;
 
-}
-
-
-/* Typeset newly inserted calculator formulas with MathJax when available. */
-function typesetMath(container) {
-    if (!container || !window.MathJax || typeof window.MathJax.typesetPromise !== "function") return;
-    if (typeof window.MathJax.typesetClear === "function") {
-        window.MathJax.typesetClear([container]);
-    }
-    window.MathJax.typesetPromise([container]).catch(error => {
-        console.warn("MathJax could not typeset this calculator result:", error);
-    });
 }
 
 
@@ -598,22 +638,9 @@ function astToString(n, parent=0) {
     if(n.kind==="neg") return `-${needsParens(n.arg,3)?"("+astToString(n.arg)+")":astToString(n.arg)}`;
     if(n.kind==="func") return `${n.name}(${astToString(n.arg)})`;
     const prec={"+":1,"-":1,"*":2,"/":2,"pow":3}[n.kind];
-    // Print common algebra in conventional notation, e.g. 3x^2 instead of 3 * x^2.
-    if(n.kind==="*" && isConst(n.left) && n.left.value===0) return "0";
-    if(n.kind==="*" && isConst(n.right) && n.right.value===0) return "0";
-    if(n.kind==="*" && isConst(n.left) && n.left.value===1) return astToString(n.right,parent);
-    if(n.kind==="*" && isConst(n.right) && n.right.value===1) return astToString(n.left,parent);
-    if(n.kind==="*" && n.left.kind==="/" && n.right.kind==="pow" && n.right.left.kind==="var") {
-        return `(${astToString(n.left)})x${astToString(n.right.right)==="1"?"":"^"+astToString(n.right.right)}`;
-    }
-    if(n.kind==="*" && isConst(n.left) && n.right.kind==="pow" && n.right.left.kind==="var") {
-        return `${astToString(n.left)}x${astToString(n.right.right)==="1"?"":"^"+astToString(n.right.right)}`;
-    }
-    if(n.kind==="*" && isConst(n.left) && n.right.kind==="var") return `${astToString(n.left)}x`;
-    if(n.kind==="*" && n.left.kind==="var" && n.right.kind==="pow" && n.right.left.kind==="var") return `x^${astToString(n.right.right)==="1"?"2":"1+"+astToString(n.right.right)}`;
     let a=astToString(n.left,prec), b=astToString(n.right,prec);
     if(n.kind==="pow") return `${wrapIf(n.left,n.kind)}^${wrapIf(n.right,n.kind)}`;
-    let out=n.kind==="*" ? `${a}${n.right.kind==="const"?" Ã— ":""}${n.right.kind==="const"?b:b}` : `${a} ${n.kind} ${b}`;
+    let out=`${a} ${n.kind} ${b}`;
     if(prec<parent) out=`(${out})`;
     return out;
 }
@@ -659,66 +686,9 @@ function containsSingularity(ast, lower, upper) {
     return false;
 }
 
-/* Polynomial normaliser: combines like terms and orders powers from highest to lowest.
-   Supports polynomials built from constants, x, +, -, multiplication, non-negative integer powers,
-   and division by a non-zero constant. Returns null for non-polynomial expressions. */
-function polynomialCoefficients(node) {
-    const clean = map => { for (const [k,v] of map) if (Math.abs(v)<1e-12) map.delete(k); return map; };
-    const add = (a,b,sign=1) => { const out=new Map(a); for(const [k,v] of b) out.set(k,(out.get(k)||0)+sign*v); return clean(out); };
-    const multiply = (a,b) => { const out=new Map(); for(const [i,x] of a) for(const [j,y] of b) out.set(i+j,(out.get(i+j)||0)+x*y); return clean(out); };
-    function visit(n) {
-        if(!n) return null;
-        if(n.kind==="const") return new Map([[0,n.value]]);
-        if(n.kind==="var") return new Map([[1,1]]);
-        if(n.kind==="neg") { const a=visit(n.arg); return a && new Map([...a].map(([k,v])=>[k,-v])); }
-        if(["+","-","*","/","pow"].includes(n.kind)) {
-            const a=visit(n.left), b=visit(n.right); if(!a||!b) return null;
-            if(n.kind==="+") return add(a,b);
-            if(n.kind==="-") return add(a,b,-1);
-            if(n.kind==="*") return multiply(a,b);
-            if(n.kind==="/") { if(b.size!==1||!b.has(0)||Math.abs(b.get(0))<1e-12) return null; return new Map([...a].map(([k,v])=>[k,v/b.get(0)])); }
-            if(n.kind==="pow") { if(b.size!==1||!b.has(0)||!Number.isInteger(b.get(0))||b.get(0)<0||b.get(0)>100) return null; let out=new Map([[0,1]]); for(let i=0;i<b.get(0);i++) out=multiply(out,a); return out; }
-        }
-        return null;
-    }
-    return visit(node);
-}
-function polynomialAst(map) {
-    const terms=[...map.entries()].filter(([,c])=>Math.abs(c)>1e-12).sort((a,b)=>b[0]-a[0]);
-    if(!terms.length) return constAst(0);
-    function coefficientAst(value) {
-        if (Math.abs(value-Math.round(value))<1e-10) return constAst(Math.round(value));
-        // Prefer a small exact fraction for common integration coefficients (1/2, 1/3, 1/6, etc.).
-        for (let denominator=2; denominator<=10000; denominator++) {
-            const numerator=Math.round(value*denominator);
-            if (Math.abs(value-numerator/denominator)<1e-10) {
-                const g=(a,b)=>b?g(b,a%b):Math.abs(a);
-                const d=g(numerator,denominator);
-                return {kind:"/",left:constAst(numerator/d),right:constAst(denominator/d)};
-            }
-        }
-        return constAst(Number(value.toFixed(8)));
-    }
-    let out=null;
-    for(const [power,coef] of terms) {
-        let term;
-        const negative = coef < 0, absCoef=Math.abs(coef);
-        if(power===0) term=coefficientAst(absCoef);
-        else {
-            const x=power===1?{kind:"var"}:{kind:"pow",left:{kind:"var"},right:constAst(power)};
-            term=absCoef===1 ? x : {kind:"*",left:coefficientAst(absCoef),right:x};
-        }
-        if(!out) out = negative ? {kind:"neg",arg:term} : term;
-        else if(negative) out={kind:"-",left:out,right:term};
-        else out={kind:"+",left:out,right:term};
-    }
-    return out;
-}
-function normalisePolynomial(node) { const map=polynomialCoefficients(node); return map===null? simplifyAst(node): polynomialAst(map); }
-
 function matrixHtml(M) {
     return `<table style="border-collapse:collapse; margin:8px 0;"><tbody>` +
-        M.map(row => `<tr>${row.map(x => `<td style="border:1px solid #999; padding:8px; min-width:45px; text-align:center;">${mathNumber(x)}</td>`).join("")}</tr>`).join("") +
+        M.map(row => `<tr>${row.map(x => `<td style="border:1px solid #999; padding:8px; min-width:45px; text-align:center;">${number(x,4)}</td>`).join("")}</tr>`).join("") +
         `</tbody></table>`;
 }
 function readMatrix(v,prefix,rows,cols) {
@@ -758,453 +728,241 @@ function inverseMatrix(M) {
 }
 
 function calculateIndicesExpression(raw) {
-    const original = String(raw ?? "").trim();
+    const original = String(raw || "").trim();
+    if (!original) return errorMessage("Enter an index expression, e.g. 2^3 * 2^4, 3^5 / 3^2, or (2^3)^2.");
 
-    if (!original) {
-        return errorMessage(
-            "Enter an index expression, e.g. 2^3 * 2^4, 3^5 / 3^2, (2^3)^2, or 2^-3."
-        );
-    }
-
-    // Normalize mathematical operators to standard JavaScript characters.
-    const expression = original
-        .replace(/[×·]/g, "*")
-        .replace(/÷/g, "/")
-        .replace(/[−–—]/g, "-")
+    const expression = normalizeSuperscriptPowers(original)
+        .replace(/[\u00D7\u00B7]/g, "*")
+        .replace(/\u00F7/g, "/")
+        .replace(/[\u2212\u2013\u2014]/g, "-")
         .replace(/\s+/g, "");
 
-    // Allow only supported mathematical characters.
-    if (/[^0-9.+\-*/^()]/.test(expression)) {
-        return errorMessage(
-            "Use numbers, brackets, +, -, *, / and ^ for powers."
-        );
+    if (/[^0-9.+\-* /^()]/.test(expression) || /[^0-9.+\-* /^()]/.test(expression.replace(/\s/g, ""))) {
+        return errorMessage("Use numbers, brackets, +, -, *, / and ^ for powers.");
     }
-
-    // Reject malformed operator combinations.
-    if (
-        !expression ||
-        /(?:\*\*|\/\/|\^\^|\+\+|--|\+\*|\+\/|\*\+|\/\+|\*\^|\/\^|\^\*|\^\/)/.test(expression)
-    ) {
-        return errorMessage(
-            "Check the operators and brackets in your expression."
-        );
+    if (/\*\*\*|\/\/|\^\^|[+*/^.-]{3,}/.test(expression)) {
+        return errorMessage("Check the operators and brackets in your expression.");
     }
 
     let value;
-
     try {
-        value = evaluateAst(parseMathExpression(expression), 0);
+        value = Function('"use strict"; return (' + expression.replace(/\^/g, "**") + ');')();
     } catch (_) {
-        return errorMessage(
-            "That index expression could not be read. Check the powers and brackets."
-        );
+        return errorMessage("That index expression could not be read. Check the powers and brackets.");
     }
+    if (!Number.isFinite(value)) return errorMessage("The expression does not produce a finite numerical answer.");
 
-    if (!Number.isFinite(value)) {
-        return errorMessage(
-            "The expression is undefined or too large to evaluate. Check for division by zero and invalid powers."
-        );
-    }
-
-    const num = n => mathNumber(n);
-
-    let law =
-        "Apply the order of operations: brackets, powers, multiplication and division, then addition and subtraction.";
-
+    let law = "Evaluate powers first, then complete the remaining operations in the correct order.";
     let simplified = expression;
+    let working = `Expression: <strong>${escapeHtml(original)}</strong><br><br>Evaluate the powers, then complete the remaining operations.`;
 
-    let working =
-        `Expression: <strong>${escapeHtml(original)}</strong><br><br>` +
-        "Evaluate powers first, then multiplication and division, followed by addition and subtraction.";
-
-    // Product law: a^m * a^n = a^(m+n)
-    let m = expression.match(
-        /^\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?\*\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?$/
-    );
-
-    if (m && Number(m[1]) === Number(m[3])) {
-        const base = m[1];
-        const a = Number(m[2]);
-        const b = Number(m[4]);
-        const power = a + b;
-
-        simplified = `${base}^${power}`;
-        law = "Product law: a^m * a^n = a^(m+n), for the same non-zero base.";
-
-        working =
-            `\\(${base}^{${a}} \\times ${base}^{${b}}\\)<br><br>` +
-            `\\(= ${base}^{${a}+${b}}\\)<br><br>` +
-            `\\(= ${base}^{${power}}\\)`;
-
+    let m = expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\*\(?\1\^(-?\d+)\)?$/);
+    if (m) {
+        const base = m[1], a = Number(m[2]), b = Number(m[3]);
+        simplified = `${base}^${a + b}`;
+        law = "Product rule: a^m \u00D7 a^n = a^(m+n)";
+        working = `${base}^${a} \u00D7 ${base}^${b} = ${base}^(${a} + ${b}) = <strong>${simplified}</strong>`;
     } else {
-        // Quotient law: a^m / a^n = a^(m-n)
-        m = expression.match(
-            /^\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?\/\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?$/
-        );
-
-        if (
-            m &&
-            Number(m[1]) === Number(m[3]) &&
-            Number(m[1]) !== 0
-        ) {
-            const base = m[1];
-            const a = Number(m[2]);
-            const b = Number(m[4]);
-            const power = a - b;
-
-            simplified = `${base}^${power}`;
-            law = "Quotient law: a^m / a^n = a^(m-n), where a is non-zero.";
-
-            working =
-                `\\(\\frac{${base}^{${a}}}{${base}^{${b}}}\\)<br><br>` +
-                `\\(= ${base}^{${a}-${b}}\\)<br><br>` +
-                `\\(= ${base}^{${power}}\\)`;
-
+        m = expression.match(/^\(?([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)?\/\(?\1\^(-?\d+)\)?$/);
+        if (m) {
+            const base = m[1], a = Number(m[2]), b = Number(m[3]);
+            simplified = `${base}^${a - b}`;
+            law = "Quotient rule: a^m / a^n = a^(m-n), where a is not zero";
+            working = `${base}^${a} / ${base}^${b} = ${base}^(${a} - ${b}) = <strong>${simplified}</strong>`;
         } else {
-            // Power of a power: (a^m)^n = a^(m*n)
-            m = expression.match(
-                /^\(\(?([0-9]+(?:\.[0-9]+)?)\^\(?(-?\d+)\)?\)?\)\^\(?(-?\d+)\)?$/
-            );
-
+            m = expression.match(/^\(([0-9]+(?:\.[0-9]+)?)\^(-?\d+)\)\^(-?\d+)$/);
             if (m) {
-                const base = m[1];
-                const a = Number(m[2]);
-                const b = Number(m[3]);
-                const power = a * b;
-
-                simplified = `${base}^${power}`;
-                law = "Power of a power: (a^m)^n = a^(m*n).";
-
-                working =
-                    `\\((${base}^{${a}})^{${b}}\\)<br><br>` +
-                    `\\(= ${base}^{${a} \\times ${b}}\\)<br><br>` +
-                    `\\(= ${base}^{${power}}\\)`;
-
-            } else {
-                // Single power: a^n
-                const pair = expression.match(
-                    /^\(?([0-9]+(?:\.[0-9]+)?)\)?\^(-?\d+)$/
-                );
-
-                if (pair) {
-                    const base = Number(pair[1]);
-                    const exponent = Number(pair[2]);
-
-                    if (exponent === 0 && base !== 0) {
-                        simplified = "1";
-                        law = "Zero exponent law: a^0 = 1, for a non-zero base.";
-                        working = `\\(${base}^{0} = 1\\)`;
-
-                    } else if (exponent < 0 && base !== 0) {
-                        simplified = `1/(${base}^${Math.abs(exponent)})`;
-
-                        law =
-                            "Negative exponent law: a^(-n) = 1/a^n, for a non-zero base.";
-
-                        working =
-                            `\\(${base}^{${exponent}}\\)<br><br>` +
-                            `\\(= \\frac{1}{${base}^{${Math.abs(exponent)}}}\\)<br><br>` +
-                            `\\(= ${num(value)}\\)`;
-
-                    } else if (exponent === 1) {
-                        simplified = String(base);
-                        law = "First power law: a^1 = a.";
-                        working = `\\(${base}^{1} = ${base}\\)`;
-                    }
-                }
+                const base = m[1], a = Number(m[2]), b = Number(m[3]);
+                simplified = `${base}^${a * b}`;
+                law = "Power of a power: (a^m)^n = a^(m \u00D7 n)";
+                working = `(${base}^${a})^${b} = ${base}^(${a} \u00D7 ${b}) = <strong>${simplified}</strong>`;
             }
         }
     }
 
-    // Format mathematical expressions for readable display.
-    function formatMath(text) {
-        return escapeHtml(String(text))
-            .replace(/\^(-?\d+)/g, "^{$1}")
-            .replace(/\*/g, " \\times ")
-            .replace(/\//g, " / ");
-    }
-
-    const displayIndex = formatMath(simplified);
-    const displayExpression = formatMath(expression);
-
     return resultTemplate(
-        "Laws of Indices",
-
-        `${working}<br><br>` +
-        `<strong>Numerical evaluation:</strong><br><br>` +
-        `\\(${displayExpression} = ${num(value)}\\)`,
-
-        `<strong>Simplified index form:</strong><br><br>` +
-        `\\(${displayIndex}\\)<br><br>` +
-        `<strong>Numerical answer:</strong><br>` +
-        `${num(value)}`,
-
+        law.includes("=") ? law : `Expression: ${escapeHtml(original)}`,
+        working,
+        `<strong>Index form:</strong> ${escapeHtml(simplified)}<br><br><strong>Numerical answer:</strong> ${mathNumber(value)}`,
         law
     );
 }
 
-function calculateLogExpression(raw) {
-    const original = String(raw ?? "").trim();
+function normalizeSuperscriptPowers(text) {
+    const superscripts = {"\u2070":"0","\u00B9":"1","\u00B2":"2","\u00B3":"3","\u2074":"4","\u2075":"5","\u2076":"6","\u2077":"7","\u2078":"8","\u2079":"9","\u207B":"-"};
+    return String(text).replace(/[\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079\u207B]+/g, part => "^" + [...part].map(ch => superscripts[ch] ?? ch).join(""));
+}
 
-    if (!original) {
-        return errorMessage(
-            "Enter a logarithm, e.g. log_2(8), log_10(100), or log_2(8) - log_2(2)."
-        );
-    }
-
-    // Convert mathematical operators to standard JavaScript characters.
-    let expr = original
-        .replace(/[−–—]/g, "-")
-        .replace(/[×·]/g, "*")
-        .replace(/÷/g, "/")
+function evaluateLogExpression(raw, collectedLogs = []) {
+    const subscriptDigits = {"\u2080":"0","\u2081":"1","\u2082":"2","\u2083":"3","\u2084":"4","\u2085":"5","\u2086":"6","\u2087":"7","\u2088":"8","\u2089":"9"};
+    let expr = normalizeSuperscriptPowers(String(raw || "").replace(/log([\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089]+)/gi, (_, digits) => "log_" + [...digits].map(ch => subscriptDigits[ch]).join("")))
+        .replace(/[\u2212\u2013\u2014]/g, "-").replace(/[\u00D7\u00B7]/g, "*").replace(/\u00F7/g, "/")
         .replace(/\s+/g, "");
 
+    // Read log_base(argument) with balanced brackets so the argument can contain powers,
+    // brackets, multiplication, division, or supported functions such as sqrt(...).
+    let output = "";
+    for (let i = 0; i < expr.length;) {
+        const match = expr.slice(i).match(/^log_([0-9]+(?:\.[0-9]+)?)\(/i);
+        if (!match) { output += expr[i++]; continue; }
+        const base = Number(match[1]);
+        const openAt = i + match[0].length - 1;
+        let depth = 1, j = openAt + 1;
+        for (; j < expr.length && depth > 0; j++) {
+            if (expr[j] === "(") depth++;
+            else if (expr[j] === ")") depth--;
+        }
+        if (depth !== 0) throw new Error("Missing closing bracket in logarithm.");
+        const argumentText = expr.slice(openAt + 1, j - 1);
+        const argument = evaluateLogExpression(argumentText, collectedLogs);
+        if (!(base > 0) || base === 1 || !(argument.value > 0) || !Number.isFinite(argument.value)) {
+            throw new Error("The base must be positive and not 1, and the logarithm argument must be positive.");
+        }
+        const value = Math.log(argument.value) / Math.log(base);
+        const item = {base, argumentText, argument:argument.value, value};
+        collectedLogs.push(item);
+        output += `(${value})`;
+        i = j;
+    }
+    const ast = parseMathExpression(output);
+    const value = evaluateAst(ast, 0);
+    if (!Number.isFinite(value)) throw new Error("The expression does not have a finite numerical value.");
+    return {value, expression:output};
+}
+
+function primePowerForm(value) {
+    if (!Number.isSafeInteger(value) || value < 2) return null;
+    let n = value;
+    const factors = [];
+    for (let p = 2; p * p <= n; p++) {
+        if (n % p !== 0) continue;
+        let power = 0;
+        while (n % p === 0) { n /= p; power++; }
+        factors.push({ prime: p, power });
+    }
+    if (n > 1) factors.push({ prime: n, power: 1 });
+    return factors;
+}
+
+function basePowerForm(base) {
+    if (!Number.isSafeInteger(base) || base < 2) return null;
+    const factors = primePowerForm(base);
+    if (!factors || factors.length !== 1 || factors[0].power < 2) return null;
+    return { prime: factors[0].prime, power: factors[0].power };
+}
+
+function expandedLogForm(base, argument) {
+    // Expand integer arguments that are exact powers, for example log_4(81) = 4 log_4(3).
+    if (!Number.isSafeInteger(argument) || argument < 2) return null;
+    const factors = primePowerForm(argument);
+    if (!factors || factors.length !== 1 || factors[0].power < 2) return null;
+    const { prime, power } = factors[0];
+    return {
+        prime,
+        power,
+        form: `${power} log_${mathNumber(base)}(${prime})`,
+        factorForm: `${mathNumber(argument)} = ${prime}^${power}`
+    };
+}
+
+function simplifyLogBaseForm(base, argumentForm) {
+    // If the base is a power, apply log_(a^n)(x) = (1/n) log_a(x).
+    const basePower = basePowerForm(base);
+    if (!basePower) return argumentForm;
+    const multiplierMatch = argumentForm.match(/^([0-9]+) log_[^(]+\((.+)\)$/);
+    const coefficient = multiplierMatch ? Number(multiplierMatch[1]) : 1;
+    const inside = multiplierMatch ? multiplierMatch[2] : argumentForm.match(/^log_[^(]+\((.+)\)$/)?.[1];
+    if (!inside) return argumentForm;
+    const numerator = coefficient;
+    const denominator = basePower.power;
+    const reducedNumerator = numerator / gcdPositiveIntegers(numerator, denominator);
+    const reducedDenominator = denominator / gcdPositiveIntegers(numerator, denominator);
+    const coefficientText = reducedNumerator === 1
+        ? (reducedDenominator === 1 ? "" : `1/${reducedDenominator} `)
+        : (reducedDenominator === 1 ? `${reducedNumerator} ` : `${reducedNumerator}/${reducedDenominator} `);
+    return `${coefficientText}log_${basePower.prime}(${inside})`;
+}
+
+function gcdPositiveIntegers(a, b) {
+    let x = Math.abs(a), y = Math.abs(b);
+    while (y) { const remainder = x % y; x = y; y = remainder; }
+    return x || 1;
+}
+
+function calculateLogExpression(raw) {
+    const original = String(raw || "").trim();
+    if (!original) return errorMessage("Enter a logarithm, for example log_2(8), log_4(9^2), or log_10(sqrt(100)).");
     const logs = [];
-
-    // Evaluate logarithms with numeric bases and arguments.
-    expr = expr.replace(
-        /log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)/gi,
-        (full, b, a) => {
-            const base = Number(b);
-            const arg = Number(a);
-
-            if (!(base > 0) || base === 1 || !(arg > 0)) {
-                return "(NaN)";
-            }
-
-            const val = Math.log(arg) / Math.log(base);
-
-            logs.push({
-                base,
-                arg,
-                value: val,
-                full
-            });
-
-            return `(${val})`;
-        }
-    );
-
-    if (/log|ln/i.test(expr)) {
-        return errorMessage(
-            "Use log_base(argument), e.g. log_2(8). The base must be positive and not 1; the argument must be positive."
-        );
-    }
-
-    if (/[^0-9.+\-*/^()]/.test(expr)) {
-        return errorMessage(
-            "Use logarithms with numeric bases and arguments, combined with +, -, *, / and brackets."
-        );
-    }
-
-    let value;
-
+    let result;
     try {
-        value = evaluateAst(parseMathExpression(expr), 0);
-    } catch (_) {
-        return errorMessage(
-            "I couldn't read that expression. Check the logarithm notation and brackets."
-        );
+        result = evaluateLogExpression(original, logs);
+    } catch (error) {
+        return errorMessage(error.message || "Check the logarithm notation, brackets, base and argument.");
     }
 
-    if (!Number.isFinite(value)) {
-        return errorMessage(
-            "The expression is undefined. Check each logarithm base and argument."
-        );
-    }
+    const steps = [];
+    let stepNumber = 1;
+    logs.forEach((item) => {
+        const baseText = mathNumber(item.base);
+        const cleanArgument = normalizeSuperscriptPowers(item.argumentText);
+        const argumentHtml = formatMathNotation(escapeHtml(cleanArgument));
+        const simplePower = cleanArgument.match(/^\(?\s*(\d+(?:\.\d+)?)\s*\)?\s*\^\s*(\d+)$/);
+        const exactPower = simplePower && Number.isInteger(Number(simplePower[1])) && Number(simplePower[2]) > 0;
 
-    // Detect exact integer powers.
-    function powerRep(n) {
-        if (!Number.isInteger(n) || n < 2) return null;
-
-        for (let power = 12; power >= 2; power--) {
-            const root = Math.round(Math.pow(n, 1 / power));
-
-            if (root > 1 && Math.pow(root, power) === n) {
-                return { root, power };
-            }
-        }
-
-        return null;
-    }
-
-    let simplified = original;
-    let law = "Change-of-base law: log_b(x) = ln(x) / ln(b).";
-    let working = "";
-
-    const single = original.replace(/\s+/g, "").match(
-        /^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)$/i
-    );
-
-    if (single) {
-        const base = Number(single[1]);
-        const arg = Number(single[2]);
-
-        let exactPower = null;
-
-        if (
-            Number.isInteger(base) &&
-            Number.isInteger(arg) &&
-            base > 1 &&
-            arg >= 1
-        ) {
-            let p = 1;
-
-            for (let k = 0; k <= 100; k++) {
-                if (p === arg) {
-                    exactPower = k;
-                    break;
-                }
-
-                p *= base;
-
-                if (p > arg) break;
-            }
-        }
-
-        const br = powerRep(base);
-        const ar = powerRep(arg);
-
-        if (exactPower !== null) {
-            simplified = String(exactPower);
-
-            working =
-                `Find the power n such that ${base}^n = ${arg}.` +
-                `<br><br>\\(${base}^{${exactPower}} = ${arg}\\)` +
-                `<br><br>Therefore, \\(\\log_{${base}}(${arg}) = ${exactPower}\\).`;
-
-            law = "Definition: log_b(x) = y means b^y = x.";
-
-        } else if (br && ar) {
-            const gcd = (a, b) => b ? gcd(b, a % b) : a;
-
-            const common = gcd(br.power, ar.power);
-            const m = br.power / common;
-            const n = ar.power / common;
-
-            const coefficient = n / m;
-
-            const coefficientText =
-                n === m ? "1" : `${n}/${m}`;
-
-            const coefficientMath =
-                n === m ? "1" : `\\frac{${n}}{${m}}`;
-
-            if (br.root === ar.root) {
-                simplified = coefficientText;
-            } else if (n === m) {
-                simplified = `log_${br.root}(${ar.root})`;
+        if (exactPower) {
+            const originalBase = Number(simplePower[1]);
+            const exponent = Number(simplePower[2]);
+            steps.push(`Step ${stepNumber++} \u2014 Evaluate the power inside the logarithm:<br>${argumentHtml} = ${mathNumber(item.argument)}`);
+            const expanded = expandedLogForm(item.base, item.argument);
+            if (expanded) {
+                steps.push(`Step ${stepNumber++} \u2014 Rewrite the argument as a power of a prime number:<br>${mathNumber(item.argument)} = ${expanded.prime}<sup>${expanded.power}</sup>`);
+                steps.push(`Step ${stepNumber++} \u2014 Apply the power rule for logarithms:<br>log<sub>${baseText}</sub>(${expanded.prime}<sup>${expanded.power}</sup>) = ${expanded.power} log<sub>${baseText}</sub>(${expanded.prime})`);
             } else {
-                simplified =
-                    `(${coefficientText}) log_${br.root}(${ar.root})`;
+                steps.push(`Step ${stepNumber++} \u2014 Apply the power rule for logarithms:<br>log<sub>${baseText}</sub>(${mathNumber(originalBase)}<sup>${exponent}</sup>) = ${exponent} log<sub>${baseText}</sub>(${mathNumber(originalBase)})`);
             }
-
-            if (br.root === ar.root) {
-                working =
-                    `Express the base and argument as powers:` +
-                    `<br><br>\\(${base} = ${br.root}^{${br.power}}\\)` +
-                    `<br>\\(${arg} = ${ar.root}^{${ar.power}}\\)` +
-                    `<br><br>Apply the power rule:` +
-                    `<br><br>\\(\\log_{${br.root}^{${br.power}}}` +
-                    `(${ar.root}^{${ar.power}})\\)` +
-                    `<br><br>\\(= \\frac{${ar.power}}{${br.power}}\\)` +
-                    `<br><br>\\(= ${coefficientMath} = ${mathNumber(value)}\\)`;
-
-            } else {
-                const reducedLog =
-                    n === m
-                        ? `\\log_{${br.root}}(${ar.root})`
-                        : `${coefficientMath}\\log_{${br.root}}(${ar.root})`;
-
-                working =
-                    `Express the base and argument as powers:` +
-                    `<br><br>\\(${base} = ${br.root}^{${br.power}}\\)` +
-                    `<br>\\(${arg} = ${ar.root}^{${ar.power}}\\)` +
-                    `<br><br>Apply the power rule:` +
-                    `<br><br>\\(\\log_{${br.root}^{${br.power}}}` +
-                    `(${ar.root}^{${ar.power}})\\)` +
-                    `<br><br>\\(= \\frac{${ar.power}}{${br.power}}` +
-                    `\\log_{${br.root}}(${ar.root})\\)` +
-                    `<br><br>Reduced form: \\(${reducedLog}\\)` +
-                    `<br><br>Numerical answer: \\(${mathNumber(value)}\\)`;
-            }
-
-            law =
-                "Power law: log_(a^m)(b^n) = (n/m) log_a(b), for valid positive bases and arguments.";
-
         } else {
-            working =
-                `Use the change-of-base formula:` +
-                `<br><br>\\(\\log_{${base}}(${arg})` +
-                `= \\frac{\\ln(${arg})}{\\ln(${base})}\\)` +
-                `<br><br>\\(= \\frac{${mathNumber(Math.log(arg))}}` +
-                `{${mathNumber(Math.log(base))}}\\)` +
-                `<br><br>\\(= ${mathNumber(value)}\\)`;
-        }
-    }
-
-    // Simplify addition and subtraction of logarithms with the same base.
-    const pair = original.replace(/\s+/g, "").match(
-        /^log_([0-9]+(?:\.[0-9]+)?)\(([0-9]+(?:\.[0-9]+)?)\)([+\-*/])log_\1\(([0-9]+(?:\.[0-9]+)?)\)$/i
-    );
-
-    if (pair) {
-        const b = Number(pair[1]);
-        const x = Number(pair[2]);
-        const op = pair[3];
-        const y = Number(pair[4]);
-
-        if ((op === "+" || op === "-") && b > 0 && b !== 1) {
-            const inside = op === "+" ? x * y : x / y;
-
-            if (inside > 0 && Number.isFinite(inside)) {
-                simplified =
-                    `log_${mathNumber(b)}(${mathNumber(inside)})`;
-
-                law =
-                    op === "+"
-                        ? "Product law: log_b(x) + log_b(y) = log_b(xy)."
-                        : "Quotient law: log_b(x) - log_b(y) = log_b(x/y).";
-
-                working =
-                    `\\(\\log_{${b}}(${x}) ${op} \\log_{${b}}(${y})\\)` +
-                    `<br><br>\\(= \\log_{${b}}` +
-                    `\\left(${op === "+" ? `${x} \\times ${y}` : `${x} / ${y}`}\\right)\\)` +
-                    `<br><br>\\(= \\log_{${b}}(${mathNumber(inside)})\\)` +
-                    `<br><br>Numerical answer: \\(${mathNumber(value)}\\)`;
+            steps.push(`Step ${stepNumber++} \u2014 Simplify the logarithm's argument:<br>${argumentHtml} = ${mathNumber(item.argument)}`);
+            const expanded = expandedLogForm(item.base, item.argument);
+            if (expanded) {
+                steps.push(`Step ${stepNumber++} \u2014 Factor the argument into a power:<br>${expanded.factorForm}`);
+                steps.push(`Step ${stepNumber++} \u2014 Apply the power rule:<br>log<sub>${baseText}</sub>(${expanded.prime}<sup>${expanded.power}</sup>) = ${expanded.power} log<sub>${baseText}</sub>(${expanded.prime})`);
             }
         }
+        const basePower = basePowerForm(item.base);
+        if (basePower) {
+            steps.push(`Step ${stepNumber++} \u2014 Break down the base into a power:<br>${baseText} = ${basePower.prime}<sup>${basePower.power}</sup>`);
+            steps.push(`Step ${stepNumber++} \u2014 Apply the base power rule:<br>log<sub>${basePower.prime}<sup>${basePower.power}</sup></sub>(x) = (1/${basePower.power}) log<sub>${basePower.prime}</sub>(x)`);
+        }
+        steps.push(`Step ${stepNumber++} \u2014 Find the numerical value using change of base:<br>log<sub>${baseText}</sub>(${mathNumber(item.argument)}) = ln(${mathNumber(item.argument)}) \u00F7 ln(${baseText}) = ${mathNumber(item.value)}`);
+    });
+    if (!steps.length) {
+        steps.push(`Step 1 \u2014 Evaluate the logarithmic expression:<br>${formatMathNotation(escapeHtml(normalizeSuperscriptPowers(original)))}`);
+    }
+    if (logs.length > 1 || /[+*/\u2212\u00F7\u00D7]/.test(normalizeSuperscriptPowers(original).replace(/log_[0-9.]+/gi, ""))) {
+        steps.push(`Final step \u2014 Complete the remaining operations:<br>${mathNumber(result.value)}`);
     }
 
-    if (!working) {
-        working = logs
-            .map(z =>
-                `\\(\\log_{${z.base}}(${z.arg})` +
-                `= \\frac{\\ln(${z.arg})}{\\ln(${z.base})}` +
-                `= ${mathNumber(z.value)}\\)`
-            )
-            .join("<br><br>");
-
-        if (!working) {
-            working =
-                `Expression: ${escapeHtml(original)}` +
-                `<br><br>Evaluate each logarithm using the change-of-base law.`;
+    const law = "Power rule: log_b(x^n) = n log_b(x). Change of base: log_b(x) = ln(x) \u00F7 ln(b), where b > 0, b \u2260 1 and x > 0.";
+    const normalizedOriginal = normalizeSuperscriptPowers(original);
+    const oneLogOnly = normalizedOriginal.match(/^log_([0-9]+(?:\.[0-9]+)?)\((.*)\)$/i);
+    let logForm = normalizedOriginal;
+    if (oneLogOnly && logs.length === 1) {
+        const item = logs[0];
+        const expanded = expandedLogForm(item.base, item.argument);
+        if (expanded) {
+            logForm = simplifyLogBaseForm(item.base, expanded.form);
+        } else {
+            const power = item.argumentText.match(/^\(?\s*(\d+(?:\.\d+)?)\s*\)?\s*\^\s*(\d+)$/);
+            const argumentForm = power
+                ? `${power[2]} log_${mathNumber(item.base)}(${mathNumber(Number(power[1]))})`
+                : `log_${mathNumber(item.base)}(${mathNumber(item.argument)})`;
+            logForm = simplifyLogBaseForm(item.base, argumentForm);
         }
     }
-
-    // Prepare readable mathematical notation.
-    const displayLog = escapeHtml(simplified)
-        .replace(/log_([0-9.]+)/gi, "\\log_{$1}")
-        .replace(/\^(-?\d+)/g, "^{$1}")
-        .replace(/\*/g, " \\times ")
-        .replace(/(^|[^\\])\//g, "$1 / ");
-
     return resultTemplate(
-        "Logarithms",
-        working,
-        `<strong>Simplified logarithmic form:</strong><br><br>` +
-        `\\(${displayLog}\\)<br><br>` +
-        `<strong>Numerical answer:</strong><br>${mathNumber(value)}`,
+        "log<sub>b</sub>(x) = ln(x) \u00F7 ln(b)",
+        steps.join("<br><br>"),
+        `<strong>Final logarithmic form:</strong> ${formatMathNotation(escapeHtml(logForm))}<br><br><strong>Numerical answer:</strong> ${mathNumber(result.value)}`,
         law
     );
 }
@@ -1234,7 +992,7 @@ accounting: {
     ],
 
     formula:
-        "Annual Depreciation = (Cost - Residual Value) / Useful Life",
+        "D = (C \u2212 R) \u00F7 n",
 
     calculate(v) {
 
@@ -1256,18 +1014,9 @@ accounting: {
 
         return resultTemplate(
 
-            "Annual Depreciation = (Cost - Residual Value) / Useful Life",
+            "D = (C \u2212 R) \u00F7 n \u2014 annual straight-line depreciation",
 
-            `
-            = (${money(cost)} - ${money(residual)})
-              / ${life}<br><br>
-
-            Annual Depreciation =
-            ${money(annual)}<br><br>
-
-            Monthly Depreciation =
-            ${money(monthly)}
-            `,
+            `Step 1 \u2014 Calculate the depreciable amount:<br>Cost \u2212 Residual value = ${money(cost)} \u2212 ${money(residual)} = ${money(cost-residual)}<br><br>Step 2 \u2014 Divide by the useful life in years:<br>Annual depreciation = ${money(cost-residual)} \u00F7 ${number(life)} = ${money(annual)}<br><br>Step 3 \u2014 Convert annual depreciation to a monthly amount:<br>Monthly depreciation = ${money(annual)} \u00F7 12 = ${money(monthly)}` ,
 
             `Annual: ${money(annual)}<br>
              Monthly: ${money(monthly)}`
@@ -1334,7 +1083,7 @@ accounting: {
 
             return resultTemplate(
 
-                "S = C(1 - r)n<br><br>Therefore: r = 1 - (S / C)1/n",
+                "S = C(1 \u2212 r)\u207F<br><br>Therefore: r = 1 \u2212 (S \u00F7 C)^(1/n)",
 
                 `
                 S = ${money(residual)}<br>
@@ -1551,7 +1300,7 @@ accounting: {
 
         return resultTemplate(
 
-            "Depreciation = Opening Carrying Amount * Rate * Time Fraction<br><br>Closing Carrying Amount = Opening Carrying Amount - Depreciation",
+            "D\u209C = CA\u209C\u208B\u2081 \u00D7 r \u00D7 f; CA\u209C = CA\u209C\u208B\u2081 \u2212 D\u209C; f = days in period \u00F7 days in year",
 
             `
             Cost = ${money(cost)}<br>
@@ -1578,219 +1327,63 @@ accounting: {
 
 
 "book-value": {
-
     title: "Book Value",
-
-    fields: [
-        ["cost", "Original Cost (NGN)", "number"],
-        ["accumulated", "Accumulated Depreciation (NGN)", "number"]
-    ],
-
-    formula:
-        "Book Value = Cost - Accumulated Depreciation",
-
+    fields: [["cost", "Original Cost (NGN)", "number"], ["accumulated", "Accumulated Depreciation (NGN)", "number"]],
+    formula: "\\(\\text{Book value}=\\text{Cost}-\\text{Accumulated depreciation}\\)",
     calculate(v) {
-
-        const cost = getNumber(v, "cost");
-        const accumulated =
-            getNumber(v, "accumulated");
-
-        const book =
-            cost - accumulated;
-
-        return resultTemplate(
-
-            "Book Value = Cost - Accumulated Depreciation",
-
-            `
-            = ${money(cost)}
-              - ${money(accumulated)}
-            `,
-
-            money(book)
-        );
-
+        const cost=getNumber(v,"cost"), accumulated=getNumber(v,"accumulated");
+        if (![cost,accumulated].every(Number.isFinite) || cost<0 || accumulated<0) return errorMessage("Enter valid non-negative cost and accumulated depreciation.");
+        if (accumulated>cost) return errorMessage("Accumulated depreciation cannot exceed the original cost for this basic book-value calculation.");
+        const book=cost-accumulated;
+        return resultTemplate("\\(\\text{Book value}=\\text{Cost}-\\text{Accumulated depreciation}\\)",`Step 1 \u2014 Identify the original cost:<br>Cost = ${money(cost)}<br><br>Step 2 \u2014 Identify accumulated depreciation to date:<br>Accumulated depreciation = ${money(accumulated)}<br><br>Step 3 \u2014 Subtract accumulated depreciation from cost:<br>Book value = ${money(cost)} \u2212 ${money(accumulated)} = ${money(book)}`,money(book),"Book value is the carrying amount before considering any separate impairment or revaluation adjustment.");
     }
-
 },
-
-
 "gross-profit": {
-
     title: "Gross Profit",
-
-    fields: [
-        ["sales", "Sales Revenue (NGN)", "number"],
-        ["cogs", "Cost of Goods Sold (NGN)", "number"]
-    ],
-
-    formula:
-        "Gross Profit = Sales - Cost of Goods Sold",
-
+    fields: [["sales", "Sales Revenue (NGN)", "number"], ["cogs", "Cost of Goods Sold (NGN)", "number"]],
+    formula: "\\(\\text{Gross profit}=\\text{Sales}-\\text{Cost of goods sold}\\)",
     calculate(v) {
-
-        const sales = getNumber(v, "sales");
-        const cogs = getNumber(v, "cogs");
-
-        const profit =
-            sales - cogs;
-
-        return resultTemplate(
-
-            "Gross Profit = Sales - COGS",
-
-            `
-            = ${money(sales)}
-              - ${money(cogs)}
-            `,
-
-            money(profit)
-        );
-
+        const sales=getNumber(v,"sales"), cogs=getNumber(v,"cogs");
+        if (![sales,cogs].every(Number.isFinite)) return errorMessage("Enter valid sales and cost of goods sold values.");
+        const profit=sales-cogs;
+        return resultTemplate("\\(\\text{Gross profit}=\\text{Sales}-\\text{COGS}\\)",`Step 1 \u2014 Identify sales revenue:<br>Sales = ${money(sales)}<br><br>Step 2 \u2014 Identify the cost of goods sold:<br>COGS = ${money(cogs)}<br><br>Step 3 \u2014 Subtract COGS from sales:<br>Gross profit = ${money(sales)} \u2212 ${money(cogs)} = ${money(profit)}`,money(profit),"Gross profit is calculated before deducting operating expenses and other costs not included in cost of goods sold.");
     }
-
 },
-
-
 "gross-profit-margin": {
-
     title: "Gross Profit Margin",
-
-    fields: [
-        ["sales", "Sales Revenue (NGN)", "number"],
-        ["cogs", "Cost of Goods Sold (NGN)", "number"]
-    ],
-
-    formula:
-        "Gross Profit Margin = Gross Profit / Sales * 100",
-
+    fields: [["sales", "Sales Revenue (NGN)", "number"], ["cogs", "Cost of Goods Sold (NGN)", "number"]],
+    formula: "\\(\\text{Gross margin}=\\frac{\\text{Sales}-\\text{COGS}}{\\text{Sales}}\\times100\\%\\)",
     calculate(v) {
-
-        const sales = getNumber(v, "sales");
-        const cogs = getNumber(v, "cogs");
-
-        if (sales === 0) {
-            return errorMessage("Sales cannot be zero.");
-        }
-
-        const grossProfit =
-            sales - cogs;
-
-        const margin =
-            (grossProfit / sales) * 100;
-
-        return resultTemplate(
-
-            "Gross Profit Margin = (Gross Profit / Sales) * 100",
-
-            `
-            Gross Profit =
-            ${money(grossProfit)}<br><br>
-
-            = ${money(grossProfit)}
-              / ${money(sales)}
-              * 100
-            `,
-
-            percent(margin)
-        );
-
+        const sales=getNumber(v,"sales"), cogs=getNumber(v,"cogs");
+        if (![sales,cogs].every(Number.isFinite)) return errorMessage("Enter valid sales and COGS values.");
+        if (sales===0) return errorMessage("Sales cannot be zero because sales is the denominator.");
+        const grossProfit=sales-cogs, margin=grossProfit/sales*100;
+        return resultTemplate("\\(\\text{Gross margin}=\\frac{\\text{Gross profit}}{\\text{Sales}}\\times100\\%\\)",`Step 1 \u2014 Calculate gross profit:<br>Gross profit = Sales \u2212 COGS = ${money(sales)} \u2212 ${money(cogs)} = ${money(grossProfit)}<br><br>Step 2 \u2014 Divide gross profit by sales:<br>${money(grossProfit)} \u00F7 ${money(sales)} = ${number(grossProfit/sales,6)}<br><br>Step 3 \u2014 Convert the ratio to a percentage:<br>${number(grossProfit/sales,6)} \u00D7 100% = ${percent(margin)}`,percent(margin),"The percentage of sales revenue remaining after covering the cost of goods sold.");
     }
-
 },
-
-
 "net-profit": {
-
     title: "Net Profit",
-
-    fields: [
-        ["revenue", "Revenue (NGN)", "number"],
-        ["expenses", "Total Expenses (NGN)", "number"]
-    ],
-
-    formula:
-        "Net Profit = Revenue - Total Expenses",
-
+    fields: [["revenue", "Revenue (NGN)", "number"], ["expenses", "Total Expenses (NGN)", "number"]],
+    formula: "\\(\\text{Net profit}=\\text{Revenue}-\\text{Total expenses}\\)",
     calculate(v) {
-
-        const revenue =
-            getNumber(v, "revenue");
-
-        const expenses =
-            getNumber(v, "expenses");
-
-        const profit =
-            revenue - expenses;
-
-        return resultTemplate(
-
-            "Net Profit = Revenue - Expenses",
-
-            `
-            = ${money(revenue)}
-              - ${money(expenses)}
-            `,
-
-            money(profit)
-        );
-
+        const revenue=getNumber(v,"revenue"), expenses=getNumber(v,"expenses");
+        if (![revenue,expenses].every(Number.isFinite)) return errorMessage("Enter valid revenue and expense values.");
+        const profit=revenue-expenses;
+        return resultTemplate("\\(\\text{Net profit}=\\text{Revenue}-\\text{Expenses}\\)",`Step 1 \u2014 Identify total revenue:<br>Revenue = ${money(revenue)}<br><br>Step 2 \u2014 Identify total expenses:<br>Expenses = ${money(expenses)}<br><br>Step 3 \u2014 Subtract total expenses from revenue:<br>Net profit = ${money(revenue)} \u2212 ${money(expenses)} = ${money(profit)}`,money(profit),profit<0?"Expenses exceed revenue, so the result is a net loss.":"This is the amount remaining after the stated expenses are deducted from revenue.");
     }
-
 },
-
-
 "net-profit-margin": {
-
     title: "Net Profit Margin",
-
-    fields: [
-        ["revenue", "Revenue (NGN)", "number"],
-        ["expenses", "Total Expenses (NGN)", "number"]
-    ],
-
-    formula:
-        "Net Profit Margin = Net Profit / Revenue * 100",
-
+    fields: [["revenue", "Revenue (NGN)", "number"], ["expenses", "Total Expenses (NGN)", "number"]],
+    formula: "\\(\\text{Net margin}=\\frac{\\text{Net profit}}{\\text{Revenue}}\\times100\\%\\)",
     calculate(v) {
-
-        const revenue =
-            getNumber(v, "revenue");
-
-        const expenses =
-            getNumber(v, "expenses");
-
-        if (revenue === 0) {
-            return errorMessage("Revenue cannot be zero.");
-        }
-
-        const profit =
-            revenue - expenses;
-
-        const margin =
-            (profit / revenue) * 100;
-
-        return resultTemplate(
-
-            "Net Profit Margin = (Net Profit / Revenue) * 100",
-
-            `
-            Net Profit =
-            ${money(profit)}<br><br>
-
-            = ${money(profit)}
-              / ${money(revenue)}
-              * 100
-            `,
-
-            percent(margin)
-        );
-
+        const revenue=getNumber(v,"revenue"), expenses=getNumber(v,"expenses");
+        if (![revenue,expenses].every(Number.isFinite)) return errorMessage("Enter valid revenue and expense values.");
+        if (revenue===0) return errorMessage("Revenue cannot be zero because it is the denominator.");
+        const profit=revenue-expenses, margin=profit/revenue*100;
+        return resultTemplate("\\(\\text{Net margin}=\\frac{\\text{Net profit}}{\\text{Revenue}}\\times100\\%\\)",`Step 1 \u2014 Calculate net profit:<br>Net profit = Revenue \u2212 Expenses = ${money(revenue)} \u2212 ${money(expenses)} = ${money(profit)}<br><br>Step 2 \u2014 Divide net profit by revenue:<br>${money(profit)} \u00F7 ${money(revenue)} = ${number(profit/revenue,6)}<br><br>Step 3 \u2014 Convert the ratio to a percentage:<br>${number(profit/revenue,6)} \u00D7 100% = ${percent(margin)}`,percent(margin),margin<0?"A negative net margin means the stated expenses exceed revenue.":"This is the share of revenue remaining after the stated expenses are deducted.");
     }
-
 },
-
-
 "markup": {
 
     title: "Markup",
@@ -1801,7 +1394,7 @@ accounting: {
     ],
 
     formula:
-        "Markup % = (Selling Price - Cost) / Cost * 100",
+        "MU% = [(SP \u2212 C) \u00F7 C] \u00D7 100%",
 
     calculate(v) {
 
@@ -1817,16 +1410,9 @@ accounting: {
 
         return resultTemplate(
 
-            "Markup % = (Selling Price - Cost) / Cost * 100",
+            "MU% = [(SP \u2212 C) \u00F7 C] \u00D7 100%",
 
-            `
-            Markup =
-            ${money(selling - cost)}<br><br>
-
-            = ${money(selling - cost)}
-              / ${money(cost)}
-              * 100
-            `,
+            `Step 1 \u2014 Calculate the markup amount:<br>Markup = Selling Price \u2212 Cost = ${money(selling)} \u2212 ${money(cost)} = ${money(selling-cost)}<br><br>Step 2 \u2014 Divide markup by cost:<br>Markup ratio = ${money(selling-cost)} \u00F7 ${money(cost)} = ${compactNumber((selling-cost)/cost)}<br><br>Step 3 \u2014 Convert the ratio to a percentage:<br>Markup % = ${compactNumber((selling-cost)/cost)} \u00D7 100% = ${percent(markup)}` ,
 
             percent(markup)
         );
@@ -1847,7 +1433,7 @@ accounting: {
     ],
 
     formula:
-        "Break-Even Units = Fixed Costs / (Selling Price - Variable Cost)",
+        "Q_BE = FC \u00F7 (P \u2212 AVC)",
 
     calculate(v) {
 
@@ -1869,15 +1455,9 @@ accounting: {
 
         return resultTemplate(
 
-            "Break-Even Units = Fixed Costs / Contribution per Unit",
+            "Q_BE = FC \u00F7 (P \u2212 AVC)",
 
-            `
-            Contribution per unit =
-            ${money(contribution)}<br><br>
-
-            = ${money(fixed)}
-              / ${money(contribution)}
-            `,
+            `Step 1 \u2014 Calculate contribution per unit:<br>Contribution = Selling price \u2212 Variable cost = ${money(selling)} \u2212 ${money(variable)} = ${money(contribution)}<br><br>Step 2 \u2014 Divide fixed costs by contribution per unit:<br>Q_BE = FC \u00F7 Contribution = ${money(fixed)} \u00F7 ${money(contribution)} = ${number(units)} units<br><br>Step 3 \u2014 Interpret the result:<br>The business must sell approximately ${number(units)} units to cover its fixed and variable costs at the stated prices.` ,
 
             `${number(units)} units`
         );
@@ -1897,7 +1477,7 @@ accounting: {
     ],
 
     formula:
-        "VAT = Amount * VAT Rate / 100",
+        "VAT = B \u00D7 r \u00F7 100; Total = B + VAT",
 
     calculate(v) {
 
@@ -1912,19 +1492,9 @@ accounting: {
 
         return resultTemplate(
 
-            "VAT = Amount * VAT Rate / 100",
+            "VAT = B \u00D7 r \u00F7 100; Total = B + VAT",
 
-            `
-            VAT =
-            ${money(amount)}
-            * ${percent(rate)}
-            = ${money(vat)}<br><br>
-
-            Total =
-            ${money(amount)}
-            + ${money(vat)}
-            = ${money(total)}
-            `,
+            `Step 1 \u2014 Calculate VAT:<br>VAT = B \u00D7 r \u00F7 100 = ${money(amount)} \u00D7 ${number(rate)} \u00F7 100 = ${money(vat)}<br><br>Step 2 \u2014 Add VAT to the original amount:<br>Total = B + VAT = ${money(amount)} + ${money(vat)} = ${money(total)}` ,
 
             `VAT: ${money(vat)}<br>
              Total: ${money(total)}`
@@ -1945,7 +1515,7 @@ accounting: {
     ],
 
     formula:
-        "Remaining Receivable = Original Receivable - Bad Debt",
+        "AR_remaining = AR \u2212 BD",
 
     calculate(v) {
 
@@ -1966,12 +1536,9 @@ accounting: {
 
         return resultTemplate(
 
-            "Remaining Receivable = Receivable - Bad Debt",
+            "AR_remaining = AR \u2212 BD",
 
-            `
-            = ${money(receivable)}
-              - ${money(bad)}
-            `,
+            `Step 1 \u2014 Identify the original receivable:<br>AR = ${money(receivable)}<br><br>Step 2 \u2014 Deduct the amount confirmed irrecoverable:<br>AR_remaining = AR \u2212 BD = ${money(receivable)} \u2212 ${money(bad)} = ${money(remaining)}<br><br>Step 3 \u2014 Recognise the bad debt expense:<br>Bad Debt Expense = ${money(bad)}` ,
 
             `Bad Debt Expense: ${money(bad)}<br>
              Remaining Receivable: ${money(remaining)}`
@@ -1993,7 +1560,7 @@ accounting: {
     ],
 
     formula:
-        "COGS = Opening Inventory + Purchases - Closing Inventory",
+        "COGS = OI + P \u2212 CI",
 
     calculate(v) {
 
@@ -2006,7 +1573,7 @@ accounting: {
 
         return resultTemplate(
 
-            "COGS = Opening Inventory + Purchases - Closing Inventory",
+            "COGS = OI + P \u2212 CI",
 
             `
             = ${money(opening)}
@@ -2063,7 +1630,7 @@ accounting: {
             : "No impairment journal entry is required because no impairment loss arises.";
 
         return resultTemplate(
-            "Recoverable Amount = Higher of FVLCD and Value in Use",
+            "RA = max(FVLCD, VIU); Impairment Loss = max(0, CA \u2212 RA)",
             `
             Fair Value Less Costs of Disposal (FVLCD)<br>
             = ${money(fairValue)} - ${money(costsDisposal)}<br>
@@ -2130,7 +1697,7 @@ accounting: {
     },
 
     formula:
-        "Allocated Revenue = (Stand-Alone Selling Price / Total Stand-Alone Selling Prices) * Transaction Price",
+        "AR\u1D62 = (SSP\u1D62 \u00F7 \u03A3SSP) \u00D7 TP",
 
     calculate(v) {
 
@@ -2188,6 +1755,12 @@ accounting: {
             remaining += row.remaining;
         });
 
+        const allocationSteps = rows.map(row => {
+            const recognisedPercent = row.status === "satisfied" ? 100 : row.status === "partial" ? row.percentSatisfied : 0;
+            const statusText = row.status === "satisfied" ? "100% satisfied" : row.status === "partial" ? `${number(row.percentSatisfied)}% satisfied` : "not yet satisfied";
+            return `Obligation ${row.number}: Allocated Revenue = (${money(row.ssp)} \u00F7 ${money(totalSSP)}) \u00D7 ${money(transactionPrice)} = ${money(row.allocated)}; Recognised Revenue = ${money(row.allocated)} \u00D7 ${number(recognisedPercent)}% = ${money(row.recognised)} (${statusText}).`;
+        }).join("<br><br>");
+
         const tableRows = rows.map(row => `
             <tr>
                 <td style="padding:8px; border:1px solid #999;">${row.number}</td>
@@ -2200,26 +1773,8 @@ accounting: {
         `).join("");
 
         return resultTemplate(
-            "Allocated Revenue = (SSP of Obligation / Total SSP) * Transaction Price",
-            `
-            Total Transaction Price = ${money(transactionPrice)}<br>
-            Total Stand-Alone Selling Prices = ${money(totalSSP)}<br><br>
-
-            <strong>Allocation working for each obligation</strong><br><br>
-            ${rows.map(row => {
-                const allocatedRaw = row.ssp / totalSSP * transactionPrice;
-                const pct = row.status === "satisfied" ? 100 : row.status === "partial" ? row.percentSatisfied : 0;
-                const recognisedRaw = allocatedRaw * pct / 100;
-                return `<div style="margin:0 0 18px; padding:12px; border-radius:10px; background:rgba(120,130,160,.08);">
-                    <strong>Obligation ${row.number}</strong><br>
-                    Allocation = SSP / Total SSP Ã— Transaction Price<br>
-                    = ${compactNumber(row.ssp, 2)} / ${compactNumber(totalSSP, 2)} Ã— ${compactNumber(transactionPrice, 2)}<br>
-                    = ${money(allocatedRaw)}<br><br>
-                    Revenue recognised = Allocation Ã— Percentage satisfied / 100<br>
-                    = ${money(allocatedRaw)} Ã— ${compactNumber(pct, 2)} / 100<br>
-                    = ${money(recognisedRaw)}
-                </div>`;
-            }).join("")}
+            "AR\u1D62 = (SSP\u1D62 \u00F7 \u03A3SSP) \u00D7 TP; RR\u1D62 = AR\u1D62 \u00D7 Satisfaction %",
+            `Step 1 \u2014 Add the stand-alone selling prices:<br>\u03A3SSP = ${rows.map(row => money(row.ssp)).join(" + ")} = ${money(totalSSP)}<br><br>Step 2 \u2014 Allocate the transaction price in proportion to each obligation\u2019s stand-alone selling price:<br>AR\u1D62 = (SSP\u1D62 \u00F7 \u03A3SSP) \u00D7 TP<br><br>${allocationSteps}<br><br>Step 3 \u2014 Total the recognised and unrecognised revenue:<br>Recognised Revenue = ${money(recognised)}<br>Revenue Not Yet Recognised = ${money(remaining)}<br><br>
             <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; margin-top:10px;">
                     <thead>
@@ -2257,210 +1812,64 @@ finance: {
 
 
 "simple-interest": {
-
     title: "Simple Interest",
-
-    fields: [
-        ["principal", "Principal (NGN)", "number"],
-        ["rate", "Interest Rate (%)", "number"],
-        ["time", "Time (Years)", "number"]
-    ],
-
-    formula:
-        "I = PRT",
-
+    fields: [["principal", "Principal (NGN)", "number"], ["rate", "Interest Rate (%)", "number"], ["time", "Time (Years)", "number"]],
+    formula: "\\(I=Prt,\\quad A=P+I=P(1+rt)\\)",
     calculate(v) {
-
-        const P = getNumber(v, "principal");
-        const R = getNumber(v, "rate") / 100;
-        const T = getNumber(v, "time");
-
-        const interest =
-            P * R * T;
-
-        const amount =
-            P + interest;
-
-        return resultTemplate(
-
-            "I = P * R * T",
-
-            `
-            = ${money(P)}
-              * ${percent(R * 100)}
-              * ${T}<br><br>
-
-            Interest =
-            ${money(interest)}
-            `,
-
-            `Interest: ${money(interest)}<br>
-             Amount: ${money(amount)}`
-        );
-
+        const P=getNumber(v,"principal"), ratePct=getNumber(v,"rate"), r=ratePct/100, t=getNumber(v,"time");
+        if (![P,ratePct,t].every(Number.isFinite) || P<0 || ratePct<0 || t<0) return errorMessage("Enter valid non-negative principal, rate and time values.");
+        const I=P*r*t, A=P+I;
+        const working=`Step 1 \u2014 Convert the rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Use the simple-interest formula:<br>I = P \u00D7 r \u00D7 t<br><br>Step 3 \u2014 Substitute the values:<br>I = ${money(P)} \u00D7 ${compactNumber(r)} \u00D7 ${number(t)} = ${money(I)}<br><br>Step 4 \u2014 Calculate the total amount:<br>A = P + I = ${money(P)} + ${money(I)} = ${money(A)}`;
+        return resultTemplate("\\(I=Prt,\\quad A=P+I\\)",working,`Interest: ${money(I)}<br>Total amount: ${money(A)}`,"Simple interest is calculated on the original principal only; previously earned interest is not added to the base.");
     }
-
 },
-
-
 "compound-interest": {
-
     title: "Compound Interest",
-
-    fields: [
-        ["principal", "Principal (NGN)", "number"],
-        ["rate", "Annual Interest Rate (%)", "number"],
-        ["time", "Time (Years)", "number"],
-        ["frequency", "Compounding Frequency", "select"]
-    ],
-
-    options: {
-        frequency: [
-            ["1", "Annual"],
-            ["2", "Semi-Annual"],
-            ["4", "Quarterly"],
-            ["12", "Monthly"],
-            ["365", "Daily"],
-            ["continuous", "Continuous"]
-        ]
-    },
-
-    formula:
-        "A = P(1 + r/n)^(nt), or A = Pe^(rt) for continuous compounding",
-
+    fields: [["principal", "Principal (NGN)", "number"], ["rate", "Annual Interest Rate (%)", "number"], ["time", "Time (Years)", "number"], ["frequency", "Compounding Frequency", "select"]],
+    options: { frequency: [["1","Annual"],["2","Semi-Annual"],["4","Quarterly"],["12","Monthly"],["365","Daily"],["continuous","Continuous"]] },
+    formula: "Select the compounding frequency to display the matching formula.",
     calculate(v) {
-
-        const P = getNumber(v, "principal");
-        const r = getNumber(v, "rate") / 100;
-        const t = getNumber(v, "time");
-
-        let A;
-        let working;
-
+        const P=getNumber(v,"principal"), ratePct=getNumber(v,"rate"), r=ratePct/100, t=getNumber(v,"time");
+        if (![P,ratePct,t].every(Number.isFinite) || P<0 || ratePct<0 || t<0) return errorMessage("Enter valid non-negative principal, rate and time values.");
+        let A, formula, working;
         if (v.frequency === "continuous") {
-
-            A = P * Math.exp(r * t);
-
-            working =
-                `A = ${money(P)}
-                 * e^(${r} * ${t})`;
-
+            A=P*Math.exp(r*t); formula="\\(A=Pe^{rt}\\) (continuous compounding)";
+            working=`Step 1 \u2014 Convert the annual rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Use the continuous-compounding formula:<br>A = Pe^(rt)<br><br>Step 3 \u2014 Substitute the values:<br>A = ${money(P)} \u00D7 e^(${compactNumber(r)} \u00D7 ${number(t)})<br><br>Step 4 \u2014 Calculate the amount:<br>A = ${money(A)}`;
         } else {
-
-            const n =
-                Number(v.frequency);
-
-            A =
-                P *
-                Math.pow(
-                    1 + r / n,
-                    n * t
-                );
-
-            working =
-                `A = ${money(P)}
-                 * (1 + ${r}/${n})^(${n} * ${t})`;
-
+            const n=Number(v.frequency);
+            if (!Number.isFinite(n) || n<=0) return errorMessage("Choose a valid compounding frequency.");
+            A=P*Math.pow(1+r/n,n*t);
+            const frequencyName={1:"annually",2:"semi-annually",4:"quarterly",12:"monthly",365:"daily"}[n] || `${n} times per year`;
+            formula="\\(A=P\\left(1+\\frac{r}{n}\\right)^{nt}\\) (periodic compounding)";
+            working=`Step 1 \u2014 Convert the annual rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Identify the compounding frequency:<br>n = ${n} times per year (${frequencyName})<br><br>Step 3 \u2014 Use the periodic-compounding formula:<br>A = P(1 + r/n)^(nt)<br><br>Step 4 \u2014 Substitute the values:<br>A = ${money(P)} \u00D7 (1 + ${compactNumber(r)}/${n})^(${n} \u00D7 ${number(t)})<br><br>Step 5 \u2014 Calculate the amount:<br>A = ${money(A)}`;
         }
-
-        const interest =
-            A - P;
-
-        return resultTemplate(
-
-            "Compound Amount = P(1 + r/n)^(nt)",
-
-            `${working}<br><br>
-             Interest = Amount - Principal =
-             ${money(interest)}`,
-
-            `Amount: ${money(A)}<br>
-             Compound Interest: ${money(interest)}`
-        );
-
+        const interest=A-P;
+        working += `<br><br>Final step \u2014 Find compound interest:<br>Interest = A \u2212 P = ${money(A)} \u2212 ${money(P)} = ${money(interest)}`;
+        return resultTemplate(formula,working,`Compound amount: ${money(A)}<br>Compound interest: ${money(interest)}`,v.frequency === "continuous" ? "Continuous compounding assumes interest is compounded continuously." : "Periodic compounding adds interest to the balance at each compounding interval.");
     }
-
 },
-
-
 "present-value": {
-
     title: "Present Value",
-
-    fields: [
-        ["future", "Future Value (NGN)", "number"],
-        ["rate", "Interest Rate (%)", "number"],
-        ["time", "Time (Years)", "number"]
-    ],
-
-    formula:
-        "PV = FV / (1 + r)^t",
-
+    fields: [["future", "Future Value (NGN)", "number"], ["rate", "Interest Rate (%)", "number"], ["time", "Time (Years)", "number"]],
+    formula: "\\(PV=\\frac{FV}{(1+r)^t}\\)",
     calculate(v) {
-
-        const FV = getNumber(v, "future");
-        const r = getNumber(v, "rate") / 100;
-        const t = getNumber(v, "time");
-
-        const PV =
-            FV / Math.pow(1 + r, t);
-
-        return resultTemplate(
-
-            "PV = FV / (1 + r)^t",
-
-            `
-            = ${money(FV)}
-              / (1 + ${r})^${t}
-            `,
-
-            money(PV)
-        );
-
+        const FV=getNumber(v,"future"), ratePct=getNumber(v,"rate"), r=ratePct/100, t=getNumber(v,"time");
+        if (![FV,ratePct,t].every(Number.isFinite) || FV<0 || ratePct<0 || t<0) return errorMessage("Enter valid non-negative future value, rate and time.");
+        const denominator=Math.pow(1+r,t), PV=FV/denominator;
+        return resultTemplate("\\(PV=\\frac{FV}{(1+r)^t}\\)",`Step 1 \u2014 Convert the rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Calculate the discount factor:<br>(1 + r)^t = (1 + ${compactNumber(r)})^${number(t)} = ${compactNumber(denominator)}<br><br>Step 3 \u2014 Divide the future value by the discount factor:<br>PV = ${money(FV)} \u00F7 ${compactNumber(denominator)} = ${money(PV)}`,money(PV),"Present value estimates what a future amount is worth today at the stated rate.");
     }
-
 },
-
-
 "future-value": {
-
     title: "Future Value",
-
-    fields: [
-        ["present", "Present Value (NGN)", "number"],
-        ["rate", "Interest Rate (%)", "number"],
-        ["time", "Time (Years)", "number"]
-    ],
-
-    formula:
-        "FV = PV(1 + r)^t",
-
+    fields: [["present", "Present Value (NGN)", "number"], ["rate", "Interest Rate (%)", "number"], ["time", "Time (Years)", "number"]],
+    formula: "\\(FV=PV(1+r)^t\\)",
     calculate(v) {
-
-        const PV = getNumber(v, "present");
-        const r = getNumber(v, "rate") / 100;
-        const t = getNumber(v, "time");
-
-        const FV =
-            PV * Math.pow(1 + r, t);
-
-        return resultTemplate(
-
-            "FV = PV(1 + r)^t",
-
-            `
-            = ${money(PV)}
-              * (1 + ${r})^${t}
-            `,
-
-            money(FV)
-        );
-
+        const PV=getNumber(v,"present"), ratePct=getNumber(v,"rate"), r=ratePct/100, t=getNumber(v,"time");
+        if (![PV,ratePct,t].every(Number.isFinite) || PV<0 || ratePct<0 || t<0) return errorMessage("Enter valid non-negative present value, rate and time.");
+        const factor=Math.pow(1+r,t), FV=PV*factor;
+        return resultTemplate("\\(FV=PV(1+r)^t\\)",`Step 1 \u2014 Convert the rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Calculate the growth factor:<br>(1 + r)^t = (1 + ${compactNumber(r)})^${number(t)} = ${compactNumber(factor)}<br><br>Step 3 \u2014 Multiply the present value by the growth factor:<br>FV = ${money(PV)} \u00D7 ${compactNumber(factor)} = ${money(FV)}`,money(FV),"Future value estimates how much the present amount will grow to under the stated rate and time assumptions.");
     }
-
 },
-
-
 "annuity": {
 
     title: "Annuity Calculator",
@@ -2483,386 +1892,111 @@ finance: {
 
     calculate(v) {
         const PMT = getNumber(v, "payment");
-        const ratePercent = getNumber(v, "rate");
-        const r = ratePercent / 100;
+        const r = getNumber(v, "rate") / 100;
         const n = getNumber(v, "periods");
         const type = v.annuityType || "future";
-        if (PMT < 0 || ratePercent < 0 || n <= 0 || !Number.isFinite(n) || !Number.isInteger(n)) {
-            return errorMessage("Enter a non-negative payment and interest rate, and a positive whole number of periods.");
+        if (PMT < 0 || r < 0 || n <= 0 || !Number.isFinite(n)) {
+            return errorMessage("Enter a non-negative payment and rate, and a number of periods greater than zero.");
         }
         const label = type === "present" ? "Present Value of an Annuity (PVA)" : "Future Value of an Annuity (FVA)";
         const formula = type === "present"
-            ? "\\(\\mathrm{PVA}=\\mathrm{PMT}\\left[\\frac{1-(1+r)^{-n}}{r}\\right]\\)"
-            : "\\(\\mathrm{FVA}=\\mathrm{PMT}\\left[\\frac{(1+r)^n-1}{r}\\right]\\)";
+            ? "PVA = PMT \u00D7 [1 \u2212 1 / (1 + r)^n] / r"
+            : "FVA = PMT \u00D7 [(1 + r)^n \u2212 1] / r";
         let answer, working;
-        const pmtText = compactNumber(PMT, 2);
-        const rText = compactNumber(r, 6);
-        const nText = compactNumber(n, 0);
         if (r === 0) {
             answer = PMT * n;
-            working = `The interest rate is 0%, so there is no discounting or growth.<br><br>\\(\\text{Value}=PMT\\times n\\)<br><br>Substitute the values:<br>\\(${pmtText}\\times ${nText}=${compactNumber(answer, 2)}\\)<br><br>Each payment is simply added together.`;
+            working = `Since the interest rate is 0%, use the zero-rate form:<br><br><strong>Formula</strong><br>Value = PMT \u00D7 n<br><br><strong>Substitute</strong><br>${money(PMT)} \u00D7 ${number(n)} = ${money(answer)}<br><br>With no interest, the value is simply the total of all payments.`;
+        } else if (type === "present") {
+            answer = PMT * (1 - Math.pow(1 + r, -n)) / r;
+            working = `<strong>Formula:</strong> ${formula}<br><br><strong>Substitute:</strong> PVA = ${money(PMT)} \u00D7 [1 \u2212 1 / (1 + ${compactNumber(r)})^${compactNumber(n)}] / ${compactNumber(r)}<br><br><strong>Calculated value:</strong> ${money(answer)}<br><br>This is the value today of the future payments.`;
         } else {
-            const growth = Math.pow(1 + r, n);
-            const powerText = compactNumber(growth, 8);
-            if (type === "present") {
-                const discountFactor = Math.pow(1 + r, -n);
-                const annuityFactor = (1 - discountFactor) / r;
-                answer = PMT * annuityFactor;
-                working = `Interest rate per period:<br>\\(r=${compactNumber(ratePercent, 4)}\\%\\div100=${rText}\\)<br><br>Substitute into the PVA formula:<br>\\(PVA=${pmtText}\\left[\\frac{1-(1+${rText})^{-${nText}}}{${rText}}\\right]\\)<br><br>Evaluate the power:<br>\\((1+${rText})^{${nText}}=${powerText}\\)<br><br>Find the discount factor:<br>\\((1+${rText})^{-${nText}}=${compactNumber(discountFactor, 8)}\\)<br><br>Calculate the annuity factor:<br>\\(\\frac{1-${compactNumber(discountFactor, 8)}}{${rText}}=${compactNumber(annuityFactor, 8)}\\)<br><br>Multiply by the payment:<br>\\(${pmtText}\\times${compactNumber(annuityFactor, 8)}=${compactNumber(answer, 2)}\\)<br><br>The PVA is the value today of the future regular payments.`;
-            } else {
-                const annuityFactor = (growth - 1) / r;
-                answer = PMT * annuityFactor;
-                working = `Interest rate per period:<br>\\(r=${compactNumber(ratePercent, 4)}\\%\\div100=${rText}\\)<br><br>Substitute into the FVA formula:<br>\\(FVA=${pmtText}\\left[\\frac{(1+${rText})^{${nText}}-1}{${rText}}\\right]\\)<br><br>Evaluate the power:<br>\\((1+${rText})^{${nText}}=${powerText}\\)<br><br>Subtract 1:<br>\\(${powerText}-1=${compactNumber(growth - 1, 8)}\\)<br><br>Calculate the annuity factor:<br>\\(\\frac{${compactNumber(growth - 1, 8)}}{${rText}}=${compactNumber(annuityFactor, 8)}\\)<br><br>Multiply by the payment:<br>\\(${pmtText}\\times${compactNumber(annuityFactor, 8)}=${compactNumber(answer, 2)}\\)<br><br>The FVA is the accumulated value of the regular payments at the end of the period.`;
-            }
+            answer = PMT * (Math.pow(1 + r, n) - 1) / r;
+            working = `<strong>Formula:</strong> ${formula}<br><br><strong>Substitute:</strong> FVA = ${money(PMT)} \u00D7 [(1 + ${compactNumber(r)})<sup>${compactNumber(n)}</sup> \u2212 1] / ${compactNumber(r)}<br><br><strong>Calculated value:</strong> ${money(answer)}<br><br>This is the accumulated value of the regular payments at the end of the period.`;
         }
-        return resultTemplate(formula, working, money(answer), type === "present" ? "This is the value today of the specified regular future payments." : "This is the accumulated value of the specified regular payments at the end of the period.");
+        return resultTemplate(label, working, money(answer), type === "present" ? "This is the value today of the specified regular future payments." : "This is the accumulated value of the specified regular payments at the end of the period.");
     }
 },
 
 "payment": {
-
     title: "Loan Payment / Installment",
-
-    fields: [
-        ["principal", "Loan Principal (NGN)", "number"],
-        ["rate", "Annual Interest Rate (%)", "number"],
-        ["periods", "Number of Payments", "number"]
-    ],
-
-    formula:
-        "PMT = P[r(1+r)^n] / [(1+r)^n - 1]",
-
+    fields: [["principal", "Loan Principal (NGN)", "number"], ["rate", "Interest Rate per Period (%)", "number"], ["periods", "Number of Payments", "number"]],
+    formula: "\\(PMT=\\frac{Pr(1+r)^n}{(1+r)^n-1}\\)",
     calculate(v) {
-
-        const P = getNumber(v, "principal");
-        const r = getNumber(v, "rate") / 100;
-        const n = getNumber(v, "periods");
-
-        if (r === 0) {
-
-            const payment =
-                P / n;
-
-            return resultTemplate(
-                "Payment = Principal / Number of Payments",
-                `${money(P)} / ${n}`,
-                money(payment)
-            );
-
-        }
-
-        const payment =
-            P *
-            (
-                r *
-                Math.pow(1 + r, n)
-            ) /
-            (
-                Math.pow(1 + r, n) - 1
-            );
-
-        return resultTemplate(
-
-            "PMT = P[r(1+r)^n] / [(1+r)^n - 1]",
-
-            `
-            = ${money(payment)}
-            per payment
-            `,
-
-            money(payment)
-        );
-
+        const P=getNumber(v,"principal"), ratePct=getNumber(v,"rate"), r=ratePct/100, n=getNumber(v,"periods");
+        if (![P,ratePct,n].every(Number.isFinite) || P<0 || ratePct<0 || !Number.isInteger(n) || n<=0) return errorMessage("Enter a non-negative loan and interest rate, and a positive whole number of payments.");
+        const factor=Math.pow(1+r,n), payment=r===0?P/n:P*r*factor/(factor-1);
+        const working=r===0 ? `Step 1 \u2014 The interest rate is 0%, so divide the principal equally:<br>PMT = P \u00F7 n<br><br>Step 2 \u2014 Substitute:<br>PMT = ${money(P)} \u00F7 ${n} = ${money(payment)}` : `Step 1 \u2014 Convert the rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Calculate the growth factor:<br>(1 + r)^n = (1 + ${compactNumber(r)})^${n} = ${compactNumber(factor)}<br><br>Step 3 \u2014 Substitute into the loan-payment formula:<br>PMT = [${money(P)} \u00D7 ${compactNumber(r)} \u00D7 ${compactNumber(factor)}] \u00F7 [${compactNumber(factor)} \u2212 1]<br><br>Step 4 \u2014 Calculate the regular payment:<br>PMT = ${money(payment)}`;
+        return resultTemplate(r===0?"\\(PMT=P/n\\)":"\\(PMT=\\frac{Pr(1+r)^n}{(1+r)^n-1}\\)",working,`${money(payment)} per payment`,"This assumes equal payments made at the end of each period, with the rate expressed per payment period.");
     }
-
 },
-
-
 "sinking-fund": {
-
     title: "Sinking Fund",
-
-    fields: [
-        ["future", "Required Future Amount (NGN)", "number"],
-        ["rate", "Interest Rate per Period (%)", "number"],
-        ["periods", "Number of Periods", "number"]
-    ],
-
-    formula:
-        "PMT = FV * r / [(1+r)^n - 1]",
-
+    fields: [["future", "Required Future Amount (NGN)", "number"], ["rate", "Interest Rate per Period (%)", "number"], ["periods", "Number of Periods", "number"]],
+    formula: "\\(PMT=\\frac{FV\\,r}{(1+r)^n-1}\\)",
     calculate(v) {
-
-        const FV = getNumber(v, "future");
-        const r = getNumber(v, "rate") / 100;
-        const n = getNumber(v, "periods");
-
-        if (r === 0) {
-
-            const pmt =
-                FV / n;
-
-            return resultTemplate(
-                "PMT = FV / n",
-                `${money(FV)} / ${n}`,
-                money(pmt)
-            );
-
-        }
-
-        const pmt =
-            FV *
-            r /
-            (
-                Math.pow(1 + r, n) - 1
-            );
-
-        return resultTemplate(
-
-            "PMT = FV * r / [(1+r)^n - 1]",
-
-            `
-            = ${money(FV)}
-              * ${r}
-              / [(1 + ${r})^${n} - 1]
-            `,
-
-            money(pmt)
-        );
-
+        const FV=getNumber(v,"future"), ratePct=getNumber(v,"rate"), r=ratePct/100, n=getNumber(v,"periods");
+        if (![FV,ratePct,n].every(Number.isFinite) || FV<0 || ratePct<0 || !Number.isInteger(n) || n<=0) return errorMessage("Enter a non-negative future amount and rate, and a positive whole number of periods.");
+        const factor=Math.pow(1+r,n), pmt=r===0?FV/n:FV*r/(factor-1);
+        const working=r===0 ? `Step 1 \u2014 With a 0% interest rate, divide the target equally across the periods:<br>PMT = FV \u00F7 n<br><br>Step 2 \u2014 Substitute:<br>PMT = ${money(FV)} \u00F7 ${n} = ${money(pmt)}` : `Step 1 \u2014 Convert the rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Calculate (1 + r)^n:<br>(1 + ${compactNumber(r)})^${n} = ${compactNumber(factor)}<br><br>Step 3 \u2014 Substitute into the sinking-fund formula:<br>PMT = [${money(FV)} \u00D7 ${compactNumber(r)}] \u00F7 [${compactNumber(factor)} \u2212 1]<br><br>Step 4 \u2014 Calculate the required deposit each period:<br>PMT = ${money(pmt)}`;
+        return resultTemplate(r===0?"\\(PMT=FV/n\\)":"\\(PMT=\\frac{FV\\,r}{(1+r)^n-1}\\)",working,money(pmt),"This is the regular end-of-period deposit needed to reach the target, assuming the stated rate applies each period.");
     }
-
 },
-
-
 "loan-amortization": {
-
     title: "Loan Amortization",
-
-    fields: [
-        ["principal", "Loan Principal (NGN)", "number"],
-        ["rate", "Interest Rate per Period (%)", "number"],
-        ["periods", "Number of Periods", "number"]
-    ],
-
-    formula:
-        "Payment = P[r(1+r)^n] / [(1+r)^n - 1]",
-
+    fields: [["principal", "Loan Principal (NGN)", "number"], ["rate", "Interest Rate per Period (%)", "number"], ["periods", "Number of Periods", "number"]],
+    formula: "\\(PMT=\\frac{Pr(1+r)^n}{(1+r)^n-1}\\)",
     calculate(v) {
-
-        const P = getNumber(v, "principal");
-        const r = getNumber(v, "rate") / 100;
-        const n = getNumber(v, "periods");
-
-        let payment;
-
-        if (r === 0) {
-
-            payment = P / n;
-
-        } else {
-
-            payment =
-                P *
-                (
-                    r *
-                    Math.pow(1 + r, n)
-                ) /
-                (
-                    Math.pow(1 + r, n) - 1
-                );
-
-        }
-
-        const total =
-            payment * n;
-
-        const interest =
-            total - P;
-
-        return resultTemplate(
-
-            "Loan Payment = P[r(1+r)^n] / [(1+r)^n - 1]",
-
-            `
-            Periodic Payment =
-            ${money(payment)}<br><br>
-
-            Total Payments =
-            ${money(total)}<br><br>
-
-            Total Interest =
-            ${money(interest)}
-            `,
-
-            `Periodic Payment: ${money(payment)}<br>
-             Total Interest: ${money(interest)}`
-        );
-
+        const P=getNumber(v,"principal"), ratePct=getNumber(v,"rate"), r=ratePct/100, n=getNumber(v,"periods");
+        if (![P,ratePct,n].every(Number.isFinite) || P<0 || ratePct<0 || !Number.isInteger(n) || n<=0) return errorMessage("Enter a non-negative principal and rate, and a positive whole number of periods.");
+        const factor=Math.pow(1+r,n), payment=r===0?P/n:P*r*factor/(factor-1), total=payment*n, interest=total-P;
+        const working=r===0 ? `Step 1 \u2014 Interest rate is 0%, so payment = principal \u00F7 number of periods:<br>PMT = ${money(P)} \u00F7 ${n} = ${money(payment)}` : `Step 1 \u2014 Convert the rate to a decimal:<br>r = ${number(ratePct)}% \u00F7 100 = ${compactNumber(r)}<br><br>Step 2 \u2014 Calculate (1 + r)^n:<br>(1 + ${compactNumber(r)})^${n} = ${compactNumber(factor)}<br><br>Step 3 \u2014 Calculate the regular payment:<br>PMT = [${money(P)} \u00D7 ${compactNumber(r)} \u00D7 ${compactNumber(factor)}] \u00F7 [${compactNumber(factor)} \u2212 1] = ${money(payment)}`;
+        return resultTemplate(r===0?"\\(PMT=P/n\\)":"\\(PMT=\\frac{Pr(1+r)^n}{(1+r)^n-1}\\)",`${working}<br><br>Step ${r===0?2:4} \u2014 Calculate total payments:<br>Total = PMT \u00D7 n = ${money(payment)} \u00D7 ${n} = ${money(total)}<br><br>Step ${r===0?3:5} \u2014 Calculate total interest:<br>Interest = Total payments \u2212 Principal = ${money(total)} \u2212 ${money(P)} = ${money(interest)}`,`Payment per period: ${money(payment)}<br>Total payments: ${money(total)}<br>Total interest: ${money(interest)}`,"The calculation assumes a fixed periodic rate and equal payments throughout the loan term.");
     }
-
-}
-
 },
-
-
-/* =========================================================
-   MATHEMATICS
-========================================================= */
-
-mathematics: {
-
-
 "quadratic-equation": {
-
     title: "Quadratic Equation",
-
-    fields: [
-        ["a", "Coefficient a", "number"],
-        ["b", "Coefficient b", "number"],
-        ["c", "Coefficient c", "number"]
-    ],
-
-    formula:
-        "x = [-b +/- sqrt(b2 - 4ac)] / 2a",
-
+    fields: [["a", "Coefficient a", "number"], ["b", "Coefficient b", "number"], ["c", "Coefficient c", "number"]],
+    formula: "\\(ax^2+bx+c=0,\\quad x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}\\)",
     calculate(v) {
-
-        const a = getNumber(v, "a");
-        const b = getNumber(v, "b");
-        const c = getNumber(v, "c");
-
-        if (a === 0) {
-            return errorMessage("a cannot be zero.");
-        }
-
-        const D =
-            b * b - 4 * a * c;
-
+        const a = getNumber(v, "a"), b = getNumber(v, "b"), c = getNumber(v, "c");
+        if (![a,b,c].every(Number.isFinite)) return errorMessage("Enter valid numbers for a, b and c.");
+        if (a === 0) return errorMessage("The coefficient a cannot be zero for a quadratic equation.");
+        const D = b*b - 4*a*c;
+        const discWorking = `Step 1 \u2014 Identify the coefficients:<br>a = ${number(a)}, b = ${number(b)}, c = ${number(c)}<br><br>Step 2 \u2014 Calculate the discriminant, D = b\u00B2 \u2212 4ac:<br>D = (${number(b)})\u00B2 \u2212 4(${number(a)})(${number(c)})<br>D = ${number(b*b)} \u2212 ${number(4*a*c)} = ${number(D)}`;
         if (D < 0) {
-
-            return resultTemplate(
-
-                "D = b2 - 4ac",
-
-                `D = ${number(D)}`,
-
-                "No real roots."
-            );
-
+            const realPart = -b/(2*a), imagPart = Math.sqrt(-D)/(2*a);
+            return resultTemplate("\\(D=b^2-4ac\\)", `${discWorking}<br><br>Step 3 \u2014 Interpret the discriminant:<br>Because D is negative, there are no real roots. The two roots are complex.`, `No real roots.<br>Complex roots: x = ${number(realPart)} \u00B1 ${number(imagPart)}i`, "A negative discriminant means the square root in the quadratic formula is not real.");
         }
-
-        const x1 =
-            (-b + Math.sqrt(D)) / (2 * a);
-
-        const x2 =
-            (-b - Math.sqrt(D)) / (2 * a);
-
-        return resultTemplate(
-
-            "x = [-b +/- sqrt(b2 - 4ac)] / 2a",
-
-            `
-            Discriminant =
-            ${number(D)}<br><br>
-
-            x1 =
-            ${number(x1)}<br><br>
-
-            x2 =
-            ${number(x2)}
-            `,
-
-            `x1 = ${number(x1)}<br>
-             x2 = ${number(x2)}`
-        );
-
+        const sqrtD = Math.sqrt(D), x1=(-b+sqrtD)/(2*a), x2=(-b-sqrtD)/(2*a);
+        const rootWork = `${discWorking}<br><br>Step 3 \u2014 Substitute into the quadratic formula:<br>x = [\u2212(${number(b)}) \u00B1 \u221A(${number(D)})] / [2(${number(a)})]<br><br>Step 4 \u2014 Simplify:<br>x = [${number(-b)} \u00B1 ${number(sqrtD)}] / ${number(2*a)}<br><br>Step 5 \u2014 Calculate both roots:<br>x\u2081 = (${number(-b)} + ${number(sqrtD)}) / ${number(2*a)} = ${number(x1)}<br>x\u2082 = (${number(-b)} \u2212 ${number(sqrtD)}) / ${number(2*a)} = ${number(x2)}`;
+        return resultTemplate("\\(x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}\\)", rootWork, D === 0 ? `Repeated root: \\(x=${number(x1)}\\)` : `\\(x_1=${number(x1)},\\quad x_2=${number(x2)}\\)`, D === 0 ? "The discriminant is zero, so both roots are equal." : "The equation has two real roots. Substitute either root into the original equation to check the result.");
     }
-
 },
-
-
 "simple-equation": {
-
     title: "Simple Linear Equation",
-
-    fields: [
-        ["a", "Coefficient a", "number"],
-        ["b", "Constant b", "number"]
-    ],
-
-    formula:
-        "ax + b = 0 -> x = -b/a",
-
+    fields: [["a", "Coefficient a", "number"], ["b", "Constant b", "number"]],
+    formula: "\\(ax+b=0,\\quad x=-\\frac{b}{a}\\)",
     calculate(v) {
-
-        const a = getNumber(v, "a");
-        const b = getNumber(v, "b");
-
-        if (a === 0) {
-            return errorMessage("Coefficient a cannot be zero.");
-        }
-
-        const x =
-            -b / a;
-
-        return resultTemplate(
-            "x = -b / a",
-            `x = -${b} / ${a}`,
-            `x = ${number(x)}`
-        );
-
+        const a=getNumber(v,"a"), b=getNumber(v,"b");
+        if (![a,b].every(Number.isFinite)) return errorMessage("Enter valid values for a and b.");
+        if (a===0) return errorMessage("Coefficient a cannot be zero. If a = 0, the equation is not a unique linear equation.");
+        const x=-b/a;
+        return resultTemplate("\\(ax+b=0,\\quad x=-\\frac{b}{a}\\)",`Step 1 \u2014 Start with the equation:<br>${number(a)}x ${b<0?"\u2212":"+"} ${number(Math.abs(b))} = 0<br><br>Step 2 \u2014 Move the constant to the other side:<br>${number(a)}x = ${number(-b)}<br><br>Step 3 \u2014 Divide both sides by the coefficient of x:<br>x = ${number(-b)} \u00F7 ${number(a)}<br><br>Step 4 \u2014 Calculate x:<br>x = ${number(x)}`,`\\(x=${number(x)}\\)`,"Check by substituting the value of x into the original equation; the left-hand side should equal zero.");
     }
-
 },
-
-
 "percentage-change": {
-
     title: "Percentage Change",
-
-    fields: [
-        ["old", "Original Value", "number"],
-        ["new", "New Value", "number"]
-    ],
-
-    formula:
-        "Percentage Change = (New - Old) / Old * 100",
-
+    fields: [["old", "Original Value", "number"], ["new", "New Value", "number"]],
+    formula: "\\(\\text{Percentage change}=\\frac{\\text{New}-\\text{Old}}{\\text{Old}}\\times100\\%\\)",
     calculate(v) {
-
-        const oldValue = getNumber(v, "old");
-        const newValue = getNumber(v, "new");
-
-        if (oldValue === 0) {
-            return errorMessage(
-                "Original value cannot be zero."
-            );
-        }
-
-        const change =
-            ((newValue - oldValue) /
-                oldValue) * 100;
-
-        return resultTemplate(
-
-            "(New - Old) / Old * 100",
-
-            `
-            = (${number(newValue)}
-              - ${number(oldValue)})
-              / ${number(oldValue)}
-              * 100
-            `,
-
-            percent(change)
-        );
-
+        const oldValue=getNumber(v,"old"), newValue=getNumber(v,"new");
+        if (![oldValue,newValue].every(Number.isFinite)) return errorMessage("Enter valid original and new values.");
+        if (oldValue===0) return errorMessage("Original value cannot be zero because it is the denominator.");
+        const difference=newValue-oldValue, change=(difference/oldValue)*100;
+        const direction=difference>0?"increase":difference<0?"decrease":"no change";
+        return resultTemplate("\\(\\frac{\\text{New}-\\text{Old}}{\\text{Old}}\\times100\\%\\)",`Step 1 \u2014 Find the change:<br>Change = New value \u2212 Original value = ${number(newValue)} \u2212 ${number(oldValue)} = ${number(difference)}<br><br>Step 2 \u2014 Divide the change by the original value:<br>${number(difference)} \u00F7 ${number(oldValue)} = ${compactNumber(difference/oldValue)}<br><br>Step 3 \u2014 Convert the ratio to a percentage:<br>${compactNumber(difference/oldValue)} \u00D7 100% = ${percent(change)}<br><br>Step 4 \u2014 Interpret the sign:<br>This is a ${direction} relative to the original value.`,percent(change),`The value shows a ${direction} of ${Math.abs(change).toFixed(2)}% from the original figure.`);
     }
-
 },
-
-
 "permutation": {
 
     title: "Permutation",
@@ -3192,62 +2326,24 @@ mathematics: {
 
 
 "simultaneous-equations": {
-
     title: "Simultaneous Equations",
-
-    fields: [
-        ["a1", "a1", "number"],
-        ["b1", "b1", "number"],
-        ["c1", "c1", "number"],
-        ["a2", "a2", "number"],
-        ["b2", "b2", "number"],
-        ["c2", "c2", "number"]
-    ],
-
-    formula:
-        "a1x+b1y=c1 and a2x+b2y=c2",
-
+    fields: [["a1", "a\u2081 in a\u2081x + b\u2081y = c\u2081", "number"], ["b1", "b\u2081 in a\u2081x + b\u2081y = c\u2081", "number"], ["c1", "c\u2081 in a\u2081x + b\u2081y = c\u2081", "number"], ["a2", "a\u2082 in a\u2082x + b\u2082y = c\u2082", "number"], ["b2", "b\u2082 in a\u2082x + b\u2082y = c\u2082", "number"], ["c2", "c\u2082 in a\u2082x + b\u2082y = c\u2082", "number"]],
+    formula: "a\u2081x + b\u2081y = c\u2081; a\u2082x + b\u2082y = c\u2082 \u2014 Cramer\u2019s rule",
     calculate(v) {
-
-        const a1 = getNumber(v, "a1");
-        const b1 = getNumber(v, "b1");
-        const c1 = getNumber(v, "c1");
-
-        const a2 = getNumber(v, "a2");
-        const b2 = getNumber(v, "b2");
-        const c2 = getNumber(v, "c2");
-
-        const D =
-            a1 * b2 -
-            a2 * b1;
-
-        if (D === 0) {
-            return errorMessage(
-                "The equations do not have one unique solution."
-            );
+        const a1=getNumber(v,"a1"), b1=getNumber(v,"b1"), c1=getNumber(v,"c1"), a2=getNumber(v,"a2"), b2=getNumber(v,"b2"), c2=getNumber(v,"c2");
+        if (![a1,b1,c1,a2,b2,c2].every(Number.isFinite)) return errorMessage("Enter valid numbers in all six fields.");
+        const D=a1*b2-a2*b1, Dx=c1*b2-c2*b1, Dy=a1*c2-a2*c1;
+        const eq1 = `${number(a1)}x ${b1 < 0 ? "\u2212" : "+"} ${number(Math.abs(b1))}y = ${number(c1)}`;
+        const eq2 = `${number(a2)}x ${b2 < 0 ? "\u2212" : "+"} ${number(Math.abs(b2))}y = ${number(c2)}`;
+        if (Math.abs(D) < 1e-12) {
+            const sameLine = Math.abs(a1*c2-a2*c1)<1e-12 && Math.abs(b1*c2-b2*c1)<1e-12;
+            return resultTemplate("D = a\u2081b\u2082 \u2212 a\u2082b\u2081", `Step 1 \u2014 Write the equations:<br>${eq1}<br>${eq2}<br><br>Step 2 \u2014 Calculate the determinant:<br>D = (${number(a1)} \u00D7 ${number(b2)}) \u2212 (${number(a2)} \u00D7 ${number(b1)}) = ${number(D)}<br><br>Step 3 \u2014 Interpret the result:<br>The determinant is zero, so Cramer's rule cannot produce one unique solution.`, sameLine ? "The equations represent the same line; there are infinitely many solutions." : "There is no unique solution (the equations may be parallel or dependent).", "A zero determinant means there is not exactly one solution. Check whether the equations are equivalent or inconsistent.");
         }
-
-        const x =
-            (c1 * b2 - c2 * b1) / D;
-
-        const y =
-            (a1 * c2 - a2 * c1) / D;
-
-        return resultTemplate(
-            "Cramer's Rule",
-            `
-            D = ${number(D)}<br><br>
-            x = ${number(x)}<br>
-            y = ${number(y)}
-            `,
-            `x = ${number(x)}<br>
-             y = ${number(y)}`
-        );
-
+        const x=Dx/D, y=Dy/D;
+        const working=`Step 1 \u2014 Write the equations in standard form:<br>${eq1}<br>${eq2}<br><br>Step 2 \u2014 Find D = a\u2081b\u2082 \u2212 a\u2082b\u2081:<br>D = (${number(a1)} \u00D7 ${number(b2)}) \u2212 (${number(a2)} \u00D7 ${number(b1)}) = ${number(D)}<br><br>Step 3 \u2014 Find D\u2093 = c\u2081b\u2082 \u2212 c\u2082b\u2081:<br>D\u2093 = (${number(c1)} \u00D7 ${number(b2)}) \u2212 (${number(c2)} \u00D7 ${number(b1)}) = ${number(Dx)}<br><br>Step 4 \u2014 Find D\u1D67 = a\u2081c\u2082 \u2212 a\u2082c\u2081:<br>D\u1D67 = (${number(a1)} \u00D7 ${number(c2)}) \u2212 (${number(a2)} \u00D7 ${number(c1)}) = ${number(Dy)}<br><br>Step 5 \u2014 Calculate x = D\u2093 / D:<br>x = ${number(Dx)} / ${number(D)} = ${number(x)}<br><br>Step 6 \u2014 Calculate y = D\u1D67 / D:<br>y = ${number(Dy)} / ${number(D)} = ${number(y)}<br><br>Step 7 \u2014 Check by substituting x and y into both original equations.`;
+        return resultTemplate("x = D\u2093 \u00F7 D; y = D\u1D67 \u00F7 D", working, `x = ${number(x)}; y = ${number(y)}`, "Substitute the answers into both original equations. Both left-hand sides should equal their corresponding right-hand sides.");
     }
-
 },
-
    "sets": {
 
     title: "Sets",
@@ -3901,9 +2997,7 @@ mathematics: {
                 ast = parseMathExpression(expression);
             }
 
-            const rawDerivative = derivativeAst(ast);
-            const rawDerivativeText = astToString(rawDerivative);
-            const derivative = normalisePolynomial(rawDerivative);
+            const derivative = simplifyAst(derivativeAst(ast));
             const derivativeText = astToString(derivative);
 
             let evaluation = "";
@@ -3913,7 +3007,7 @@ mathematics: {
                 if (!Number.isFinite(x)) return errorMessage("Enter a valid numerical x value.");
                 const value = evaluateAst(derivative, x);
                 if (!Number.isFinite(value)) return errorMessage("The derivative cannot be evaluated at that x value.");
-                evaluation = `<br><br><strong>At x = ${mathNumber(x)}:</strong> f'(x) = ${mathNumber(value)}`;
+                evaluation = `<br><br><strong>At x = ${number(x)}:</strong> f'(x) = ${number(value, 6)}`;
             }
 
             const methodNote = {
@@ -3928,8 +3022,7 @@ mathematics: {
                 "Differentiate with respect to x",
                 `<strong>Original expression:</strong> ${escapeHtml(expression)}<br><br>` +
                 `<strong>Method:</strong> ${methodNote}<br><br>` +
-                `<strong>Apply the rule:</strong> ${escapeHtml(rawDerivativeText)}<br><br>` +
-                `<strong>Simplify and combine like terms:</strong> ${escapeHtml(derivativeText)}${evaluation}`,
+                `<strong>Derivative:</strong> ${escapeHtml(derivativeText)}${evaluation}`,
                 mode === "with"
                     ? `f'(x) = ${escapeHtml(derivativeText)}<br>Numerical value = ${evaluation.replace(/.*f'\(x\) = /, '').replace(/<br>.*/, '')}`
                     : `f'(x) = ${escapeHtml(derivativeText)}`
@@ -3970,10 +3063,7 @@ mathematics: {
 
         try {
             const ast = parseMathExpression(expression);
-            const polynomial = polynomialCoefficients(ast);
-            const integral = polynomial !== null
-                ? polynomialAst(new Map([...polynomial.entries()].map(([power, coefficient]) => [power + 1, coefficient / (power + 1)])))
-                : normalisePolynomial(integrateAst(ast));
+            const integral = simplifyAst(integrateAst(ast));
             const integralText = astToString(integral);
 
             if (type === "indefinite") {
@@ -4007,10 +3097,10 @@ mathematics: {
             return resultTemplate(
                 "Integralfrom a to b f(x) dx = F(b) - F(a)",
                 `<strong>Antiderivative:</strong> ${escapeHtml(integralText)}<br><br>` +
-                `F(${mathNumber(upper)}) = ${mathNumber(upperValue)}<br>` +
-                `F(${mathNumber(lower)}) = ${mathNumber(lowerValue)}<br><br>` +
-                `Integral = ${mathNumber(upperValue)} - ${mathNumber(lowerValue)}`,
-                mathNumber(answer),
+                `F(${number(upper)}) = ${number(upperValue, 6)}<br>` +
+                `F(${number(lower)}) = ${number(lowerValue, 6)}<br><br>` +
+                `Integral = ${number(upperValue, 6)} - ${number(lowerValue, 6)}`,
+                number(answer, 6),
                 "A definite integral gives the signed net accumulation over the stated interval."
             );
         } catch (error) {
@@ -4186,160 +3276,44 @@ statistics: {
 
 
 "mean": {
-
     title: "Arithmetic Mean",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Mean = Sigmax / n",
-
+    fields: [["data", "Data Values (comma separated)", "text"]],
+    formula: "\\(\\bar{x}=\\frac{\\sum x}{n}\\)",
     calculate(v) {
-
-        const data =
-            getArray(v.data);
-
-        if (!data.length) {
-            return errorMessage(
-                "Enter valid data separated by commas."
-            );
-        }
-
-        const mean =
-            average(data);
-
-        return resultTemplate(
-
-            "Mean = Sigmax / n",
-
-            `
-            Sigmax = ${number(sum(data))}<br>
-            n = ${data.length}<br><br>
-
-            Mean =
-            ${number(sum(data))}
-            / ${data.length}
-            `,
-
-            number(mean)
-        );
-
+        const data=getArray(v.data);
+        if (!data.length || !data.every(Number.isFinite)) return errorMessage("Enter valid data values separated by commas.");
+        const total=sum(data), n=data.length, mean=total/n;
+        return resultTemplate("\\(\\bar{x}=\\frac{\\sum x}{n}\\)",`Step 1 \u2014 List the observations:<br>${data.map(number).join(", ")}<br><br>Step 2 \u2014 Add all observations:<br>\u03A3x = ${data.map(number).join(" + ")} = ${number(total)}<br><br>Step 3 \u2014 Count the observations:<br>n = ${n}<br><br>Step 4 \u2014 Divide the total by the number of observations:<br>Mean = ${number(total)} \u00F7 ${n} = ${number(mean)}`,number(mean),"The arithmetic mean is the total of all observations divided by the number of observations.");
     }
-
 },
-
-
 "weighted-mean": {
-
     title: "Weighted Mean",
-
-    fields: [
-        ["values", "Values (comma separated)", "text"],
-        ["weights", "Weights (comma separated)", "text"]
-    ],
-
-    formula:
-        "Weighted Mean = Sigmawx / Sigmaw",
-
+    fields: [["values", "Values (comma separated)", "text"], ["weights", "Weights (comma separated)", "text"]],
+    formula: "\\(\\bar{x}_w=\\frac{\\sum wx}{\\sum w}\\)",
     calculate(v) {
-
-        const values =
-            getArray(v.values);
-
-        const weights =
-            getArray(v.weights);
-
-        if (
-            values.length === 0 ||
-            values.length !== weights.length
-        ) {
-            return errorMessage(
-                "Values and weights must have the same number of entries."
-            );
-        }
-
-        const weightedTotal =
-            values.reduce(
-                (total, value, i) =>
-                    total + value * weights[i],
-                0
-            );
-
-        const weightTotal =
-            sum(weights);
-
-        const answer =
-            weightedTotal / weightTotal;
-
-        return resultTemplate(
-            "Weighted Mean = Sigmawx / Sigmaw",
-            `
-            Sigmawx = ${number(weightedTotal)}<br>
-            Sigmaw = ${number(weightTotal)}
-            `,
-            number(answer)
-        );
-
+        const values=getArray(v.values), weights=getArray(v.weights);
+        if (!values.length || values.length!==weights.length) return errorMessage("Values and weights must have the same non-zero number of entries.");
+        if (!values.every(Number.isFinite) || !weights.every(Number.isFinite) || weights.some(w=>w<0)) return errorMessage("Enter valid values and non-negative weights.");
+        const products=values.map((value,i)=>value*weights[i]), weightedTotal=sum(products), weightTotal=sum(weights);
+        if (weightTotal===0) return errorMessage("The sum of the weights cannot be zero.");
+        const answer=weightedTotal/weightTotal;
+        return resultTemplate("\\(\\bar{x}_w=\\frac{\\sum wx}{\\sum w}\\)",`Step 1 \u2014 Multiply each value by its corresponding weight:<br>${values.map((value,i)=>`${number(value)} \u00D7 ${number(weights[i])} = ${number(products[i])}`).join("<br>")}<br><br>Step 2 \u2014 Add the weighted products:<br>\u03A3wx = ${products.map(number).join(" + ")} = ${number(weightedTotal)}<br><br>Step 3 \u2014 Add all weights:<br>\u03A3w = ${weights.map(number).join(" + ")} = ${number(weightTotal)}<br><br>Step 4 \u2014 Divide the weighted total by the total weight:<br>Weighted mean = ${number(weightedTotal)} \u00F7 ${number(weightTotal)} = ${number(answer)}`,number(answer),"Values with larger weights have a greater influence on the weighted mean.");
     }
-
 },
-
-
 "median": {
-
     title: "Median",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Median = middle value after arranging data",
-
+    fields: [["data", "Data Values (comma separated)", "text"]],
+    formula: "Arrange the data in order, then find the middle value.",
     calculate(v) {
-
-        const data =
-            getArray(v.data)
-            .sort((a, b) => a - b);
-
-        if (!data.length) {
-            return errorMessage(
-                "Enter valid data."
-            );
-        }
-
-        const n = data.length;
-
-        let median;
-
-        if (n % 2 === 1) {
-
-            median =
-                data[Math.floor(n / 2)];
-
-        } else {
-
-            median =
-                (
-                    data[n / 2 - 1] +
-                    data[n / 2]
-                ) / 2;
-
-        }
-
-        return resultTemplate(
-            "Median = Middle value",
-            `Ordered data: ${data.join(", ")}`,
-            number(median)
-        );
-
+        const original=getArray(v.data);
+        if (!original.length || !original.every(Number.isFinite)) return errorMessage("Enter valid data values separated by commas.");
+        const data=[...original].sort((a,b)=>a-b), n=data.length;
+        const odd=n%2===1, lowerIndex=Math.floor((n-1)/2), upperIndex=Math.floor(n/2);
+        const median=odd?data[lowerIndex]:(data[lowerIndex]+data[upperIndex])/2;
+        const working=`Step 1 \u2014 Arrange the data from smallest to largest:<br>${data.map(number).join(", ")}<br><br>Step 2 \u2014 Count the observations:<br>n = ${n}<br><br>${odd?`Step 3 \u2014 Since n is odd, select the middle observation (position ${upperIndex+1}):<br>Median = ${number(data[lowerIndex])}`:`Step 3 \u2014 Since n is even, take the two middle observations (positions ${lowerIndex+1} and ${upperIndex+1}):<br>Middle values = ${number(data[lowerIndex])} and ${number(data[upperIndex])}<br><br>Step 4 \u2014 Find their average:<br>Median = (${number(data[lowerIndex])} + ${number(data[upperIndex])}) \u00F7 2 = ${number(median)}`}`;
+        return resultTemplate("Median = middle value (odd n) or average of two middle values (even n)",working,number(median),odd?"An odd number of observations has one middle value.":"An even number of observations has two middle values, so their average is the median.");
     }
-
 },
-
-
 "mode": {
 
     title: "Mode",
@@ -4434,96 +3408,27 @@ statistics: {
 
 
 "variance": {
-
-    title: "Variance",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Population Variance = Sigma(x - x)2 / n",
-
+    title: "Population Variance",
+    fields: [["data", "Data Values (comma separated)", "text"]],
+    formula: "\\(\\sigma^2=\\frac{\\sum(x-\\bar{x})^2}{n}\\)",
     calculate(v) {
-
-        const data =
-            getArray(v.data);
-
-        if (!data.length) {
-            return errorMessage(
-                "Enter valid data."
-            );
-        }
-
-        const mean =
-            average(data);
-
-        const variance =
-            data.reduce(
-                (total, x) =>
-                    total +
-                    Math.pow(x - mean, 2),
-                0
-            ) / data.length;
-
-        return resultTemplate(
-            "Variance = Sigma(x - x)2 / n",
-            `Mean = ${number(mean)}`,
-            number(variance)
-        );
-
+        const data=getArray(v.data);
+        if (!data.length || !data.every(Number.isFinite)) return errorMessage("Enter valid data values separated by commas.");
+        const mean=average(data), deviations=data.map(x=>x-mean), squares=deviations.map(d=>d*d), totalSquares=sum(squares), variance=totalSquares/data.length;
+        return resultTemplate("\\(\\sigma^2=\\frac{\\sum(x-\\bar{x})^2}{n}\\)",`Step 1 \u2014 Calculate the mean:<br>\u03A3x = ${number(sum(data))}; n = ${data.length}; mean = ${number(mean)}<br><br>Step 2 \u2014 Subtract the mean from each observation:<br>${data.map((x,i)=>`${number(x)} \u2212 ${number(mean)} = ${number(deviations[i])}`).join("<br")}<br><br>Step 3 \u2014 Square each deviation:<br>${deviations.map((d,i)=>`(${number(d)})\u00B2 = ${number(squares[i])}`).join("<br")}<br><br>Step 4 \u2014 Add the squared deviations:<br>\u03A3(x \u2212 mean)\u00B2 = ${squares.map(number).join(" + ")} = ${number(totalSquares)}<br><br>Step 5 \u2014 Divide by n for population variance:<br>Variance = ${number(totalSquares)} \u00F7 ${data.length} = ${number(variance)}`,number(variance),"This is population variance, so the sum of squared deviations is divided by n. For sample variance, divide by n \u2212 1 instead.");
     }
-
 },
-
-
 "standard-deviation": {
-
-    title: "Standard Deviation",
-
-    fields: [
-        ["data", "Data Values (comma separated)", "text"]
-    ],
-
-    formula:
-        "Standard Deviation = sqrtVariance",
-
+    title: "Population Standard Deviation",
+    fields: [["data", "Data Values (comma separated)", "text"]],
+    formula: "\\(\\sigma=\\sqrt{\\frac{\\sum(x-\\bar{x})^2}{n}}\\)",
     calculate(v) {
-
-        const data =
-            getArray(v.data);
-
-        if (!data.length) {
-            return errorMessage(
-                "Enter valid data."
-            );
-        }
-
-        const mean =
-            average(data);
-
-        const variance =
-            data.reduce(
-                (total, x) =>
-                    total +
-                    Math.pow(x - mean, 2),
-                0
-            ) / data.length;
-
-        const sd =
-            Math.sqrt(variance);
-
-        return resultTemplate(
-            "SD = sqrtVariance",
-            `Variance = ${number(variance)}`,
-            number(sd)
-        );
-
+        const data=getArray(v.data);
+        if (!data.length || !data.every(Number.isFinite)) return errorMessage("Enter valid data values separated by commas.");
+        const mean=average(data), squares=data.map(x=>Math.pow(x-mean,2)), variance=sum(squares)/data.length, sd=Math.sqrt(variance);
+        return resultTemplate("\\(\\sigma=\\sqrt{\\frac{\\sum(x-\\bar{x})^2}{n}}\\)",`Step 1 \u2014 Calculate the mean:<br>Mean = ${number(sum(data))} \u00F7 ${data.length} = ${number(mean)}<br><br>Step 2 \u2014 Calculate the squared deviations and their total:<br>${data.map(x=>`(${number(x)} \u2212 ${number(mean)})\u00B2 = ${number(Math.pow(x-mean,2))}`).join("<br")}<br>Sum of squared deviations = ${number(sum(squares))}<br><br>Step 3 \u2014 Divide by n to get population variance:<br>Variance = ${number(sum(squares))} \u00F7 ${data.length} = ${number(variance)}<br><br>Step 4 \u2014 Take the square root:<br>Standard deviation = \u221A${number(variance)} = ${number(sd)}`,number(sd),"Standard deviation describes the typical spread of observations around the mean, in the original data units. This is the population version.");
     }
-
 },
-
-
 "coefficient-variation": {
 
     title: "Coefficient of Variation",
@@ -5175,7 +4080,7 @@ economics: {
         const explanation = elasticityExplanation("price-elasticity-demand", absolutePED);
         return resultTemplate(
             "PED = percentage change in quantity demanded / percentage change in price",
-            `<strong>Percentage change in quantity demanded:</strong><br>\\(\\frac{Q_2-Q_1}{Q_1}\\times100=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{${mathNumber(q1)}}\\times100=${mathNumber(percentQ)}\\%\\)<br><br><strong>Percentage change in price:</strong><br>\\(\\frac{P_2-P_1}{P_1}\\times100=\\frac{${mathNumber(p2)}-${mathNumber(p1)}}{${mathNumber(p1)}}\\times100=${mathNumber(percentP)}\\%\\)<br><br><strong>PED:</strong><br>\\(\\frac{${mathNumber(percentQ)}\\%}{${mathNumber(percentP)}\\%}=${mathNumber(ped)}\\)<br>Absolute value used = ${mathNumber(absolutePED)}`,
+            `% change in quantity demanded = ${percent(percentQ)}<br><br>% change in price = ${percent(percentP)}<br><br>PED = ${number(percentQ, 4)} / ${number(percentP, 4)} = ${mathNumber(absolutePED)}`,
             `${mathNumber(absolutePED)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
             `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}${ped < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. The usual PED classification uses the absolute value, so the answer is shown as positive.</small>` : ""}`
         );
@@ -5310,7 +4215,7 @@ economics: {
         const explanation = elasticityExplanation("income-elasticity", yed);
         return resultTemplate(
             "YED = percentage change in quantity demanded / percentage change in income",
-            `<strong>Percentage change in quantity demanded:</strong><br>\\(\\frac{Q_2-Q_1}{Q_1}\\times100=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{${mathNumber(q1)}}\\times100=${mathNumber(percentQ)}\\%\\)<br><br><strong>Percentage change in income:</strong><br>\\(\\frac{Y_2-Y_1}{Y_1}\\times100=\\frac{${mathNumber(y2)}-${mathNumber(y1)}}{${mathNumber(y1)}}\\times100=${mathNumber(percentY)}\\%\\)<br><br><strong>YED:</strong><br>\\(\\frac{${mathNumber(percentQ)}\\%}{${mathNumber(percentY)}\\%}=${mathNumber(yed)}\\)`,
+            `Percentage change in quantity demanded = ${percent(percentQ)}<br><br>Percentage change in income = ${percent(percentY)}<br><br>YED = ${number(percentQ, 4)} / ${number(percentY, 4)} = ${mathNumber(yed)}`,
             `${mathNumber(yed)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
             `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}`
         );
@@ -5365,7 +4270,7 @@ economics: {
         const explanation = elasticityExplanation("cross-elasticity", xed);
         return resultTemplate(
             "XED = percentage change in quantity demanded of Good X / percentage change in price of Good Y",
-            `<strong>Percentage change in quantity of Good X:</strong><br>\\(\\frac{Q_2-Q_1}{Q_1}\\times100=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{${mathNumber(q1)}}\\times100=${mathNumber(percentQ)}\\%\\)<br><br><strong>Percentage change in price of Good Y:</strong><br>\\(\\frac{P_2-P_1}{P_1}\\times100=\\frac{${mathNumber(p2)}-${mathNumber(p1)}}{${mathNumber(p1)}}\\times100=${mathNumber(percentP)}\\%\\)<br><br><strong>XED:</strong><br>\\(\\frac{${mathNumber(percentQ)}\\%}{${mathNumber(percentP)}\\%}=${mathNumber(xed)}\\)`,
+            `Percentage change in quantity demanded of Good X = ${percent(percentQ)}<br><br>Percentage change in price of Good Y = ${percent(percentP)}<br><br>XED = ${number(percentQ, 4)} / ${number(percentP, 4)} = ${mathNumber(xed)}`,
             `${mathNumber(xed)}<br><br><strong>Classification: ${explanation.classification}</strong>`,
             `<strong>Normal Explanation:</strong> ${explanation.normal}<br><br><strong>Simple Explanation:</strong> ${explanation.simple}`
         );
@@ -5487,9 +4392,10 @@ economics: {
             TR / Q;
 
         return resultTemplate(
-            "AR = TR / Q",
-            `${money(TR)} / ${number(Q)}`,
-            money(AR)
+            "AR = TR \u00F7 Q",
+            `Step 1 \u2014 Identify total revenue and quantity:<br>TR = ${money(TR)}; Q = ${number(Q)}<br><br>Step 2 \u2014 Divide total revenue by quantity:<br>AR = TR \u00F7 Q = ${money(TR)} \u00F7 ${number(Q)} = ${money(AR)}`,
+            money(AR),
+            "Average revenue is the revenue earned per unit sold."
         );
 
     }
@@ -5509,7 +4415,7 @@ economics: {
     ],
 
     formula:
-        "MR = DeltaTR / DeltaQ",
+        "MR = \u0394TR \u00F7 \u0394Q = (TR\u2082 \u2212 TR\u2081) \u00F7 (Q\u2082 \u2212 Q\u2081)",
 
     calculate(v) {
 
@@ -5531,12 +4437,10 @@ economics: {
             (r2 - r1) / deltaQ;
 
         return resultTemplate(
-            "MR = DeltaTR / DeltaQ",
-            `
-            DeltaTR = ${money(r2 - r1)}<br>
-            DeltaQ = ${number(deltaQ)}
-            `,
-            money(MR)
+            "MR = \u0394TR \u00F7 \u0394Q = (TR\u2082 \u2212 TR\u2081) \u00F7 (Q\u2082 \u2212 Q\u2081)",
+            `Step 1 \u2014 Find the change in total revenue:<br>\u0394TR = TR\u2082 \u2212 TR\u2081 = ${money(r2)} \u2212 ${money(r1)} = ${money(r2-r1)}<br><br>Step 2 \u2014 Find the change in quantity:<br>\u0394Q = Q\u2082 \u2212 Q\u2081 = ${number(q2)} \u2212 ${number(q1)} = ${number(deltaQ)}<br><br>Step 3 \u2014 Divide the change in revenue by the change in quantity:<br>MR = \u0394TR \u00F7 \u0394Q = ${money(r2-r1)} \u00F7 ${number(deltaQ)} = ${money(MR)}`,
+            money(MR),
+            "Marginal revenue is the additional revenue earned per additional unit sold over the stated change in quantity."
         );
 
     }
@@ -5569,8 +4473,9 @@ economics: {
 
         return resultTemplate(
             "TC = FC + VC",
-            `${money(FC)} + ${money(VC)}`,
-            money(TC)
+            `Step 1 \u2014 Identify fixed cost (FC):<br>FC = ${money(FC)}<br><br>Step 2 \u2014 Identify variable cost (VC):<br>VC = ${money(VC)}<br><br>Step 3 \u2014 Add fixed and variable costs:<br>TC = FC + VC = ${money(FC)} + ${money(VC)} = ${money(TC)}`,
+            money(TC),
+            "Total cost is the full cost of production at the stated output: fixed cost plus variable cost."
         );
 
     }
@@ -5608,9 +4513,10 @@ economics: {
             TC / Q;
 
         return resultTemplate(
-            "AC = TC / Q",
-            `${money(TC)} / ${number(Q)}`,
-            money(AC)
+            "AC = TC \u00F7 Q",
+            `Step 1 \u2014 Identify total cost and quantity:<br>TC = ${money(TC)}; Q = ${number(Q)}<br><br>Step 2 \u2014 Divide total cost by quantity:<br>AC = TC \u00F7 Q = ${money(TC)} \u00F7 ${number(Q)} = ${money(AC)}`,
+            money(AC),
+            "Average cost is the cost of producing one unit at the stated output."
         );
 
     }
@@ -5645,9 +4551,10 @@ economics: {
         }
 
         return resultTemplate(
-            "AFC = FC / Q",
-            `${money(FC)} / ${number(Q)}`,
-            money(FC / Q)
+            "AFC = FC \u00F7 Q",
+            `Step 1 \u2014 Identify fixed cost and output:<br>FC = ${money(FC)}; Q = ${number(Q)}<br><br>Step 2 \u2014 Divide fixed cost by output:<br>AFC = FC \u00F7 Q = ${money(FC)} \u00F7 ${number(Q)} = ${money(FC/Q)}`,
+            money(FC / Q),
+            "Average fixed cost is the fixed cost allocated to each unit of output."
         );
 
     }
@@ -5682,9 +4589,10 @@ economics: {
         }
 
         return resultTemplate(
-            "AVC = VC / Q",
-            `${money(VC)} / ${number(Q)}`,
-            money(VC / Q)
+            "AVC = VC \u00F7 Q",
+            `Step 1 \u2014 Identify variable cost and output:<br>VC = ${money(VC)}; Q = ${number(Q)}<br><br>Step 2 \u2014 Divide variable cost by output:<br>AVC = VC \u00F7 Q = ${money(VC)} \u00F7 ${number(Q)} = ${money(VC/Q)}`,
+            money(VC / Q),
+            "Average variable cost is the variable cost per unit of output."
         );
 
     }
@@ -5890,7 +4798,7 @@ economics: {
     ],
 
     formula:
-        "MP = DeltaTP / DeltaL",
+        "MP = \u0394TP \u00F7 \u0394L = (TP\u2082 \u2212 TP\u2081) \u00F7 (L\u2082 \u2212 L\u2081)",
 
     calculate(v) {
 
@@ -5919,12 +4827,10 @@ economics: {
             (q2 - q1) / deltaL;
 
         return resultTemplate(
-            "MP = DeltaTP / DeltaL",
-            `
-            DeltaTP = ${number(q2 - q1)}<br>
-            DeltaL = ${number(deltaL)}
-            `,
-            number(MP)
+            "MP = \u0394TP \u00F7 \u0394L = (TP\u2082 \u2212 TP\u2081) \u00F7 (L\u2082 \u2212 L\u2081)",
+            `Step 1 \u2014 Find the change in total product:<br>\u0394TP = TP\u2082 \u2212 TP\u2081 = ${number(q2)} \u2212 ${number(q1)} = ${number(q2-q1)}<br><br>Step 2 \u2014 Find the change in labour:<br>\u0394L = L\u2082 \u2212 L\u2081 = ${number(l2)} \u2212 ${number(l1)} = ${number(deltaL)}<br><br>Step 3 \u2014 Divide the change in output by the change in labour:<br>MP = \u0394TP \u00F7 \u0394L = ${number(q2-q1)} \u00F7 ${number(deltaL)} = ${number(MP)}`,
+            number(MP),
+            "Marginal product is the additional output associated with each additional unit of labour over the stated change."
         );
 
     }
@@ -6120,12 +5026,12 @@ economics: {
                 ["currentAssets", "Current Assets (NGN)", "number"],
                 ["currentLiabilities", "Current Liabilities (NGN)", "number"]
             ],
-            formula: "Current Ratio = Current Assets / Current Liabilities",
+            formula: "Current Ratio = CA \u00F7 CL",
             calculate(v) {
                 const assets=getNumber(v,"currentAssets"), liabilities=getNumber(v,"currentLiabilities");
                 if (liabilities===0) return errorMessage("Current liabilities cannot be zero.");
                 const ratio=assets/liabilities;
-                return resultTemplate("Current Ratio = Current Assets / Current Liabilities", `${money(assets)} / ${money(liabilities)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This ratio measures the amount of current assets available to cover each unit of current liabilities.");
+                return resultTemplate("Current Ratio = CA \u00F7 CL", `${money(assets)} / ${money(liabilities)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This ratio measures the amount of current assets available to cover each unit of current liabilities.");
             }
         },
 
@@ -6137,7 +5043,7 @@ economics: {
                 ["prepayments", "Prepayments (NGN) - Optional", "number"],
                 ["currentLiabilities", "Current Liabilities (NGN)", "number"]
             ],
-            formula: "Quick Ratio = (Current Assets - Inventory - Prepayments) / Current Liabilities",
+            formula: "Quick Ratio = (CA \u2212 Inventory \u2212 Prepayments) \u00F7 CL",
             calculate(v) {
                 const assets=getNumber(v,"currentAssets"), inventory=getNumber(v,"inventory"), prepayments=v.prepayments===""?0:getNumber(v,"prepayments"), liabilities=getNumber(v,"currentLiabilities");
                 if (liabilities===0) return errorMessage("Current liabilities cannot be zero.");
@@ -6149,221 +5055,221 @@ economics: {
         "cash-ratio": {
             title: "Cash Ratio",
             fields: [["cash", "Cash and Cash Equivalents (NGN)", "number"],["currentLiabilities", "Current Liabilities (NGN)", "number"]],
-            formula: "Cash Ratio = Cash and Cash Equivalents / Current Liabilities",
+            formula: "Cash Ratio = Cash & Cash Equivalents \u00F7 CL",
             calculate(v) {
                 const cash=getNumber(v,"cash"), liabilities=getNumber(v,"currentLiabilities");
                 if(liabilities===0) return errorMessage("Current liabilities cannot be zero.");
                 const ratio=cash/liabilities;
-                return resultTemplate("Cash Ratio = Cash and Cash Equivalents / Current Liabilities", `${money(cash)} / ${money(liabilities)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This measures immediate coverage of current liabilities using cash and cash equivalents.");
+                return resultTemplate("Cash Ratio = Cash & Cash Equivalents \u00F7 CL", `${money(cash)} / ${money(liabilities)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This measures immediate coverage of current liabilities using cash and cash equivalents.");
             }
         },
 
         "working-capital": {
             title: "Working Capital",
             fields: [["currentAssets", "Current Assets (NGN)", "number"],["currentLiabilities", "Current Liabilities (NGN)", "number"]],
-            formula: "Working Capital = Current Assets - Current Liabilities",
+            formula: "Working Capital = CA \u2212 CL",
             calculate(v) {
                 const assets=getNumber(v,"currentAssets"), liabilities=getNumber(v,"currentLiabilities"), wc=assets-liabilities;
-                return resultTemplate("Working Capital = Current Assets - Current Liabilities", `${money(assets)} - ${money(liabilities)} = ${money(wc)}`, money(wc), wc>=0 ? "Positive working capital means current assets exceed current liabilities." : "Negative working capital means current liabilities exceed current assets.");
+                return resultTemplate("Working Capital = CA \u2212 CL", `${money(assets)} - ${money(liabilities)} = ${money(wc)}`, money(wc), wc>=0 ? "Positive working capital means current assets exceed current liabilities." : "Negative working capital means current liabilities exceed current assets.");
             }
         },
 
         "inventory-turnover": {
             title: "Inventory Turnover",
             fields: [["cogs", "Cost of Goods Sold (NGN)", "number"],["averageInventory", "Average Inventory (NGN)", "number"]],
-            formula: "Inventory Turnover = COGS / Average Inventory",
+            formula: "Inventory Turnover = COGS \u00F7 Average Inventory",
             calculate(v) {
                 const cogs=getNumber(v,"cogs"), inv=getNumber(v,"averageInventory");
                 if(inv===0) return errorMessage("Average inventory cannot be zero.");
                 const ratio=cogs/inv;
-                return resultTemplate("Inventory Turnover = COGS / Average Inventory", `${money(cogs)} / ${money(inv)} = ${number(ratio)} times`, `${number(ratio)} times`, "This indicates how many times average inventory is replaced during the period.");
+                return resultTemplate("Inventory Turnover = COGS \u00F7 Average Inventory", `${money(cogs)} / ${money(inv)} = ${number(ratio)} times`, `${number(ratio)} times`, "This indicates how many times average inventory is replaced during the period.");
             }
         },
 
         "receivables-turnover": {
             title: "Receivables Turnover",
             fields: [["creditSales", "Net Credit Sales (NGN)", "number"],["averageReceivables", "Average Trade Receivables (NGN)", "number"]],
-            formula: "Receivables Turnover = Net Credit Sales / Average Receivables",
+            formula: "Receivables Turnover = Net Credit Sales \u00F7 Average Receivables",
             calculate(v) {
                 const sales=getNumber(v,"creditSales"), rec=getNumber(v,"averageReceivables");
                 if(rec===0) return errorMessage("Average receivables cannot be zero.");
                 const ratio=sales/rec;
-                return resultTemplate("Receivables Turnover = Net Credit Sales / Average Receivables", `${money(sales)} / ${money(rec)} = ${number(ratio)} times`, `${number(ratio)} times`, "This indicates how many times average receivables are collected or converted during the period.");
+                return resultTemplate("Receivables Turnover = Net Credit Sales \u00F7 Average Receivables", `${money(sales)} / ${money(rec)} = ${number(ratio)} times`, `${number(ratio)} times`, "This indicates how many times average receivables are collected or converted during the period.");
             }
         },
 
         "payables-turnover": {
             title: "Payables Turnover",
             fields: [["creditPurchases", "Net Credit Purchases (NGN)", "number"],["averagePayables", "Average Trade Payables (NGN)", "number"]],
-            formula: "Payables Turnover = Net Credit Purchases / Average Trade Payables",
+            formula: "Payables Turnover = Net Credit Purchases \u00F7 Average Trade Payables",
             calculate(v) {
                 const purchases=getNumber(v,"creditPurchases"), payables=getNumber(v,"averagePayables");
                 if(payables===0) return errorMessage("Average payables cannot be zero.");
                 const ratio=purchases/payables;
-                return resultTemplate("Payables Turnover = Net Credit Purchases / Average Trade Payables", `${money(purchases)} / ${money(payables)} = ${number(ratio)} times`, `${number(ratio)} times`, "This indicates how many times average trade payables are settled during the period.");
+                return resultTemplate("Payables Turnover = Net Credit Purchases \u00F7 Average Trade Payables", `${money(purchases)} / ${money(payables)} = ${number(ratio)} times`, `${number(ratio)} times`, "This indicates how many times average trade payables are settled during the period.");
             }
         },
 
         "total-asset-turnover": {
             title: "Total Asset Turnover",
             fields: [["revenue", "Revenue (NGN)", "number"],["averageAssets", "Average Total Assets (NGN)", "number"]],
-            formula: "Total Asset Turnover = Revenue / Average Total Assets",
+            formula: "Total Asset Turnover = Revenue \u00F7 Average Total Assets",
             calculate(v) {
                 const revenue=getNumber(v,"revenue"), assets=getNumber(v,"averageAssets");
                 if(assets===0) return errorMessage("Average total assets cannot be zero.");
                 const ratio=revenue/assets;
-                return resultTemplate("Total Asset Turnover = Revenue / Average Total Assets", `${money(revenue)} / ${money(assets)} = ${number(ratio)} times`, `${number(ratio)} times`, "This measures revenue generated for each unit of average total assets.");
+                return resultTemplate("Total Asset Turnover = Revenue \u00F7 Average Total Assets", `${money(revenue)} / ${money(assets)} = ${number(ratio)} times`, `${number(ratio)} times`, "This measures revenue generated for each unit of average total assets.");
             }
         },
 
         "inventory-days": {
             title: "Inventory Days",
             fields: [["cogs", "Cost of Goods Sold (NGN)", "number"],["averageInventory", "Average Inventory (NGN)", "number"]],
-            formula: "Inventory Days = (Average Inventory / COGS) * 365",
+            formula: "Inventory Days = (Average Inventory \u00F7 COGS) \u00D7 365",
             calculate(v) {
                 const cogs=getNumber(v,"cogs"), inv=getNumber(v,"averageInventory");
                 if(cogs===0) return errorMessage("COGS cannot be zero.");
                 const days=(inv/cogs)*365;
-                return resultTemplate("Inventory Days = (Average Inventory / COGS) * 365", `(${money(inv)} / ${money(cogs)}) * 365 = ${number(days)} days`, `${number(days)} days`, "This estimates the average number of days inventory is held before being sold.");
+                return resultTemplate("Inventory Days = (Average Inventory \u00F7 COGS) \u00D7 365", `(${money(inv)} / ${money(cogs)}) * 365 = ${number(days)} days`, `${number(days)} days`, "This estimates the average number of days inventory is held before being sold.");
             }
         },
 
         "receivable-days": {
             title: "Receivable Days",
             fields: [["averageReceivables", "Average Trade Receivables (NGN)", "number"],["creditSales", "Net Credit Sales (NGN)", "number"]],
-            formula: "Receivable Days = (Average Receivables / Net Credit Sales) * 365",
+            formula: "Receivable Days = (Average Receivables \u00F7 Net Credit Sales) \u00D7 365",
             calculate(v) {
                 const rec=getNumber(v,"averageReceivables"), sales=getNumber(v,"creditSales");
                 if(sales===0) return errorMessage("Net credit sales cannot be zero.");
                 const days=(rec/sales)*365;
-                return resultTemplate("Receivable Days = (Average Receivables / Net Credit Sales) * 365", `(${money(rec)} / ${money(sales)}) * 365 = ${number(days)} days`, `${number(days)} days`, "This estimates the average time taken to collect trade receivables.");
+                return resultTemplate("Receivable Days = (Average Receivables \u00F7 Net Credit Sales) \u00D7 365", `(${money(rec)} / ${money(sales)}) * 365 = ${number(days)} days`, `${number(days)} days`, "This estimates the average time taken to collect trade receivables.");
             }
         },
 
         "payable-days": {
             title: "Payable Days",
             fields: [["averagePayables", "Average Trade Payables (NGN)", "number"],["creditPurchases", "Net Credit Purchases (NGN)", "number"]],
-            formula: "Payable Days = (Average Trade Payables / Net Credit Purchases) * 365",
+            formula: "Payable Days = (Average Trade Payables \u00F7 Net Credit Purchases) \u00D7 365",
             calculate(v) {
                 const payables=getNumber(v,"averagePayables"), purchases=getNumber(v,"creditPurchases");
                 if(purchases===0) return errorMessage("Net credit purchases cannot be zero.");
                 const days=(payables/purchases)*365;
-                return resultTemplate("Payable Days = (Average Trade Payables / Net Credit Purchases) * 365", `(${money(payables)} / ${money(purchases)}) * 365 = ${number(days)} days`, `${number(days)} days`, "This estimates the average time taken to settle trade payables.");
+                return resultTemplate("Payable Days = (Average Trade Payables \u00F7 Net Credit Purchases) \u00D7 365", `(${money(payables)} / ${money(purchases)}) * 365 = ${number(days)} days`, `${number(days)} days`, "This estimates the average time taken to settle trade payables.");
             }
         },
 
         "debt-ratio": {
             title: "Debt Ratio",
             fields: [["totalLiabilities", "Total Liabilities (NGN)", "number"],["totalAssets", "Total Assets (NGN)", "number"]],
-            formula: "Debt Ratio = Total Liabilities / Total Assets * 100",
+            formula: "Debt Ratio = (Total Liabilities \u00F7 Total Assets) \u00D7 100%",
             calculate(v) {
                 const debt=getNumber(v,"totalLiabilities"), assets=getNumber(v,"totalAssets");
                 if(assets===0) return errorMessage("Total assets cannot be zero.");
                 const ratio=debt/assets*100;
-                return resultTemplate("Debt Ratio = Total Liabilities / Total Assets * 100", `${money(debt)} / ${money(assets)} * 100 = ${number(ratio)}%`, percent(ratio), "This shows the proportion of total assets financed by liabilities.");
+                return resultTemplate("Debt Ratio = (Total Liabilities \u00F7 Total Assets) \u00D7 100%", `${money(debt)} / ${money(assets)} * 100 = ${number(ratio)}%`, percent(ratio), "This shows the proportion of total assets financed by liabilities.");
             }
         },
 
         "debt-to-equity": {
             title: "Debt-to-Equity Ratio",
             fields: [["totalLiabilities", "Total Liabilities (NGN)", "number"],["totalEquity", "Total Equity (NGN)", "number"]],
-            formula: "Debt-to-Equity Ratio = Total Liabilities / Total Equity",
+            formula: "Debt-to-Equity Ratio = Total Liabilities \u00F7 Total Equity",
             calculate(v) {
                 const debt=getNumber(v,"totalLiabilities"), equity=getNumber(v,"totalEquity");
                 if(equity===0) return errorMessage("Total equity cannot be zero.");
                 const ratio=debt/equity;
-                return resultTemplate("Debt-to-Equity Ratio = Total Liabilities / Total Equity", `${money(debt)} / ${money(equity)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This compares financing provided by liabilities with financing provided by equity.");
+                return resultTemplate("Debt-to-Equity Ratio = Total Liabilities \u00F7 Total Equity", `${money(debt)} / ${money(equity)} = ${compactNumber(ratio)}:1`, `${compactNumber(ratio)}:1`, "This compares financing provided by liabilities with financing provided by equity.");
             }
         },
 
         "equity-ratio": {
             title: "Equity Ratio",
             fields: [["totalEquity", "Total Equity (NGN)", "number"],["totalAssets", "Total Assets (NGN)", "number"]],
-            formula: "Equity Ratio = Total Equity / Total Assets * 100",
+            formula: "Equity Ratio = (Total Equity \u00F7 Total Assets) \u00D7 100%",
             calculate(v) {
                 const equity=getNumber(v,"totalEquity"), assets=getNumber(v,"totalAssets");
                 if(assets===0) return errorMessage("Total assets cannot be zero.");
                 const ratio=equity/assets*100;
-                return resultTemplate("Equity Ratio = Total Equity / Total Assets * 100", `${money(equity)} / ${money(assets)} * 100 = ${number(ratio)}%`, percent(ratio), "This shows the proportion of total assets financed by equity.");
+                return resultTemplate("Equity Ratio = (Total Equity \u00F7 Total Assets) \u00D7 100%", `${money(equity)} / ${money(assets)} * 100 = ${number(ratio)}%`, percent(ratio), "This shows the proportion of total assets financed by equity.");
             }
         },
 
         "interest-coverage": {
             title: "Interest Coverage Ratio",
             fields: [["ebit", "Earnings Before Interest and Tax (EBIT) (NGN)", "number"],["interestExpense", "Interest Expense (NGN)", "number"]],
-            formula: "Interest Coverage = EBIT / Interest Expense",
+            formula: "Interest Coverage = EBIT \u00F7 Interest Expense",
             calculate(v) {
                 const ebit=getNumber(v,"ebit"), interest=getNumber(v,"interestExpense");
                 if(interest===0) return errorMessage("Interest expense cannot be zero.");
                 const ratio=ebit/interest;
-                return resultTemplate("Interest Coverage = EBIT / Interest Expense", `${money(ebit)} / ${money(interest)} = ${number(ratio)} times`, `${number(ratio)} times`, "This measures how many times EBIT covers the period's interest expense.");
+                return resultTemplate("Interest Coverage = EBIT \u00F7 Interest Expense", `${money(ebit)} / ${money(interest)} = ${number(ratio)} times`, `${number(ratio)} times`, "This measures how many times EBIT covers the period's interest expense.");
             }
         },
 
         "return-on-assets": {
             title: "Return on Assets (ROA)",
             fields: [["netIncome", "Net Income (NGN)", "number"],["averageAssets", "Average Total Assets (NGN)", "number"]],
-            formula: "ROA = Net Income / Average Total Assets * 100",
+            formula: "ROA = (Net Income \u00F7 Average Total Assets) \u00D7 100%",
             calculate(v) {
                 const income=getNumber(v,"netIncome"), assets=getNumber(v,"averageAssets");
                 if(assets===0) return errorMessage("Average total assets cannot be zero.");
                 const roa=income/assets*100;
-                return resultTemplate("ROA = Net Income / Average Total Assets * 100", `${money(income)} / ${money(assets)} * 100 = ${number(roa)}%`, percent(roa), "This measures profit generated relative to average assets employed.");
+                return resultTemplate("ROA = (Net Income \u00F7 Average Total Assets) \u00D7 100%", `${money(income)} / ${money(assets)} * 100 = ${number(roa)}%`, percent(roa), "This measures profit generated relative to average assets employed.");
             }
         },
 
         "return-on-equity": {
             title: "Return on Equity (ROE)",
             fields: [["netIncome", "Net Income (NGN)", "number"],["averageEquity", "Average Equity (NGN)", "number"]],
-            formula: "ROE = Net Income / Average Equity * 100",
+            formula: "ROE = (Net Income \u00F7 Average Equity) \u00D7 100%",
             calculate(v) {
                 const income=getNumber(v,"netIncome"), equity=getNumber(v,"averageEquity");
                 if(equity===0) return errorMessage("Average equity cannot be zero.");
                 const roe=income/equity*100;
-                return resultTemplate("ROE = Net Income / Average Equity * 100", `${money(income)} / ${money(equity)} * 100 = ${number(roe)}%`, percent(roe), "This measures profit generated relative to average equity.");
+                return resultTemplate("ROE = (Net Income \u00F7 Average Equity) \u00D7 100%", `${money(income)} / ${money(equity)} * 100 = ${number(roe)}%`, percent(roe), "This measures profit generated relative to average equity.");
             }
         },
 
         "earnings-per-share": {
             title: "Earnings Per Share (EPS)",
             fields: [["netIncome", "Net Income Attributable to Ordinary Shareholders (NGN)", "number"],["preferenceDividends", "Preference Dividends (NGN) - Optional", "number"],["weightedShares", "Weighted Average Ordinary Shares", "number"]],
-            formula: "EPS = (Net Income - Preference Dividends) / Weighted Average Ordinary Shares",
+            formula: "EPS = (Net Income \u2212 Preference Dividends) \u00F7 Weighted Average Ordinary Shares",
             calculate(v) {
                 const income=getNumber(v,"netIncome"), pref=v.preferenceDividends===""?0:getNumber(v,"preferenceDividends"), shares=getNumber(v,"weightedShares");
                 if(shares===0) return errorMessage("Weighted average ordinary shares cannot be zero.");
                 const eps=(income-pref)/shares;
-                return resultTemplate("EPS = (Net Income - Preference Dividends) / Weighted Average Ordinary Shares", `(${money(income)} - ${money(pref)}) / ${number(shares)} = ${money(eps)}`, money(eps), "EPS expresses the earnings attributable to each ordinary share for the period.");
+                return resultTemplate("EPS = (Net Income \u2212 Preference Dividends) \u00F7 Weighted Average Ordinary Shares", `(${money(income)} - ${money(pref)}) / ${number(shares)} = ${money(eps)}`, money(eps), "EPS expresses the earnings attributable to each ordinary share for the period.");
             }
         },
 
         "pe-ratio": {
             title: "Price-to-Earnings (P/E) Ratio",
             fields: [["marketPrice", "Market Price Per Share (NGN)", "number"],["eps", "Earnings Per Share (NGN)", "number"]],
-            formula: "P/E Ratio = Market Price Per Share / EPS",
+            formula: "P/E Ratio = Market Price per Share \u00F7 EPS",
             calculate(v) {
                 const price=getNumber(v,"marketPrice"), eps=getNumber(v,"eps");
                 if(eps===0) return errorMessage("EPS cannot be zero.");
                 const ratio=price/eps;
-                return resultTemplate("P/E Ratio = Market Price Per Share / EPS", `${money(price)} / ${money(eps)} = ${number(ratio)} times`, `${number(ratio)} times`, "This expresses the market price per share as a multiple of earnings per share.");
+                return resultTemplate("P/E Ratio = Market Price per Share \u00F7 EPS", `${money(price)} / ${money(eps)} = ${number(ratio)} times`, `${number(ratio)} times`, "This expresses the market price per share as a multiple of earnings per share.");
             }
         },
 
         "dividend-per-share": {
             title: "Dividend Per Share (DPS)",
             fields: [["ordinaryDividends", "Ordinary Dividends (NGN)", "number"],["ordinaryShares", "Ordinary Shares Outstanding", "number"]],
-            formula: "DPS = Ordinary Dividends / Ordinary Shares Outstanding",
+            formula: "DPS = Ordinary Dividends \u00F7 Ordinary Shares Outstanding",
             calculate(v) {
                 const dividends=getNumber(v,"ordinaryDividends"), shares=getNumber(v,"ordinaryShares");
                 if(shares===0) return errorMessage("Ordinary shares outstanding cannot be zero.");
                 const dps=dividends/shares;
-                return resultTemplate("DPS = Ordinary Dividends / Ordinary Shares Outstanding", `${money(dividends)} / ${number(shares)} = ${money(dps)}`, money(dps), "DPS shows the dividend attributable to each ordinary share.");
+                return resultTemplate("DPS = Ordinary Dividends \u00F7 Ordinary Shares Outstanding", `${money(dividends)} / ${number(shares)} = ${money(dps)}`, money(dps), "DPS shows the dividend attributable to each ordinary share.");
             }
         },
 
         "dividend-yield": {
             title: "Dividend Yield",
             fields: [["dps", "Dividend Per Share (NGN)", "number"],["marketPrice", "Market Price Per Share (NGN)", "number"]],
-            formula: "Dividend Yield = Dividend Per Share / Market Price Per Share * 100",
+            formula: "Dividend Yield = (Dividend per Share \u00F7 Market Price per Share) \u00D7 100%",
             calculate(v) {
                 const dps=getNumber(v,"dps"), price=getNumber(v,"marketPrice");
                 if(price===0) return errorMessage("Market price per share cannot be zero.");
@@ -6903,11 +5809,11 @@ function showCalculator(type) {
         } else if (type === "logarithm") {
             const expr=addGroup("Logarithm Expression","logExpression","text");
             expr.placeholder="e.g. log_2(8) - log_2(2)";
-            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to enter a logarithm</strong><p>Use <strong>log_base(argument)</strong>, for example <strong>log_2(8)</strong> or <strong>log_10(100)</strong>.</p><p>You can combine logarithms with +, âˆ’, Ã— and Ã·. The calculator shows the relevant law, each step, the simplified logarithmic form when possible, and the numerical value.</p><p><strong>Conditions:</strong> the base must be positive and not equal to 1; the argument must be positive.</p>`; calculatorForm.appendChild(note);
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to enter a logarithm</strong><p>Use <strong>log_base(argument)</strong>, for example <strong>log_2(8)</strong>, <strong>log_4(9^2)</strong>, <strong>log_4(9\u00B2)</strong> or <strong>log_10(sqrt(100))</strong>.</p><p>You can use powers, brackets, square roots, ln(...), and combine logarithms with +, \u2212, \u00D7 and \u00F7. The result shows the simplified logarithmic form, numerical value and step-by-step working.</p><p><strong>Conditions:</strong> the base must be positive and not equal to 1; the argument must be positive.</p>`; calculatorForm.appendChild(note);
         } else if (type === "indices") {
             const expr=addGroup("Expression involving indices","indexExpression","text");
             expr.placeholder="e.g. 2^3 * 2^4 or (2^3)^2";
-            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to enter indices</strong><p>Use <strong>^</strong> for a power, <strong>*</strong> for multiplication, and <strong>/</strong> for division.</p><p>Examples: <strong>2^3 * 2^4</strong>, <strong>3^5 / 3^2</strong>, <strong>(2^3)^2</strong>.</p><p>The result includes the relevant law, step-by-step working, simplified index form where recognized, and numerical value.</p>`; calculatorForm.appendChild(note);
+            const note=document.createElement("div"); note.className="formula-box"; note.innerHTML=`<strong>How to enter indices</strong><p>Use <strong>^</strong> or superscripts for powers, <strong>\u00D7</strong> or <strong>*</strong> for multiplication, and <strong>\u00F7</strong> or <strong>/</strong> for division.</p><p>Examples: <strong>2^3 * 2^4</strong>, <strong>3^5 / 3^2</strong>, <strong>(2^3)^2</strong>.</p><p>The result includes the relevant law, step-by-step working, simplified index form where recognized, and numerical value.</p>`; calculatorForm.appendChild(note);
         } else if (type === "matrices") {
             const op=addGroup("Matrix Operation","matrixOperation","select",calculator.options.matrixOperation);
             const ra=addGroup("Rows of A","matrixRowsA","number"); const ca=addGroup("Columns of A","matrixColsA","number");
@@ -7274,7 +6180,6 @@ function calculateCurrent() {
             ${output}
 
         `;
-        typesetMath(result);
 
     } catch (error) {
 
@@ -8078,7 +6983,7 @@ if (aiInput) {
 
     return resultTemplate(
       `${code} = percentage change in quantity / percentage change in ${xName}`,
-      `<strong>Percentage change in quantity:</strong><br>\\(\\frac{Q_2-Q_1}{(Q_1+Q_2)/2}\\times100\\)<br>\\(=\\frac{${mathNumber(q2)}-${mathNumber(q1)}}{(${mathNumber(q1)}+${mathNumber(q2)})/2}\\times100\\)<br>\\(=\\frac{${mathNumber(q2-q1)}}{${mathNumber((q1+q2)/2)}}\\times100=${mathNumber(qChange*100)}\\%\\)<br><br><strong>Percentage change in ${xName}:</strong><br>\\(\\frac{X_2-X_1}{(X_1+X_2)/2}\\times100\\)<br>\\(=\\frac{${mathNumber(x2)}-${mathNumber(x1)}}{(${mathNumber(x1)}+${mathNumber(x2)})/2}\\times100\\)<br>\\(=\\frac{${mathNumber(x2-x1)}}{${mathNumber((x1+x2)/2)}}\\times100=${mathNumber(xChange*100)}\\%\\)<br><br><strong>${code}:</strong><br>\\(\\frac{${mathNumber(qChange*100)}\\%}{${mathNumber(xChange*100)}\\%}=${mathNumber(signedElasticity)}\\)<br>${type === "price-elasticity-demand" ? `Absolute value used for PED = <strong>${mathNumber(value)}</strong>` : `Elasticity = <strong>${mathNumber(value)}</strong>`}`,
+      `Quantity change (midpoint method) = ${mathNumber(qChange * 100)}%<br><br>${xName} change (midpoint method) = ${mathNumber(xChange * 100)}%<br><br>${code} = ${mathNumber(qChange)} / ${mathNumber(xChange)} = ${mathNumber(value)}${type === "price-elasticity-demand" ? `<br><br>Absolute value used for PED = ${mathNumber(value)}` : ""}`,
       `${mathNumber(value)}<br><br><strong>Classification: ${classification}</strong>`,
       `<strong>Normal Explanation:</strong> ${normal}<br><br><strong>Simple Explanation:</strong> ${simple}${type === "price-elasticity-demand" && signedElasticity < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. PED classification uses the absolute value.</small>` : ""}`
     );
@@ -8089,7 +6994,7 @@ function khidParseLinearFunction(raw, expectedVariable) {
     // Supports +, -, explicit or implicit multiplication, division by constants,
     // decimal coefficients, and bracketed numeric coefficients such as (3/2)P.
     let expression = String(raw || "").trim()
-      .replace(/[âˆ’â€“â€”]/g, "-").replace(/[Ã—Â·]/g, "*").replace(/Ã·/g, "/");
+      .replace(/[\u2212\u2013\u2014]/g, "-").replace(/[\u00D7\u00B7]/g, "*").replace(/\u00F7/g, "/");
     if (!expression) throw new Error("Enter a linear function first.");
     if (expression.includes("=")) expression = expression.slice(expression.lastIndexOf("=") + 1).trim();
     expression = expression.replace(/\s+/g, "").replace(/[{}]/g, "");
@@ -8189,7 +7094,7 @@ function khidParseLinearFunction(raw, expectedVariable) {
       : "This describes the response of quantity to the selected price or income.");
     return resultTemplate(
       formula,
-      `Function entered: ${escapeHtml(raw)}<br><br>Slope = ${mathNumber(slope)}<br>${quantityName} at this point = ${mathNumber(constant)} + (${mathNumber(slope)} Ã— ${mathNumber(point)}) = ${mathNumber(quantity)}<br><br>Elasticity = ${mathNumber(slope)} Ã— (${mathNumber(point)} / ${mathNumber(quantity)}) = ${mathNumber(value)}.`,
+      `Function entered: ${escapeHtml(raw)}<br><br>Slope = ${mathNumber(slope)}<br>${quantityName} at this point = ${mathNumber(constant)} + (${mathNumber(slope)} \u00D7 ${mathNumber(point)}) = ${mathNumber(quantity)}<br><br>Elasticity = ${mathNumber(slope)} \u00D7 (${mathNumber(point)} / ${mathNumber(quantity)}) = ${mathNumber(value)}.`,
       `${mathNumber(value)}<br><br><strong>Classification: ${tailored ? tailored.classification : classification}</strong>`,
       `<strong>Normal Explanation:</strong> ${normalExplanation}<br><br><strong>Simple Explanation:</strong> ${simpleExplanation}${type === "price-elasticity-demand" && valueSigned < 0 ? `<br><br><small><strong>Note:</strong> The signed calculation is negative because price and quantity demanded normally move in opposite directions. The usual PED classification uses the absolute value.</small>` : ""}`
     );
@@ -8211,8 +7116,7 @@ function khidParseLinearFunction(raw, expectedVariable) {
             result.innerHTML = `<h3>Result</h3>${output}`;
             return;
           }
-          result.innerHTML = `<h3>Result</h3>${output}<div class="working-box working"><strong>How the totals were built</strong><p>${working.join("<br><br>")}</p></div>`;
-          typesetMath(result);
+          result.innerHTML = `<h3>Result</h3>${output}<div class="working-box"><strong>How the totals were built</strong><p>${working.join("<br><br>")}</p></div>`;
           khidSimpleBox(khidFinancialSimple[type] || "This result helps explain one aspect of the business's financial position or performance. Consider it alongside the other financial statements and relevant business circumstances.");
         } catch (error) {
           result.innerHTML = errorMessage(error.message || "Please check your inputs.");
@@ -8226,7 +7130,6 @@ function khidParseLinearFunction(raw, expectedVariable) {
           event.stopImmediatePropagation();
           try {
             result.innerHTML = `<h3>Result</h3>${method === "arc" ? khidCalculateArc(type) : khidCalculatePoint(type)}`;
-          typesetMath(result);
           } catch (error) {
             result.innerHTML = errorMessage(error.message || "Please check your inputs.");
           }
