@@ -7225,3 +7225,1459 @@ function khidParseLinearFunction(raw, expectedVariable) {
     populateCalculators();
   }
 })();
+
+/* =========================================================
+   KHID MATHEMATICS ENGINE  (append this block at the END of your script file)
+
+   1. Fixes "Calculator unavailable": the maths calculators were stored inside
+      the finance object, so calculators.mathematics did not exist.
+   2. Rebuilds the maths calculators so every one shows formula, step-by-step
+      working (parts first, then combined) and a clear visual final answer.
+   Nothing above this block is changed.
+========================================================= */
+
+(function () {
+"use strict";
+
+/* ---------- small HTML / number helpers (entities only, so no mojibake) ---------- */
+
+const MINUS = "&minus;", TIMES = "&times;", DIVS = "&divide;";
+const sub = s => `<sub>${s}</sub>`;
+const sup = s => `<sup>${s}</sup>`;
+const frac = (n, d) => `<span style="display:inline-block;vertical-align:middle;text-align:center;margin:0 3px;"><span style="display:block;padding:0 4px;border-bottom:1px solid currentColor;">${n}</span><span style="display:block;padding:0 4px;">${d}</span></span>`;
+const step = (n, title, body) => `<strong>Step ${n} &mdash; ${title}</strong><br>${body}`;
+const joinSteps = a => a.join("<br><br>");
+const N = v => Number.isFinite(v) ? mathNumber(v === 0 ? 0 : v) : "undefined";
+const Nn = v => N(v).replace(/^-/, MINUS);
+const par = v => v < 0 ? `(${Nn(v)})` : Nn(v);
+const E = s => escapeHtml(String(s));
+const eqRow = s => `<div style="margin:4px 0;">${s}</div>`;
+
+const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a || 1; };
+const fr = (n, d = 1) => { if (d < 0) { n = -n; d = -d; } const g = gcd(n, d); return { n: n / g, d: d / g }; };
+const frAdd = (a, b) => fr(a.n * b.d + b.n * a.d, a.d * b.d);
+const frMul = (a, b) => fr(a.n * b.n, a.d * b.d);
+const frVal = a => a.n / a.d;
+const frHtml = a => a.d === 1 ? Nn(a.n) : (a.n < 0 ? MINUS : "") + frac(Math.abs(a.n), a.d);
+function rationalize(x, maxDen = 1000) {
+    if (!Number.isFinite(x)) return null;
+    for (let d = 1; d <= maxDen; d++) {
+        const n = Math.round(x * d);
+        if (Math.abs(x * d - n) < 1e-9 * Math.max(1, Math.abs(x * d))) return fr(n, d);
+    }
+    return null;
+}
+const ratH = v => { const r = rationalize(v, 100); return r ? frHtml(r) : Nn(v); };
+function factorInt(n) {
+    const out = []; let m = n;
+    for (let p = 2; p * p <= m; p++) {
+        if (m % p === 0) { let e = 0; while (m % p === 0) { m /= p; e++; } out.push([p, e]); }
+    }
+    if (m > 1) out.push([m, 1]);
+    return out;
+}
+function joinSigned(parts) {
+    if (!parts.length) return "0";
+    return parts.map((p, i) => i === 0 ? (p.neg ? MINUS : "") + p.html : ` ${p.neg ? MINUS : "+"} ${p.html}`).join("");
+}
+function simplifyRadical(n) {
+    if (!Number.isSafeInteger(n) || n < 0) return null;
+    let out = 1, inside = n;
+    for (let p = 2; p * p <= inside; p++) {
+        while (inside % (p * p) === 0) { inside /= p * p; out *= p; }
+    }
+    return { out, inside };
+}
+const radHtml = (k, inside) => inside === 1 ? Nn(k) : `${k === 1 ? "" : Nn(k)}&radic;${inside < 10 ? inside : "(" + inside + ")"}`;
+function sqrtHtml(n) {
+    const r = simplifyRadical(n);
+    if (!r) return `&radic;(${N(n)})`;
+    return radHtml(r.out, r.inside);
+}
+
+/* pretty-print a typed expression such as 9^2, sqrt(100), 2^3*2^4 */
+function pretty(s) {
+    let t = E(normalizeSuperscriptPowers(String(s)));
+    t = t.replace(/sqrt\(/g, "&radic;(");
+    t = t.replace(/([\w)])-(?=[\w(&])/g, "$1 &minus; ");
+    t = t.replace(/\*/g, ` ${TIMES} `).replace(/\//g, ` ${DIVS} `);
+    t = t.replace(/\^(?:\((-?[\d.]+)\)|(-?[\d.]+))/g, (m, p, q) => sup((p || q).replace(/^-/, MINUS)));
+    t = t.replace(/\+/g, " + ");
+    return t.replace(/-/g, MINUS);
+}
+
+/* =========================================================
+   LOGARITHMS  (breaks down to the lowest log base form)
+========================================================= */
+
+const subDigits = {"₀":"0","₁":"1","₂":"2","₃":"3","₄":"4","₅":"5","₆":"6","₇":"7","₈":"8","₉":"9"};
+function normLog(raw) {
+    return normalizeSuperscriptPowers(String(raw || "").replace(/log([₀-₉]+)/gi, (_, d) => "log_" + [...d].map(c => subDigits[c]).join("")))
+        .replace(/[−–—]/g, "-").replace(/[×·]/g, "*").replace(/÷/g, "/").replace(/\s+/g, "");
+}
+function logTemplate(expr) {
+    let out = ""; const items = [];
+    for (let i = 0; i < expr.length;) {
+        const m = expr.slice(i).match(/^log_([0-9]+(?:\.[0-9]+)?)\(/i);
+        if (!m) { out += expr[i++]; continue; }
+        const open = i + m[0].length - 1;
+        let depth = 1, j = open + 1;
+        for (; j < expr.length && depth > 0; j++) { if (expr[j] === "(") depth++; else if (expr[j] === ")") depth--; }
+        items.push({ base: Number(m[1]), argText: expr.slice(open + 1, j - 1) });
+        out += `@${items.length - 1}@`;
+        i = j;
+    }
+    return { template: out, items };
+}
+const logH = (b, a) => `log${sub(b)}(${a})`;
+
+function symHtml(simp) {
+    const parts = [];
+    simp.terms.slice().sort((x, y) => x.p - y.p).forEach(t => {
+        const c = t.c, ac = fr(Math.abs(c.n), c.d);
+        const coef = (ac.n === 1 && ac.d === 1) ? "" : (ac.d === 1 ? `${ac.n} ` : `${frHtml(ac)} `);
+        parts.push({ neg: c.n < 0, html: `${coef}${logH(t.base, t.p)}` });
+    });
+    if (simp.k.n !== 0) parts.push({ neg: simp.k.n < 0, html: frHtml(fr(Math.abs(simp.k.n), simp.k.d)) });
+    return joinSigned(parts);
+}
+
+function analyseLog(item, ctx) {
+    const steps = [];
+    const push = (t, b) => steps.push(step(ctx.n++, t, b));
+    const b = item.base, a = item.argument, bs = N(b);
+    const argH = pretty(item.argumentText);
+    push("Identify the base and the argument", `${logH(bs, argH)}<br>Base = ${bs}; argument = ${argH}`);
+    if (!/^\d+(\.\d+)?$/.test(item.argumentText)) push("Evaluate the argument first", `${argH} = ${N(a)}`);
+
+    const hasInner = /log_/i.test(item.argumentText);
+    const rat = hasInner ? null : rationalize(a);
+    const baseInt = Number.isSafeInteger(b) && b >= 2;
+    const bf = baseInt ? factorInt(b) : null;
+    const basePow = bf && bf.length === 1 && bf[0][1] >= 2 ? { q: bf[0][0], m: bf[0][1] } : null;
+    const basePrime = bf && bf.length === 1 && bf[0][1] === 1;
+    let simp = null;
+
+    if (Math.abs(a - 1) < 1e-12) {
+        push("Use the logarithm of 1", `${logH(bs, 1)} = 0 because ${bs}${sup(0)} = 1`);
+        simp = { terms: [], k: fr(0), base: bs };
+    } else if (rat && rat.n > 0 && Number.isSafeInteger(rat.n) && Number.isSafeInteger(rat.d)) {
+        const k = Math.round(Math.log(a) / Math.log(b));
+        if (!basePow && !basePrime && k !== 0 && Math.abs(Math.pow(b, k) - a) < 1e-9 * Math.abs(a)) {
+            push("Recognise the argument as a power of the base", `${N(a)} = ${bs}${sup(Nn(k))}`);
+            push("Apply the power rule and log<sub>b</sub>(b) = 1", `${logH(bs, bs + sup(Nn(k)))} = ${Nn(k)} ${logH(bs, bs)} = ${Nn(k)} ${TIMES} 1 = ${Nn(k)}`);
+            simp = { terms: [], k: fr(k), base: bs };
+        } else {
+            const exps = new Map();
+            (rat.n >= 2 ? factorInt(rat.n) : []).forEach(([p, e]) => exps.set(p, (exps.get(p) || 0) + e));
+            (rat.d >= 2 ? factorInt(rat.d) : []).forEach(([p, e]) => exps.set(p, (exps.get(p) || 0) - e));
+            const list = [...exps.entries()].filter(([, e]) => e !== 0).sort((x, y) => x[0] - y[0]);
+            const argShow = rat.d === 1 ? N(a) : frac(rat.n, rat.d);
+            const argPow = list.map(([p, e]) => e === 1 ? `${p}` : `${p}${sup(Nn(e))}`).join(` ${TIMES} `);
+            const trivial = list.length === 1 && list[0][1] === 1;
+            const qd = basePow ? basePow.q : (basePrime ? b : null);
+            const Bd = basePow ? `${basePow.q}${sup(basePow.m)}` : bs;
+
+            if (trivial) {
+                push("The argument is already a prime number", `${argShow} = ${argPow}, so it cannot be factorised further.`);
+            } else {
+                push("Write the argument as prime powers", `${argShow} = ${argPow}`);
+                push("Rewrite the logarithm with the argument in prime-power form", `${logH(bs, argShow)} = ${logH(bs, argPow)}`);
+            }
+            if (basePow) {
+                push("Write the base as a power of a prime", `${bs} = ${Bd}<br>So ${logH(bs, trivial ? argPow : argPow)} = ${logH(Bd, argPow)}`);
+            } else if (baseInt && !basePrime) {
+                push("Check the base", `${bs} is not a power of a single prime number, so the base stays as ${bs}.`);
+            }
+            const signed = (e, h) => ({ neg: e < 0, html: `${Math.abs(e) === 1 ? "" : Nn(Math.abs(e)) + " "}${h}` });
+            if (!trivial) {
+                push("Apply the product rule and the power rule",
+                    `Rules: ${logH("b", "x" + sup("n"))} = n ${logH("b", "x")} and ${logH("b", "xy")} = ${logH("b", "x")} + ${logH("b", "y")}<br>` +
+                    `${logH(Bd, argPow)} = ${joinSigned(list.map(([p, e]) => signed(e, logH(Bd, p))))}`);
+            }
+            const terms = []; let kconst = fr(0);
+            const unit = basePow ? fr(1, basePow.m) : fr(1);
+            if (basePow) {
+                push("Apply the base power rule",
+                    `Rule: ${logH(`b${sup("m")}`, "x")} = ${frac(1, "m")} ${logH("b", "x")}<br>` +
+                    list.map(([p]) => `${logH(Bd, p)} = ${frac(1, basePow.m)} ${logH(basePow.q, p)}`).join("<br>") + `<br><br>` +
+                    `So ${logH(Bd, argPow)} = ${joinSigned(list.map(([p, e]) => ({ neg: e < 0, html: `${Math.abs(e) === 1 ? "" : Nn(Math.abs(e)) + " " + TIMES + " "}${frac(1, basePow.m)} ${logH(basePow.q, p)}` })))}`);
+            }
+            list.forEach(([p, e]) => {
+                const c = frMul(fr(e), unit);
+                if (qd !== null && p === qd) kconst = frAdd(kconst, c);
+                else terms.push({ c, p, base: basePow ? String(basePow.q) : bs });
+            });
+            if (qd !== null && list.some(([p]) => p === qd)) {
+                push(`Use ${logH("b", "b")} = 1`, list.filter(([p]) => p === qd).map(([p, e]) => `${logH(qd, qd)} = 1, so the term with ${logH(qd, p)} becomes ${frHtml(frMul(fr(e), unit))} ${TIMES} 1 = ${frHtml(frMul(fr(e), unit))}`).join("<br>"));
+            }
+            if (basePow || list.length > 1 || kconst.n !== 0) {
+                const lines = list.filter(([p]) => !(qd !== null && p === qd)).map(([p, e]) => `Coefficient of ${logH(basePow ? basePow.q : bs, p)}: ${Nn(e)} ${TIMES} ${basePow ? frac(1, basePow.m) : "1"} = ${frHtml(frMul(fr(e), unit))}`);
+                push("Combine the coefficients", (lines.length ? lines.join("<br>") + "<br><br>" : "") + `Simplified form: ${symHtml({ terms, k: kconst, base: bs })}`);
+            }
+            simp = { terms, k: kconst, base: bs };
+        }
+    } else {
+        push("Check the argument", "The argument is not a simple product of prime powers, so only the numerical value is found.");
+    }
+    push("Find the numerical value using change of base",
+        `${logH(bs, argH)} = ${frac("ln(" + N(a) + ")", "ln(" + bs + ")")} = ${frac(N(Math.log(a)), N(Math.log(b)))} = <strong>${N(item.value)}</strong>`);
+    return { steps, simp, value: item.value };
+}
+
+function calcLogarithm(raw) {
+    const original = String(raw || "").trim();
+    if (!original) return errorMessage("Enter a logarithm, for example log_4(9), log_2(8) - log_2(2), or log_10(sqrt(100)).");
+    const logs = [];
+    let result;
+    try { result = evaluateLogExpression(original, logs); }
+    catch (e) { return errorMessage(e.message || "Check the logarithm notation, brackets, base and argument."); }
+
+    const ctx = { n: 1 };
+    const analysed = logs.map(item => analyseLog(item, ctx));
+    const blocks = [];
+    analysed.forEach((an, i) => {
+        const head = logs.length > 1 ? `<strong>Logarithm ${i + 1}: ${logH(N(logs[i].base), pretty(logs[i].argumentText))}</strong><br><br>` : "";
+        blocks.push(head + joinSteps(an.steps));
+    });
+
+    let finalSym = null;
+    if (analysed.length === 1) {
+        finalSym = analysed[0].simp ? symHtml(analysed[0].simp) : null;
+    } else {
+        const norm = normLog(original);
+        const { template, items } = logTemplate(norm);
+        const lookup = it => { const idx = logs.findIndex(l => l.base === it.base && l.argumentText === it.argText); return idx >= 0 ? analysed[idx] : null; };
+        const opsOnly = s => s.replace(/\*/g, ` ${TIMES} `).replace(/\//g, ` ${DIVS} `).replace(/\+/g, " + ").replace(/-/g, ` ${MINUS} `)
+            .replace(/\^(?:\((-?\d+)\)|(-?\d+))/g, (m, p, q) => sup(p || q)).replace(/sqrt\(/g, "&radic;(");
+        const withSym = opsOnly(template).replace(/@(\d+)@/g, (m, i) => { const an = lookup(items[Number(i)]); return an && an.simp ? `(${symHtml(an.simp)})` : `(${N(an ? an.value : 0)})`; });
+        const withNum = opsOnly(template).replace(/@(\d+)@/g, (m, i) => { const an = lookup(items[Number(i)]); return `(${N(an ? an.value : 0)})`; });
+        blocks.push(step(ctx.n++, "Substitute the simplified logarithms into the expression", withSym.trim()));
+        if (/^[+\-]?@\d+@(?:[+\-]@\d+@)*$/.test(template) && items.every(it => { const an = lookup(it); return an && an.simp; })) {
+            const acc = new Map(); let k = fr(0);
+            const re = /([+\-]?)@(\d+)@/g; let m;
+            while ((m = re.exec(template))) {
+                const sg = m[1] === "-" ? -1 : 1, an = lookup(items[Number(m[2])]);
+                an.simp.terms.forEach(t => {
+                    const key = t.base + "|" + t.p, prev = acc.get(key);
+                    const c = frMul(t.c, fr(sg));
+                    acc.set(key, { c: prev ? frAdd(prev.c, c) : c, p: t.p, base: t.base });
+                });
+                k = frAdd(k, frMul(an.simp.k, fr(sg)));
+            }
+            const combined = { terms: [...acc.values()].filter(t => t.c.n !== 0), k };
+            finalSym = symHtml(combined);
+            blocks.push(step(ctx.n++, "Combine like logarithms and constants", `Add or subtract the coefficients of identical logarithms:<br>${finalSym}`));
+        }
+        blocks.push(step(ctx.n++, "Check by evaluating the whole expression numerically", `${withNum.trim()} = <strong>${N(result.value)}</strong>`));
+    }
+
+    const lawText = `Power rule: ${logH("b", "x" + sup("n"))} = n ${logH("b", "x")}. Base power rule: ${logH("b" + sup("m"), "x")} = ${frac(1, "m")} ${logH("b", "x")}. Change of base: ${logH("b", "x")} = ${frac("ln x", "ln b")}, where b &gt; 0, b &ne; 1 and x &gt; 0.`;
+    const formula = `${logH("b", "x" + sup("n"))} = n ${logH("b", "x")}<br>${logH("b" + sup("m"), "x")} = ${frac(1, "m")} ${logH("b", "x")}<br>${logH("b", "x")} = ${frac("ln x", "ln b")}`;
+    return resultTemplate(formula, joinSteps(blocks),
+        (finalSym !== null ? `<strong>Final logarithmic form:</strong> ${finalSym}<br><br>` : "") + `<strong>Numerical answer:</strong> ${N(result.value)}`,
+        lawText);
+}
+
+/* =========================================================
+   INDICES / EXPONENTS
+========================================================= */
+
+function parseIdx(s) {
+    let i = 0;
+    const peek = () => s[i];
+    function expr() {
+        let node = null, first = true;
+        const factors = [];
+        for (;;) {
+            let op = "*";
+            if (!first) {
+                const c = peek();
+                if (c === "*" || c === "/") { op = c; i++; }
+                else if (c && /[a-z(]/i.test(c)) op = "*";
+                else break;
+            }
+            const start = i;
+            const f = unary();
+            f.src = s.slice(start, i);
+            factors.push({ op, node: f });
+            node = node ? { t: op === "*" ? "mul" : "div", a: node, b: f } : f;
+            first = false;
+        }
+        node.factors = factors;
+        return node;
+    }
+    function unary() {
+        if (peek() === "-") { i++; return { t: "neg", a: unary() }; }
+        if (peek() === "+") { i++; return unary(); }
+        return power();
+    }
+    function power() {
+        const base = atom();
+        if (peek() === "^") {
+            i++;
+            let ex;
+            if (peek() === "(") {
+                i++; const e = expr();
+                if (s[i] !== ")") throw new Error("Missing closing bracket.");
+                i++; ex = e;
+            } else {
+                const m = s.slice(i).match(/^-?\d+(\.\d+)?/);
+                if (!m) throw new Error("Use a number or a bracket after ^.");
+                i += m[0].length; ex = { t: "num", v: Number(m[0]) };
+            }
+            if (peek() === "^") throw new Error("Use brackets for stacked powers, for example (2^3)^2.");
+            return { t: "pow", a: base, e: ex };
+        }
+        return base;
+    }
+    function atom() {
+        const c = peek();
+        if (c === "(") {
+            const start = i; i++;
+            const e = expr();
+            if (s[i] !== ")") throw new Error("Missing closing bracket.");
+            i++;
+            return { t: "group", a: e, src: s.slice(start, i) };
+        }
+        const m = s.slice(i).match(/^\d+(\.\d+)?/);
+        if (m) { i += m[0].length; return { t: "num", v: Number(m[0]) }; }
+        if (c && /[a-z]/i.test(c)) { i++; return { t: "var", name: c }; }
+        throw new Error("Unexpected character in the expression.");
+    }
+    const tree = expr();
+    if (i < s.length) throw new Error("Unexpected character in the expression.");
+    return tree;
+}
+
+function numEvalIdx(n) {
+    if (n.t === "num") return n.v;
+    if (n.t === "neg") return -numEvalIdx(n.a);
+    if (n.t === "group") return numEvalIdx(n.a);
+    if (n.t === "mul") return numEvalIdx(n.a) * numEvalIdx(n.b);
+    if (n.t === "div") return numEvalIdx(n.a) / numEvalIdx(n.b);
+    if (n.t === "pow") return Math.pow(numEvalIdx(n.a), numEvalIdx(n.e));
+    throw new Error("Exponents must be numbers.");
+}
+
+const frKeyHtml = (key, e) => (e.n === 1 && e.d === 1) ? key : `${key}${sup(e.d === 1 ? Nn(e.n) : `${Nn(e.n)}/${e.d}`)}`;
+
+function monoOf(n, events) {
+    const copyM = m => ({ coef: m.coef, vars: new Map(m.vars) });
+    switch (n.t) {
+        case "num": {
+            if (Number.isInteger(n.v) && n.v >= 2) return { coef: 1, vars: new Map([[String(n.v), fr(1)]]) };
+            return { coef: n.v, vars: new Map() };
+        }
+        case "var": return { coef: 1, vars: new Map([[n.name, fr(1)]]) };
+        case "neg": { const m = copyM(monoOf(n.a, events)); m.coef = -m.coef; return m; }
+        case "group": {
+            const m = monoOf(n.a, events);
+            if (n.a.t === "mul" || n.a.t === "div") events.push({ kind: "inside", src: n.src, m: copyM(m) });
+            return m;
+        }
+        case "mul": case "div": {
+            const a = copyM(monoOf(n.a, events)), b = monoOf(n.b, events);
+            if (n.t === "mul") { a.coef *= b.coef; b.vars.forEach((e, k) => a.vars.set(k, a.vars.has(k) ? frAdd(a.vars.get(k), e) : e)); }
+            else { a.coef /= b.coef; b.vars.forEach((e, k) => a.vars.set(k, a.vars.has(k) ? frAdd(a.vars.get(k), fr(-e.n, e.d)) : fr(-e.n, e.d))); }
+            return a;
+        }
+        case "pow": {
+            const exV = numEvalIdx(n.e);
+            const r = rationalize(exV);
+            if (!r) throw new Error("The exponent must be a rational number.");
+            const bm = monoOf(n.a, events);
+            const out = { coef: Math.pow(bm.coef, exV), vars: new Map() };
+            if (!Number.isFinite(out.coef)) throw new Error("This power is not a real number.");
+            bm.vars.forEach((e, k) => out.vars.set(k, frMul(e, r)));
+            if (n.a.t === "group" && bm.vars.size) events.push({ kind: "power", before: copyM(bm), r, after: copyM(out) });
+            return out;
+        }
+    }
+    throw new Error("Unsupported expression.");
+}
+function monoHtml(m) {
+    const parts = [];
+    m.vars.forEach((e, k) => { if (e.n !== 0) parts.push(frKeyHtml(k, e)); });
+    const body = parts.join(` ${TIMES} `);
+    if (m.coef === 1) return body || "1";
+    if (m.coef === -1) return MINUS + (body || "1");
+    return `${Nn(m.coef)}${body ? " " + TIMES + " " + body : ""}`;
+}
+
+function calculateIndices(raw) {
+    const original = String(raw || "").trim();
+    if (!original) return errorMessage("Enter an index expression, e.g. 2^3 * 2^4, 3^5 / 3^2, (2^3)^2 or x^5 * x^2.");
+    const s = normalizeSuperscriptPowers(original).replace(/[×·]/g, "*").replace(/÷/g, "/").replace(/[−–—]/g, "-").replace(/\s+/g, "");
+    if (/[^0-9a-zA-Z.+\-*\/^()]/.test(s)) return errorMessage("Use numbers, letters, brackets and the symbols + - * / ^ only.");
+
+    /* Sums and differences: evaluate each power first, then add/subtract */
+    const topLevelSum = (() => { let d = 0; for (let k = 1; k < s.length; k++) { const c = s[k]; if (c === "(") d++; else if (c === ")") d--; else if (d === 0 && (c === "+" || c === "-") && s[k - 1] !== "^" && s[k - 1] !== "(" && s[k - 1] !== "*" && s[k - 1] !== "/") return true; } return false; })();
+    if (topLevelSum) {
+        if (/[a-zA-Z]/.test(s)) return errorMessage("Expressions with letters and + or &minus; cannot be combined into one index form here. Use only &times; and &divide; between terms.");
+        let value;
+        try { value = Function('"use strict"; return (' + s.replace(/\^/g, "**") + ");")(); } catch (e) { return errorMessage("That expression could not be read. Check the powers and brackets."); }
+        if (!Number.isFinite(value)) return errorMessage("The expression does not give a finite number.");
+        const powers = []; let replaced = s;
+        const re = /(\d+(?:\.\d+)?)\^\(?(-?\d+(?:\.\d+)?)\)?/g; let m;
+        while ((m = re.exec(s))) powers.push({ b: Number(m[1]), e: Number(m[2]), text: m[0] });
+        powers.forEach(p => { replaced = replaced.replace(p.text, `(${N(Math.pow(p.b, p.e))})`); });
+        const st = [];
+        st.push(step(1, "Read the expression", pretty(original)));
+        if (powers.length) st.push(step(2, "Evaluate each power separately first", powers.map(p => `${N(p.b)}${sup(Nn(p.e))} = ${N(Math.pow(p.b, p.e))}`).join("<br>")));
+        st.push(step(st.length + 1, "Substitute the values and complete the + and &minus; operations", `${pretty(replaced)} = <strong>${N(value)}</strong>`));
+        return resultTemplate("Evaluate powers first (BODMAS), then add and subtract.", joinSteps(st), `<strong>Numerical answer:</strong> ${N(value)}`, "Powers are evaluated before addition and subtraction.");
+    }
+
+    let tree;
+    try { tree = parseIdx(s); } catch (e) { return errorMessage(e.message || "That expression could not be read."); }
+    const events = [];
+    let factors;
+    try {
+        factors = tree.factors.map(f => ({ op: f.op, src: f.node.src, mono: monoOf(f.node, events) }));
+    } catch (e) { return errorMessage(e.message || "That expression could not be evaluated."); }
+
+    const st = []; let n = 1;
+    const push = (t, b) => st.push(step(n++, t, b));
+    const laws = [];
+    push("Read the expression and its factors", `${pretty(original)}<br>Factors: ${factors.map((f, i) => (i ? (f.op === "*" ? ` ${TIMES} ` : ` ${DIVS} `) : "") + pretty(f.src)).join("")}`);
+
+    const insideEv = events.filter(e => e.kind === "inside");
+    const powerEv = events.filter(e => e.kind === "power");
+    if (powerEv.length) {
+        laws.push("Power of a power: (a^m)^n = a^(m &times; n)");
+        push("Apply the power of a power rule", powerEv.map(ev => {
+            const lines = [];
+            const rTxt = ev.r.d === 1 ? Nn(ev.r.n) : `${Nn(ev.r.n)}/${ev.r.d}`;
+            ev.before.vars.forEach((e, k) => {
+                const ne = frMul(e, ev.r);
+                const eTxt = e.d === 1 ? Nn(e.n) : `${Nn(e.n)}/${e.d}`;
+                lines.push(`(${frKeyHtml(k, e)})${sup(rTxt)} = ${k}${sup(`(${eTxt} ${TIMES} ${ev.r.n < 0 || ev.r.d > 1 ? "(" + rTxt + ")" : rTxt})`)} = ${frKeyHtml(k, ne)}`);
+            });
+            return lines.join("<br>");
+        }).join("<br>"));
+    }
+    if (insideEv.length) {
+        push("Simplify inside the brackets first", insideEv.map(ev => `${pretty(ev.src)} = ${monoHtml(ev.m)}`).join("<br>"));
+    }
+
+    /* common prime base */
+    const numKeys = [...new Set(factors.flatMap(f => [...f.mono.vars.keys()].filter(k => /^\d+$/.test(k))))];
+    let working = factors.map(f => ({ op: f.op, mono: { coef: f.mono.coef, vars: new Map(f.mono.vars) } }));
+    if (numKeys.length >= 2) {
+        const primeSets = numKeys.map(k => factorInt(Number(k)).map(([p]) => p));
+        const shared = primeSets.some((ps, i) => ps.some(p => primeSets.some((qs, j) => j !== i && qs.includes(p))));
+        if (shared) {
+            const lines = numKeys.filter(k => { const f = factorInt(Number(k)); return !(f.length === 1 && f[0][1] === 1); }).map(k => `${k} = ${factorInt(Number(k)).map(([p, e]) => e === 1 ? p : p + sup(e)).join(` ${TIMES} `)}`);
+            push("Write the numeric bases as prime numbers so that equal bases can be compared", lines.join("<br>") || "All bases are already prime.");
+            working = working.map(f => {
+                const vars = new Map();
+                f.mono.vars.forEach((e, k) => {
+                    if (/^\d+$/.test(k)) factorInt(Number(k)).forEach(([p, pe]) => { const add = frMul(e, fr(pe)); const key = String(p); vars.set(key, vars.has(key) ? frAdd(vars.get(key), add) : add); });
+                    else vars.set(k, vars.has(k) ? frAdd(vars.get(k), e) : e);
+                });
+                return { op: f.op, mono: { coef: f.mono.coef, vars } };
+            });
+            push("Rewrite each factor with the prime bases", working.map((f, i) => (i ? (f.op === "*" ? ` ${TIMES} ` : ` ${DIVS} `) : "") + monoHtml(f.mono)).join(""));
+        }
+    }
+
+    /* group by base */
+    const keyOrder = [];
+    working.forEach(f => f.mono.vars.forEach((e, k) => { if (!keyOrder.includes(k)) keyOrder.push(k); }));
+    const finalVars = new Map(); let coef = 1;
+    const groupLines = []; let usedProduct = false, usedQuotient = false;
+    working.forEach(f => { coef = f.op === "*" ? coef * f.mono.coef : coef / f.mono.coef; });
+    keyOrder.forEach(k => {
+        const contribs = [];
+        working.forEach(f => { if (f.mono.vars.has(k)) contribs.push({ op: f.op, e: f.mono.vars.get(k) }); });
+        let total = fr(0);
+        contribs.forEach(c => { total = frAdd(total, c.op === "*" ? c.e : fr(-c.e.n, c.e.d)); });
+        finalVars.set(k, total);
+        if (contribs.length > 1) {
+            const hasDiv = contribs.some((c, i) => c.op === "/");
+            if (hasDiv) usedQuotient = true;
+            if (contribs.some((c, i) => i > 0 && c.op === "*") || (contribs[0].op === "*" && contribs.length > 1)) usedProduct = true;
+            const lhs = contribs.map((c, i) => (i ? (c.op === "*" ? ` ${TIMES} ` : ` ${DIVS} `) : "") + frKeyHtml(k, c.e)).join("");
+            const sumTxt = contribs.map((c, i) => (i === 0 ? (c.op === "/" ? MINUS : "") : (c.op === "*" ? " + " : ` ${MINUS} `)) + (c.e.d === 1 && c.e.n >= 0 ? Nn(c.e.n) : `(${frHtml(c.e)})`)).join("");
+            groupLines.push(`${lhs}<br>= ${k}${sup(`(${sumTxt})`)} = ${frKeyHtml(k, total)}`);
+        } else {
+            const c = contribs[0];
+            const t = c.op === "/" ? fr(-c.e.n, c.e.d) : c.e;
+            groupLines.push(`${frKeyHtml(k, c.e)}${c.op === "/" ? ` appears once as a divisor, so its index changes sign: ${frKeyHtml(k, t)}` : " appears once, so it stays as it is."}`);
+        }
+    });
+    if (usedProduct) laws.push("Product rule: a^m &times; a^n = a^(m+n)");
+    if (usedQuotient) laws.push("Quotient rule: a^m &divide; a^n = a^(m&minus;n), a &ne; 0");
+    push("Combine the indices of each base", (laws.length ? laws.join("<br>") + "<br><br>" : "") + groupLines.join("<br><br>"));
+
+    /* special exponents */
+    const finalMono = { coef, vars: finalVars };
+    const notes = [];
+    finalVars.forEach((e, k) => {
+        if (e.n === 0) notes.push(`${k}${sup(0)} = 1 (any non-zero number to the power 0 is 1)`);
+        else if (e.n < 0) notes.push(`${frKeyHtml(k, e)} = ${frac(1, frKeyHtml(k, fr(-e.n, e.d)))} (negative index: a${sup(MINUS + "n")} = ${frac(1, "a" + sup("n"))})`);
+        if (e.d > 1) notes.push(`${frKeyHtml(k, e)} = ${e.d === 2 ? "&radic;" : sup(e.d) + "&radic;"}(${frKeyHtml(k, fr(Math.abs(e.n)))}) (fractional index: a${sup("m/n")} = n-th root of a${sup("m")})`);
+    });
+    if (notes.length) push("Handle zero, negative and fractional indices", notes.join("<br>"));
+
+    /* index form */
+    const pos = [], neg = [];
+    finalVars.forEach((e, k) => { if (e.n > 0) pos.push(frKeyHtml(k, e)); else if (e.n < 0) neg.push(frKeyHtml(k, fr(-e.n, e.d))); });
+    const numerBody = pos.join(` ${TIMES} `) || "1";
+    const denomBody = neg.join(` ${TIMES} `);
+    let indexForm = denomBody ? frac(numerBody, denomBody) : numerBody;
+    if (coef !== 1) indexForm = `${Nn(coef)} ${TIMES} ${indexForm}`;
+    push("Write the answer in index form", indexForm);
+
+    /* numerical evaluation */
+    let numeric = coef; const numLines = []; const letters = [];
+    finalVars.forEach((e, k) => {
+        if (/^\d+$/.test(k)) {
+            const v = Math.pow(Number(k), frVal(e));
+            numeric *= v;
+            if (e.n !== 0) numLines.push(`${frKeyHtml(k, e)} = ${N(v)}`);
+        } else if (e.n !== 0) letters.push(frKeyHtml(k, e));
+    });
+    if (numLines.length || coef !== 1) {
+        push(letters.length ? "Evaluate the numerical powers" : "Evaluate the powers and multiply", (numLines.length ? numLines.join("<br>") + "<br>" : "") + (numLines.length > 1 || coef !== 1 ? `Numerical part = ${[coef !== 1 ? par(coef) : null, ...numLines.map(l => l.split(" = ")[1])].filter(x => x !== null).join(` ${TIMES} `)} = ${N(numeric)}` : ""));
+    }
+    const answerLetters = letters.join(` ${TIMES} `);
+    const simplified = answerLetters ? ((numeric === 1 ? "" : (numeric === -1 ? MINUS : N(numeric))) + answerLetters) : N(numeric);
+    return resultTemplate(
+        "a<sup>m</sup> &times; a<sup>n</sup> = a<sup>m+n</sup><br>a<sup>m</sup> &divide; a<sup>n</sup> = a<sup>m&minus;n</sup><br>(a<sup>m</sup>)<sup>n</sup> = a<sup>mn</sup><br>a<sup>0</sup> = 1; a<sup>&minus;n</sup> = " + frac(1, "a<sup>n</sup>"),
+        joinSteps(st),
+        `<strong>Index form:</strong> ${indexForm}` + (answerLetters || numeric !== 1 || true ? `<br><br><strong>${letters.length ? "Simplified answer" : "Numerical answer"}:</strong> ${simplified}` : ""),
+        laws.length ? laws.join("; ") : "Evaluate the powers first, then complete the remaining operations.");
+}
+
+/* =========================================================
+   SETS  (with Venn diagram)
+========================================================= */
+
+let vennCounter = 0;
+function vennSvg(opt) {
+    const id = ++vennCounter;
+    const hi = new Set(opt.highlight || []);
+    const fill = "rgba(46,134,222,0.35)";
+    const two = opt.mode !== "single";
+    const cA = two ? { cx: 125, cy: 100, r: 65 } : { cx: 170, cy: 100, r: 70 };
+    const cB = { cx: 215, cy: 100, r: 65 };
+    const txt = (arr, x, y) => {
+        if (!arr || !arr.length) return "";
+        const shown = arr.slice(0, 12), chunks = [];
+        for (let i = 0; i < shown.length; i += 3) chunks.push(shown.slice(i, i + 3).join(", "));
+        if (arr.length > 12) chunks[chunks.length - 1] += " ...";
+        const y0 = y - ((chunks.length - 1) * 7);
+        return chunks.map((c, i) => `<text x="${x}" y="${y0 + i * 14}" text-anchor="middle" font-size="12" fill="currentColor">${E(c)}</text>`).join("");
+    };
+    let defs = "", shapes = "";
+    if (two) {
+        defs = `<clipPath id="vc${id}"><circle cx="${cB.cx}" cy="${cB.cy}" r="${cB.r}"/></clipPath>` +
+            `<mask id="vmA${id}"><rect width="340" height="200" fill="white"/><circle cx="${cB.cx}" cy="${cB.cy}" r="${cB.r}" fill="black"/></mask>` +
+            `<mask id="vmB${id}"><rect width="340" height="200" fill="white"/><circle cx="${cA.cx}" cy="${cA.cy}" r="${cA.r}" fill="black"/></mask>` +
+            `<mask id="vmO${id}"><rect width="340" height="200" fill="white"/><circle cx="${cA.cx}" cy="${cA.cy}" r="${cA.r}" fill="black"/><circle cx="${cB.cx}" cy="${cB.cy}" r="${cB.r}" fill="black"/></mask>`;
+        if (hi.has("O")) shapes += `<rect x="5" y="5" width="330" height="190" fill="${fill}" mask="url(#vmO${id})"/>`;
+        if (hi.has("A")) shapes += `<circle cx="${cA.cx}" cy="${cA.cy}" r="${cA.r}" fill="${fill}" mask="url(#vmA${id})"/>`;
+        if (hi.has("B")) shapes += `<circle cx="${cB.cx}" cy="${cB.cy}" r="${cB.r}" fill="${fill}" mask="url(#vmB${id})"/>`;
+        if (hi.has("AB")) shapes += `<circle cx="${cA.cx}" cy="${cA.cy}" r="${cA.r}" fill="${fill}" clip-path="url(#vc${id})"/>`;
+    } else {
+        defs = `<mask id="vmO${id}"><rect width="340" height="200" fill="white"/><circle cx="${cA.cx}" cy="${cA.cy}" r="${cA.r}" fill="black"/></mask>`;
+        if (hi.has("O")) shapes += `<rect x="5" y="5" width="330" height="190" fill="${fill}" mask="url(#vmO${id})"/>`;
+        if (hi.has("A")) shapes += `<circle cx="${cA.cx}" cy="${cA.cy}" r="${cA.r}" fill="${fill}"/>`;
+    }
+    const outline = `<rect x="5" y="5" width="330" height="190" fill="none" stroke="currentColor" stroke-width="1.5" rx="6"/>` +
+        `<circle cx="${cA.cx}" cy="${cA.cy}" r="${cA.r}" fill="none" stroke="currentColor" stroke-width="1.5"/>` +
+        (two ? `<circle cx="${cB.cx}" cy="${cB.cy}" r="${cB.r}" fill="none" stroke="currentColor" stroke-width="1.5"/>` : "");
+    const labels = `<text x="14" y="22" font-size="13" font-weight="bold" fill="currentColor">U</text>` +
+        `<text x="${cA.cx - cA.r + 6}" y="${cA.cy - cA.r + 4}" font-size="13" font-weight="bold" fill="currentColor">A</text>` +
+        (two ? `<text x="${cB.cx + cB.r - 14}" y="${cB.cy - cB.r + 4}" font-size="13" font-weight="bold" fill="currentColor">B</text>` : "");
+    const r = opt.regions || {};
+    const content = two
+        ? txt(r.A, 90, 100) + txt(r.AB, 170, 100) + txt(r.B, 250, 100) + txt(r.O, 170, 178)
+        : txt(r.A, 170, 100) + txt(r.O, 60, 100);
+    return `<div style="text-align:center;margin:8px 0;"><svg viewBox="0 0 340 200" style="width:100%;max-width:340px;" role="img" aria-label="Venn diagram"><defs>${defs}</defs>${shapes}${outline}${labels}${content}</svg></div>`;
+}
+
+const setFmt = arr => (!arr || !arr.length) ? "&empty;" : `{${arr.map(E).join(", ")}}`;
+const parseSetValues = v => (typeof v === "string" && v.trim() !== "") ? [...new Set(v.split(",").map(x => x.trim()).filter(x => x !== ""))] : [];
+
+function calculateSets(v) {
+    const A = parseSetValues(v.setA), B = parseSetValues(v.setB), U = parseSetValues(v.universal);
+    const op = v.operation;
+    const needBoth = ["union", "intersection", "differenceAB", "differenceBA", "symmetric", "subset", "properSubset", "disjoint", "cartesian"];
+    if (needBoth.includes(op) && (!A.length || !B.length)) return errorMessage("Enter both Set A and Set B.");
+    if (["complementA", "complementB"].includes(op)) {
+        const S = op === "complementA" ? A : B;
+        if (!S.length || !U.length) return errorMessage("Enter the required set and the Universal Set U.");
+    }
+    if (op === "cardinalityA" && !A.length) return errorMessage("Enter Set A.");
+    if (op === "cardinalityB" && !B.length) return errorMessage("Enter Set B.");
+    if (op === "powerSetA") {
+        if (!A.length) return errorMessage("Enter Set A.");
+        if (A.length > 10) return errorMessage("For practical use, the power set is limited to sets with 10 or fewer elements.");
+    }
+    const onlyA = A.filter(x => !B.includes(x)), both = A.filter(x => B.includes(x)), onlyB = B.filter(x => !A.includes(x));
+    const st = []; let n = 1;
+    const push = (t, b) => st.push(step(n++, t, b));
+    const nA = A.length, nB = B.length, nI = both.length;
+    const setsLine = `A = ${setFmt(A)}, so n(A) = ${nA}` + (B.length ? `<br>B = ${setFmt(B)}, so n(B) = ${nB}` : "") + (U.length ? `<br>U = ${setFmt(U)}, so n(U) = ${U.length}` : "");
+    const regionsStep = () => push("Sort every element into its region",
+        `Only in A (A &minus; B): ${setFmt(onlyA)}<br>In both A and B (A &cap; B): ${setFmt(both)}<br>Only in B (B &minus; A): ${setFmt(onlyB)}`);
+    const venn2 = hl => push("Show it on a Venn diagram", vennSvg({ regions: { A: onlyA, AB: both, B: onlyB, O: U.filter(x => !A.includes(x) && !B.includes(x)) }, highlight: hl }));
+    let formula, answer, note = "";
+
+    switch (op) {
+        case "union": {
+            const un = [...new Set([...A, ...B])];
+            formula = "A &cup; B = { x : x &isin; A or x &isin; B }";
+            push("Write down the sets", setsLine); regionsStep();
+            push("Join the three regions (every element once)", `A &cup; B = ${setFmt(onlyA)} &cup; ${setFmt(both)} &cup; ${setFmt(onlyB)} = ${setFmt(un)}`);
+            push("Check the count with the inclusion&ndash;exclusion rule", `n(A &cup; B) = n(A) + n(B) &minus; n(A &cap; B) = ${nA} + ${nB} &minus; ${nI} = ${nA + nB - nI}`);
+            venn2(["A", "AB", "B"]); answer = `A &cup; B = ${setFmt(un)}`; note = "The union contains every element that is in A, in B, or in both, written once."; break;
+        }
+        case "intersection": {
+            formula = "A &cap; B = { x : x &isin; A and x &isin; B }";
+            push("Write down the sets", setsLine);
+            push("Test each element of A: is it also in B?", A.map(x => `${E(x)} &isin; B? ${B.includes(x) ? "Yes" : "No"}`).join("<br>"));
+            push("Keep only the elements that are in both sets", `A &cap; B = ${setFmt(both)}, so n(A &cap; B) = ${nI}`);
+            venn2(["AB"]); answer = `A &cap; B = ${setFmt(both)}`; note = "The intersection contains only the elements common to both sets."; break;
+        }
+        case "differenceAB": case "differenceBA": {
+            const first = op === "differenceAB" ? A : B, second = op === "differenceAB" ? B : A, res = op === "differenceAB" ? onlyA : onlyB;
+            const f = op === "differenceAB" ? "A" : "B", s = op === "differenceAB" ? "B" : "A";
+            formula = `${f} &minus; ${s} = { x : x &isin; ${f} and x &notin; ${s} }`;
+            push("Write down the sets", setsLine);
+            push(`Test each element of ${f}: is it missing from ${s}?`, first.map(x => `${E(x)} &isin; ${s}? ${second.includes(x) ? "Yes &rarr; remove it" : "No &rarr; keep it"}`).join("<br>"));
+            push("Collect the elements that were kept", `${f} &minus; ${s} = ${setFmt(res)}`);
+            push("Check the count", `n(${f} &minus; ${s}) = n(${f}) &minus; n(A &cap; B) = ${first.length} &minus; ${nI} = ${first.length - nI}`);
+            venn2([op === "differenceAB" ? "A" : "B"]); answer = `${f} &minus; ${s} = ${setFmt(res)}`; note = `Elements of ${f} that do not belong to ${s}.`; break;
+        }
+        case "symmetric": {
+            const sd = [...onlyA, ...onlyB];
+            formula = "A &Delta; B = (A &minus; B) &cup; (B &minus; A)";
+            push("Write down the sets", setsLine); regionsStep();
+            push("Join the two outer regions", `A &Delta; B = ${setFmt(onlyA)} &cup; ${setFmt(onlyB)} = ${setFmt(sd)}`);
+            push("Check the count", `n(A &Delta; B) = n(A) + n(B) &minus; 2 n(A &cap; B) = ${nA} + ${nB} &minus; 2(${nI}) = ${nA + nB - 2 * nI}`);
+            venn2(["A", "B"]); answer = `A &Delta; B = ${setFmt(sd)}`; note = "The symmetric difference contains elements that are in exactly one of the two sets."; break;
+        }
+        case "complementA": case "complementB": {
+            const S = op === "complementA" ? A : B, nm = op === "complementA" ? "A" : "B";
+            const inS = U.filter(x => S.includes(x)), comp = U.filter(x => !S.includes(x));
+            formula = `${nm}&prime; = U &minus; ${nm} = { x &isin; U : x &notin; ${nm} }`;
+            push("Write down the sets", `${nm} = ${setFmt(S)}<br>U = ${setFmt(U)}, so n(U) = ${U.length}`);
+            push(`Test each element of U: is it in ${nm}?`, U.map(x => `${E(x)} &isin; ${nm}? ${S.includes(x) ? "Yes &rarr; remove it" : "No &rarr; keep it"}`).join("<br>"));
+            push("Collect the kept elements", `${nm}&prime; = ${setFmt(comp)}`);
+            push("Check the count", `n(${nm}&prime;) = n(U) &minus; n(${nm}) = ${U.length} &minus; ${inS.length} = ${comp.length}`);
+            push("Show it on a Venn diagram", vennSvg({ mode: "single", regions: { A: inS, O: comp }, highlight: ["O"] }));
+            answer = `${nm}&prime; = ${setFmt(comp)}`; note = S.some(x => !U.includes(x)) ? `Note: some elements of ${nm} are not in U; they are ignored in the complement.` : "The complement contains every element of U that is not in the set."; break;
+        }
+        case "cardinalityA": case "cardinalityB": {
+            const S = op === "cardinalityA" ? A : B, nm = op === "cardinalityA" ? "A" : "B";
+            formula = `n(${nm}) = number of distinct elements in ${nm}`;
+            push("Write the set", `${nm} = ${setFmt(S)}`);
+            push("Count the distinct elements", S.map((x, i) => `${i + 1}. ${E(x)}`).join("<br>"));
+            answer = `n(${nm}) = ${S.length}`; note = "Repeated elements are counted once."; break;
+        }
+        case "subset": case "properSubset": {
+            const isSub = A.every(x => B.includes(x));
+            const proper = isSub && nA < nB;
+            formula = op === "subset" ? "A &sube; B if every element of A is in B" : "A &sub; B if A &sube; B and A &ne; B";
+            push("Write down the sets", setsLine);
+            push("Check every element of A against B", A.map(x => `${E(x)} &isin; B? ${B.includes(x) ? "Yes" : "No"}`).join("<br>"));
+            if (op === "subset") push("Decide", isSub ? "Every element of A is in B, so A &sube; B." : "At least one element of A is not in B, so A is not a subset of B.");
+            else push("Decide", `A &sube; B? ${isSub ? "Yes" : "No"}<br>n(A) &lt; n(B)? ${nA} &lt; ${nB} is ${nA < nB ? "true" : "false"}<br>${proper ? "Both conditions hold, so A is a proper subset of B." : "Both conditions are not met, so A is not a proper subset of B."}`);
+            venn2([]); answer = op === "subset" ? (isSub ? "A &sube; B &mdash; YES" : "A &sube; B &mdash; NO") : (proper ? "A &sub; B &mdash; YES" : "A &sub; B &mdash; NO");
+            note = "A proper subset must also be smaller than the larger set."; break;
+        }
+        case "disjoint": {
+            formula = "A and B are disjoint if A &cap; B = &empty;";
+            push("Write down the sets", setsLine);
+            push("Find the common elements", `A &cap; B = ${setFmt(both)}`);
+            push("Decide", both.length === 0 ? "The intersection is empty, so the sets are disjoint." : "The intersection is not empty, so the sets are not disjoint.");
+            venn2(["AB"]); answer = both.length === 0 ? "A and B are DISJOINT." : "A and B are NOT DISJOINT."; break;
+        }
+        case "cartesian": {
+            formula = "A &times; B = { (a, b) : a &isin; A, b &isin; B }";
+            push("Write down the sets", setsLine);
+            push("Pair each element of A with every element of B",
+                `<div style="overflow-x:auto;"><table style="border-collapse:collapse;margin:6px 0;"><thead><tr><th style="border:1px solid #999;padding:4px 8px;">A \\ B</th>${B.map(b => `<th style="border:1px solid #999;padding:4px 8px;">${E(b)}</th>`).join("")}</tr></thead><tbody>` +
+                A.map(a => `<tr><th style="border:1px solid #999;padding:4px 8px;">${E(a)}</th>${B.map(b => `<td style="border:1px solid #999;padding:4px 8px;text-align:center;">(${E(a)}, ${E(b)})</td>`).join("")}</tr>`).join("") + `</tbody></table></div>`);
+            push("Count the ordered pairs", `n(A &times; B) = n(A) &times; n(B) = ${nA} &times; ${nB} = ${nA * nB}`);
+            answer = `A &times; B = {${A.flatMap(a => B.map(b => `(${E(a)}, ${E(b)})`)).join(", ")}}`; note = "Order matters in each pair: (a, b) is not the same as (b, a)."; break;
+        }
+        case "powerSetA": {
+            formula = "n(P(A)) = 2<sup>n</sup>";
+            push("Write the set", `A = ${setFmt(A)}, n = ${nA}`);
+            push("Count the subsets", `Number of subsets = 2${sup(nA)} = ${Math.pow(2, nA)}`);
+            const subsets = [[]];
+            A.forEach(el => { subsets.push(...subsets.map(sb => [...sb, el])); });
+            const bySize = []; for (let k = 0; k <= nA; k++) bySize.push(subsets.filter(sb => sb.length === k));
+            push("List the subsets by size", bySize.map((g, k) => `<strong>Size ${k}</strong> (${g.length}): ${g.map(sb => setFmt(sb)).join(", ")}`).join("<br>"));
+            push("Check the total", `${bySize.map(g => g.length).join(" + ")} = ${Math.pow(2, nA)}`);
+            answer = `P(A) = {${subsets.map(sb => setFmt(sb)).join(", ")}}`; note = "Every set has the empty set and itself as subsets."; break;
+        }
+        default: return errorMessage("Please select a valid set operation.");
+    }
+    return resultTemplate(formula, joinSteps(st), answer, note);
+}
+
+/* =========================================================
+   MATRICES
+========================================================= */
+
+const cellStyle = "padding:4px 12px;text-align:center;";
+function mx(M, fmt) {
+    const f = fmt || (x => typeof x === "string" ? x : entryHtml(x));
+    return `<table style="display:inline-table;vertical-align:middle;border-collapse:collapse;border-left:2px solid currentColor;border-right:2px solid currentColor;border-radius:8px;margin:4px 6px;"><tbody>` +
+        M.map(row => `<tr>${row.map(x => `<td style="${cellStyle}">${f(x)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
+}
+function entryHtml(v) {
+    if (typeof v !== "number") return String(v);
+    const r = Number.isInteger(v) ? null : rationalize(v, 200);
+    return r && r.d > 1 ? frHtml(r) : Nn(v);
+}
+const det2 = (a, b, c, d) => a * d - b * c;
+const minorOf = (M, i, j) => M.filter((_, r) => r !== i).map(row => row.filter((_, c) => c !== j));
+function det2Work(m) {
+    const [[a, b], [c, d]] = m;
+    return `(${par(a)} ${TIMES} ${par(d)}) ${MINUS} (${par(b)} ${TIMES} ${par(c)}) = ${par(a * d)} ${MINUS} ${par(b * c)} = ${Nn(det2(a, b, c, d))}`;
+}
+function detSteps(A, push, label) {
+    const n = A.length;
+    if (n === 1) { push(`Find the determinant of ${label}`, `For a 1&times;1 matrix, det = the single entry = ${Nn(A[0][0])}`); return A[0][0]; }
+    if (n === 2) {
+        push(`Find the determinant of ${label}`, `Rule: for ${mx([["a", "b"], ["c", "d"]])} det = ad &minus; bc<br>${det2Work(A)}`);
+        return det2(A[0][0], A[0][1], A[1][0], A[1][1]);
+    }
+    const minors = [0, 1, 2].map(j => minorOf(A, 0, j));
+    const mv = minors.map(m => det2(m[0][0], m[0][1], m[1][0], m[1][1]));
+    push("Find the three minors from row 1 (cross out the row and column of each entry)",
+        minors.map((m, j) => `Minor M${sub("1" + (j + 1))} = ${mx(m)}<br>= ${det2Work(m)}`).join("<br><br>"));
+    const total = A[0][0] * mv[0] - A[0][1] * mv[1] + A[0][2] * mv[2];
+    push(`Expand along row 1 to find the determinant of ${label}`,
+        `Rule: det = a${sub(11)}M${sub(11)} ${MINUS} a${sub(12)}M${sub(12)} + a${sub(13)}M${sub(13)}<br>` +
+        `det = ${par(A[0][0])}(${Nn(mv[0])}) ${MINUS} ${par(A[0][1])}(${Nn(mv[1])}) + ${par(A[0][2])}(${Nn(mv[2])})<br>` +
+        `det = ${Nn(A[0][0] * mv[0])} ${MINUS} (${Nn(A[0][1] * mv[1])}) + ${par(A[0][2] * mv[2])} = <strong>${Nn(total)}</strong>`);
+    return total;
+}
+function calculateMatrices(v) {
+    const op = v.matrixOperation;
+    const ra = clampInt(v.matrixRowsA, 1, 3), ca = clampInt(v.matrixColsA, 1, 3);
+    if (!ra || !ca) return errorMessage("Matrix A dimensions must be whole numbers from 1 to 3.");
+    const needB = ["add", "subtract", "multiply"].includes(op);
+    const rb = needB ? clampInt(v.matrixRowsB, 1, 3) : null, cb = needB ? clampInt(v.matrixColsB, 1, 3) : null;
+    if (needB && (!rb || !cb)) return errorMessage("Matrix B dimensions must be whole numbers from 1 to 3.");
+    const A = readMatrix(v, "a", ra, ca);
+    const B = needB ? readMatrix(v, "b", rb, cb) : null;
+    if (["add", "subtract"].includes(op) && (ra !== rb || ca !== cb)) return errorMessage("For addition or subtraction, Matrix A and Matrix B must have the same dimensions.");
+    if (op === "multiply" && ca !== rb) return errorMessage("For multiplication, the number of columns of A must equal the number of rows of B.");
+    if (["determinantA", "inverseA"].includes(op) && ra !== ca) return errorMessage("A determinant or inverse requires a square Matrix A.");
+    const st = []; let n = 1;
+    const push = (t, b) => st.push(step(n++, t, b));
+    const dims = `${ra}&times;${ca}`;
+
+    if (op === "add" || op === "subtract") {
+        const sign = op === "add" ? "+" : MINUS;
+        push("Write both matrices", `A = ${mx(A)} B = ${mx(B)}<br>Both are ${dims}, so they can be ${op === "add" ? "added" : "subtracted"}.`);
+        push(`${op === "add" ? "Add" : "Subtract"} the corresponding entries`, mx(A.map((row, i) => row.map((x, j) => `${par(x)} ${sign} ${par(B[i][j])}`))));
+        const R = A.map((row, i) => row.map((x, j) => op === "add" ? x + B[i][j] : x - B[i][j]));
+        push("Work out each entry", mx(R));
+        return resultTemplate(op === "add" ? "(A + B)<sub>ij</sub> = a<sub>ij</sub> + b<sub>ij</sub>" : "(A &minus; B)<sub>ij</sub> = a<sub>ij</sub> &minus; b<sub>ij</sub>", joinSteps(st), `${op === "add" ? "A + B" : "A &minus; B"} = ${mx(R)}`, "The matrices must have the same dimensions.");
+    }
+    if (op === "multiply") {
+        push("Write both matrices and check the dimensions", `A = ${mx(A)} B = ${mx(B)}<br>A is ${dims} and B is ${rb}&times;${cb}. The inner numbers match (${ca} = ${rb}), so AB exists and is ${ra}&times;${cb}.`);
+        const R = Array.from({ length: ra }, () => Array(cb).fill(0));
+        const lines = [];
+        for (let i = 0; i < ra; i++) for (let j = 0; j < cb; j++) {
+            const terms = [], vals = [];
+            for (let k = 0; k < ca; k++) { R[i][j] += A[i][k] * B[k][j]; terms.push(`(${Nn(A[i][k])})(${Nn(B[k][j])})`); vals.push(par(A[i][k] * B[k][j])); }
+            lines.push(`c${sub("" + (i + 1) + (j + 1))} = (row ${i + 1} of A) &middot; (column ${j + 1} of B) = ${terms.join(" + ")} = ${vals.join(" + ")} = <strong>${Nn(R[i][j])}</strong>`);
+        }
+        push("Each entry is a row of A multiplied by a column of B", lines.join("<br>"));
+        push("Place the entries in the result matrix", mx(R));
+        return resultTemplate("c<sub>ij</sub> = a<sub>i1</sub>b<sub>1j</sub> + a<sub>i2</sub>b<sub>2j</sub> + &hellip;", joinSteps(st), `AB = ${mx(R)}`, "In general AB and BA are not equal.");
+    }
+    if (op === "scalar") {
+        const k = Number(v.matrixScalar);
+        if (!Number.isFinite(k) || v.matrixScalar === "" || v.matrixScalar === undefined) return errorMessage("Enter a valid scalar value.");
+        push("Write the matrix and the scalar", `k = ${Nn(k)}<br>A = ${mx(A)}`);
+        push("Multiply every entry by k", mx(A.map(row => row.map(x => `${par(k)} ${TIMES} ${par(x)}`))));
+        const R = A.map(row => row.map(x => k * x));
+        push("Work out each entry", mx(R));
+        return resultTemplate("(kA)<sub>ij</sub> = k &times; a<sub>ij</sub>", joinSteps(st), `${Nn(k)}A = ${mx(R)}`, "Scalar multiplication scales every entry.");
+    }
+    if (op === "transposeA") {
+        const R = A[0].map((_, j) => A.map(row => row[j]));
+        push("Write the matrix", `A = ${mx(A)}`);
+        push("Turn each row into a column", A.map((row, i) => `Row ${i + 1} (${row.map(Nn).join(", ")}) becomes column ${i + 1}`).join("<br>"));
+        push("Write the transpose", `A${sup("T")} = ${mx(R)}`);
+        return resultTemplate("(A<sup>T</sup>)<sub>ij</sub> = a<sub>ji</sub>", joinSteps(st), `A${sup("T")} = ${mx(R)}`, `A ${dims} matrix becomes ${ca}&times;${ra}.`);
+    }
+    if (op === "determinantA") {
+        push("Write the matrix", `A = ${mx(A)}`);
+        const d = detSteps(A, push, "A");
+        return resultTemplate(ra === 2 ? "det(A) = ad &minus; bc" : (ra === 3 ? "det(A) = a<sub>11</sub>M<sub>11</sub> &minus; a<sub>12</sub>M<sub>12</sub> + a<sub>13</sub>M<sub>13</sub>" : "det(A) = a"), joinSteps(st), `det(A) = ${Nn(d)}`, d === 0 ? "The determinant is zero, so A is singular and has no inverse." : "A non-zero determinant means the matrix has an inverse.");
+    }
+    if (op === "inverseA") {
+        push("Write the matrix", `A = ${mx(A)}`);
+        const d = detSteps(A, push, "A");
+        if (Math.abs(d) < 1e-12) {
+            push("Test whether the inverse exists", "det(A) = 0, so A is singular.");
+            return resultTemplate("A<sup>&minus;1</sup> = " + frac(1, "det(A)") + " adj(A)", joinSteps(st), "No inverse exists.", "A matrix with zero determinant has no inverse.");
+        }
+        push("Test whether the inverse exists", `det(A) = ${Nn(d)} &ne; 0, so A<sup>&minus;1</sup> exists.`);
+        let adj;
+        if (ra === 1) {
+            adj = [[1]];
+        } else if (ra === 2) {
+            adj = [[A[1][1], -A[0][1]], [-A[1][0], A[0][0]]];
+            push("Build the adjugate: swap the diagonal and change the signs of the other two entries", `${mx([["a", "b"], ["c", "d"]])} &rarr; ${mx([["d", MINUS + "b"], [MINUS + "c", "a"]])}<br>adj(A) = ${mx(adj)}`);
+        } else {
+            const cof = A.map((row, i) => row.map((_, j) => { const m = minorOf(A, i, j); return ((i + j) % 2 === 0 ? 1 : -1) * det2(m[0][0], m[0][1], m[1][0], m[1][1]); }));
+            const lines = [];
+            A.forEach((row, i) => row.forEach((_, j) => { const m = minorOf(A, i, j); const sg = (i + j) % 2 === 0 ? "+" : MINUS; lines.push(`C${sub("" + (i + 1) + (j + 1))} = ${sg}${mx(m)} = ${sg}(${det2(m[0][0], m[0][1], m[1][0], m[1][1])}) = ${Nn(cof[i][j])}`); }));
+            push("Find every cofactor: C = (sign) &times; minor. The signs alternate: row 1 (+ &minus; +), row 2 (&minus; + &minus;), row 3 (+ &minus; +)", lines.join("<br>"));
+            push("Write the cofactor matrix", mx(cof));
+            adj = cof[0].map((_, j) => cof.map(row => row[j]));
+            push("Transpose the cofactor matrix to get the adjugate", `adj(A) = ${mx(adj)}`);
+        }
+        const inv = adj.map(row => row.map(x => x / d));
+        push("Multiply the adjugate by 1 &divide; det(A)", `A${sup(MINUS + "1")} = ${frac(1, Nn(d))} ${mx(adj)} = ${mx(adj.map(row => row.map(x => frac(Nn(x), Nn(d)))))}`);
+        push("Simplify each entry", mx(inv));
+        return resultTemplate("A<sup>&minus;1</sup> = " + frac(1, "det(A)") + " adj(A)", joinSteps(st), `A${sup(MINUS + "1")} = ${mx(inv)}`, "Check: A &times; A<sup>&minus;1</sup> should give the identity matrix.");
+    }
+    return errorMessage("Select a valid matrix operation.");
+}
+
+/* =========================================================
+   DIFFERENTIATION & INTEGRATION  (visual answers)
+========================================================= */
+
+const isC = n => n && n.kind === "const";
+const cst = v => ({ kind: "const", value: v });
+
+/* ---- polynomial (power-of-x) maps: exponent -> coefficient ---- */
+const pRound = e => Math.round(e * 1e9) / 1e9;
+function pmul(a, b) {
+    const out = new Map();
+    a.forEach((ca, ea) => b.forEach((cb, eb) => { const e = pRound(ea + eb); out.set(e, (out.get(e) || 0) + ca * cb); }));
+    return out;
+}
+function toPoly(n, strict) {
+    const isConstP = p => p.size === 1 && p.has(0);
+    switch (n.kind) {
+        case "const": return new Map([[0, n.value]]);
+        case "var": return new Map([[1, 1]]);
+        case "neg": { const p = toPoly(n.arg, strict); if (!p) return null; const o = new Map(); p.forEach((c, e) => o.set(e, -c)); return o; }
+        case "+": case "-": {
+            const a = toPoly(n.left, strict), b = toPoly(n.right, strict);
+            if (!a || !b) return null;
+            const out = new Map(a);
+            b.forEach((c, e) => out.set(e, (out.get(e) || 0) + (n.kind === "+" ? c : -c)));
+            return out;
+        }
+        case "*": {
+            const a = toPoly(n.left, strict), b = toPoly(n.right, strict);
+            if (!a || !b) return null;
+            if (strict && !(isConstP(a) || isConstP(b))) return null;
+            return pmul(a, b);
+        }
+        case "/": {
+            const a = toPoly(n.left, strict), b = toPoly(n.right, strict);
+            if (!a || !b || b.size !== 1) return null;
+            const [e, c] = [...b.entries()][0];
+            if (c === 0) return null;
+            const out = new Map(); a.forEach((ca, ea) => out.set(pRound(ea - e), ca / c));
+            return out;
+        }
+        case "pow": {
+            if (!isC(n.right)) return null;
+            const k = n.right.value;
+            if (isC(n.left)) return new Map([[0, Math.pow(n.left.value, k)]]);
+            if (n.left.kind === "var") return new Map([[k, 1]]);
+            if (strict) return null;
+            const b = toPoly(n.left, false);
+            if (!b) return null;
+            if (Number.isInteger(k) && k >= 0 && k <= 20) { let r = new Map([[0, 1]]); for (let i = 0; i < k; i++) r = pmul(r, b); return r; }
+            if (b.size === 1) { const [be, bc] = [...b.entries()][0]; if (bc > 0 || Number.isInteger(k)) return new Map([[pRound(be * k), Math.pow(bc, k)]]); }
+            return null;
+        }
+        case "func":
+            if (n.name === "sqrt" && n.arg.kind === "var") return new Map([[0.5, 1]]);
+            return null;
+        default: return null;
+    }
+}
+const expTxt = e => { if (Number.isInteger(e)) return Nn(e); const r = rationalize(e, 100); return r ? `${Nn(r.n)}/${r.d}` : N(e); };
+const xPow = (e, xs) => e === 1 ? xs : (e === 0.5 ? `&radic;${xs}` : `${xs}${sup(expTxt(e))}`);
+function termHtml(c, e, opt) {
+    const subst = opt && opt.sub !== undefined;
+    if (subst) {
+        const xs = `(${Nn(opt.sub)})`;
+        if (e === 0) return ratH(c);
+        return `${Math.abs(c - 1) < 1e-12 ? "" : ratH(c) + " " + TIMES + " "}${e === 1 ? xs : (e === 0.5 ? `&radic;${xs}` : `${xs}${sup(expTxt(e))}`)}`;
+    }
+    if (e === 0) return ratH(c);
+    const r = rationalize(c, 100);
+    if (!r) return `${N(c)}${e > 0 ? xPow(e, "x") : ""}`;
+    const p = r.n, q = r.d;
+    if (e > 0) {
+        const numer = `${p === 1 ? "" : p}${xPow(e, "x")}`;
+        return q > 1 ? frac(numer, q) : numer;
+    }
+    const den = `${q > 1 ? q : ""}${xPow(-e, "x")}`;
+    return frac(p, den);
+}
+function polyHtml(map, opt) {
+    const terms = [...map.entries()].filter(([, c]) => Math.abs(c) > 1e-12).sort((a, b) => b[0] - a[0]);
+    if (!terms.length) return "0";
+    return joinSigned(terms.map(([e, c]) => ({ neg: c < 0, html: termHtml(Math.abs(c), e, opt) })));
+}
+
+/* ---- better simplification and rendering of expression trees ---- */
+function flattenMul(n, out) {
+    if (n.kind === "*") { flattenMul(n.left, out); flattenMul(n.right, out); }
+    else if (n.kind === "neg") { out.push(cst(-1)); flattenMul(n.arg, out); }
+    else out.push(n);
+    return out;
+}
+function normAst(n) {
+    n = simplifyAst(cloneAst(n));
+    function go(m) {
+        if (!m) return m;
+        if (m.left) m.left = go(m.left);
+        if (m.right) m.right = go(m.right);
+        if (m.arg) m.arg = go(m.arg);
+        if (m.kind === "*") {
+            const f = flattenMul(m, []);
+            let k = 1; const rest = [];
+            f.forEach(x => { if (isC(x)) k *= x.value; else rest.push(x); });
+            if (k === 0) return cst(0);
+            if (!rest.length) return cst(k);
+            let body = rest[0];
+            for (let i = 1; i < rest.length; i++) body = { kind: "*", left: body, right: rest[i] };
+            return k === 1 ? body : { kind: "*", left: cst(k), right: body };
+        }
+        return m;
+    }
+    return simplifyAst(go(go(n)));
+}
+const constHtml = v => Number.isInteger(v) ? Nn(v) : ratH(v);
+function wrapP(s, prec, ctx) { return ctx > prec ? `(${s})` : s; }
+function astHtml(n, ctx = 0) {
+    switch (n.kind) {
+        case "const": { const s = constHtml(n.value); return n.value < 0 && ctx > 0 ? `(${s})` : s; }
+        case "var": return "x";
+        case "neg": return wrapP(`${MINUS}${astHtml(n.arg, 2)}`, 2, ctx);
+        case "+": {
+            const r = n.right;
+            if (r.kind === "neg") return wrapP(`${astHtml(n.left, 1)} ${MINUS} ${astHtml(r.arg, 2)}`, 1, ctx);
+            if (isC(r) && r.value < 0) return wrapP(`${astHtml(n.left, 1)} ${MINUS} ${constHtml(-r.value)}`, 1, ctx);
+            return wrapP(`${astHtml(n.left, 1)} + ${astHtml(r, 1)}`, 1, ctx);
+        }
+        case "-": return wrapP(`${astHtml(n.left, 1)} ${MINUS} ${astHtml(n.right, 2)}`, 1, ctx);
+        case "*": {
+            let l = n.left, r = n.right;
+            if (isC(r) && !isC(l)) { const t = l; l = r; r = t; }
+            if (isC(l)) {
+                if (l.value === -1) return wrapP(`${MINUS}${astHtml(r, 2)}`, 2, ctx);
+                if (isC(r)) return wrapP(`${constHtml(l.value)} ${TIMES} ${astHtml(r, 2)}`, 2, ctx);
+                return wrapP(`${constHtml(l.value)}${astHtml(r, 2)}`, 2, ctx);
+            }
+            return wrapP(`${astHtml(l, 2)}&thinsp;${astHtml(r, 2)}`, 2, ctx);
+        }
+        case "/": return frac(astHtml(n.left, 0), astHtml(n.right, 0));
+        case "pow": {
+            const b = n.left, e = n.right;
+            if (isC(e)) {
+                const k = e.value;
+                if (k === 1) return astHtml(b, ctx);
+                if (k === 0.5) return `&radic;(${astHtml(b, 0)})`;
+                if (k < 0) return frac(1, k === -1 ? astHtml(b, 0) : astHtml({ kind: "pow", left: b, right: cst(-k) }, 0));
+                if (b.kind === "func" && b.name !== "sqrt" && b.name !== "exp") return `${b.name}${sup(expTxt(k))}(${astHtml(b.arg, 0)})`;
+                return `${astHtml(b, 4)}${sup(expTxt(k))}`;
+            }
+            return `${astHtml(b, 4)}${sup(astHtml(e, 0))}`;
+        }
+        case "func":
+            if (n.name === "sqrt") return `&radic;(${astHtml(n.arg, 0)})`;
+            if (n.name === "exp") return `e${sup(astHtml(n.arg, 0))}`;
+            return `${n.name}(${astHtml(n.arg, 0)})`;
+    }
+    return "?";
+}
+function exprHtml(d) {
+    const p = toPoly(d, true);
+    if (p) return polyHtml(p);
+    if (d.kind === "/") {
+        const np = toPoly(d.left, false);
+        const numH = np ? polyHtml(np) : astHtml(d.left, 0);
+        return frac(numH, astHtml(d.right, 0));
+    }
+    return astHtml(d, 0);
+}
+const derivOf = n => normAst(derivativeAst(cloneAst(n)));
+const dHtml = n => exprHtml(derivOf(n));
+function substVar(n, val) {
+    if (n.kind === "var") return cst(val);
+    const c = cloneAst(n);
+    if (c.left) c.left = substVar(c.left, val);
+    if (c.right) c.right = substVar(c.right, val);
+    if (c.arg) c.arg = substVar(c.arg, val);
+    return c;
+}
+function splitTerms(n, sign = 1, out = []) {
+    if (n.kind === "+") { splitTerms(n.left, sign, out); splitTerms(n.right, sign, out); }
+    else if (n.kind === "-") { splitTerms(n.left, sign, out); splitTerms(n.right, -sign, out); }
+    else if (n.kind === "neg") splitTerms(n.arg, -sign, out);
+    else out.push({ sign, node: n });
+    return out;
+}
+const dd = "d/dx";
+
+/* ---- differentiation: rule explanations for one term ---- */
+function outerDerivHtml(node, uH) {
+    if (node.kind === "pow") { const k = node.right.value; return k - 1 === 0 ? `${Nn(k)}` : `${Nn(k)}(${uH})${k - 1 === 1 ? "" : sup(expTxt(k - 1))}`; }
+    switch (node.name) {
+        case "sin": return `cos(${uH})`;
+        case "cos": return `${MINUS}sin(${uH})`;
+        case "tan": return frac(1, `cos${sup(2)}(${uH})`);
+        case "ln": return frac(1, uH);
+        case "exp": return `e${sup(uH)}`;
+        case "sqrt": return frac(1, `2&radic;(${uH})`);
+    }
+    return "?";
+}
+function termRule(node) {
+    const f = astHtml(normAst(node), 0);
+    const poly = toPoly(node, true);
+    if (isC(node) || (poly && poly.size === 1 && poly.has(0))) return { title: "Constant rule", body: `${dd}[${f}] = 0` };
+    if (poly && poly.size === 1) {
+        const [e, c] = [...poly.entries()][0];
+        const newE = e - 1;
+        const coefNum = c * e;
+        const res = polyHtml(new Map([[pRound(newE), coefNum]]));
+        const cStr = Math.abs(c - 1) < 1e-12 ? "" : `${ratH(c)} ${TIMES} `;
+        return { title: `Power rule: ${dd}[x${sup("n")}] = n x${sup("n" + MINUS + "1")}`,
+            body: `${dd}[${f}] = ${cStr}${ratH(e)} ${TIMES} x${sup(`(${expTxt(e)} ${MINUS} 1)`)}<br>= ${cStr}${ratH(e)} ${TIMES} x${sup(expTxt(newE))}<br>= ${res}` };
+    }
+    if (node.kind === "*" && (isC(node.left) || isC(node.right))) {
+        const c = isC(node.left) ? node.left : node.right, g = isC(node.left) ? node.right : node.left;
+        const inner = termRule(g);
+        return { title: "Constant multiple rule", body: `${dd}[${constHtml(c.value)} ${TIMES} g(x)] = ${constHtml(c.value)} ${TIMES} g&prime;(x), with g(x) = ${astHtml(normAst(g), 0)}<br>${inner.title}:<br>${inner.body}<br>So ${dd}[${f}] = ${constHtml(c.value)} ${TIMES} (${dHtml(g)}) = ${dHtml(node)}` };
+    }
+    if (node.kind === "/" && isC(node.right)) {
+        const g = node.left;
+        return { title: "Constant multiple rule", body: `${dd}[g(x) ${DIVS} ${constHtml(node.right.value)}] = g&prime;(x) ${DIVS} ${constHtml(node.right.value)}, with g(x) = ${astHtml(normAst(g), 0)}<br>g&prime;(x) = ${dHtml(g)}<br>So ${dd}[${f}] = ${dHtml(node)}` };
+    }
+    if (node.kind === "*") {
+        const u = node.left, vv = node.right;
+        const U = astHtml(normAst(u), 0), V = astHtml(normAst(vv), 0), dU = dHtml(u), dV = dHtml(vv);
+        return { title: `Product rule: (uv)&prime; = u&prime;v + uv&prime;`,
+            body: `u = ${U}<br>v = ${V}<br>u&prime; = ${dU}<br>v&prime; = ${dV}<br>` +
+                `(uv)&prime; = (${dU})(${V}) + (${U})(${dV})<br>= ${dHtml(node)}` };
+    }
+    if (node.kind === "/") {
+        const u = node.left, vv = node.right;
+        const U = astHtml(normAst(u), 0), V = astHtml(normAst(vv), 0), dU = dHtml(u), dV = dHtml(vv);
+        return { title: `Quotient rule: (u${DIVS}v)&prime; = ${frac("u&prime;v " + MINUS + " uv&prime;", "v" + sup(2))}`,
+            body: `u = ${U}<br>v = ${V}<br>u&prime; = ${dU}<br>v&prime; = ${dV}<br>` +
+                `(u${DIVS}v)&prime; = ${frac(`(${dU})(${V}) ${MINUS} (${U})(${dV})`, `(${V})${sup(2)}`)}<br>= ${dHtml(node)}` };
+    }
+    if ((node.kind === "func" || (node.kind === "pow" && isC(node.right) && node.left.kind !== "const")) ) {
+        const inner = node.kind === "func" ? node.arg : node.left;
+        if (inner.kind === "var") {
+            const tbl = { sin: "cos(x)", cos: `${MINUS}sin(x)`, tan: frac(1, `cos${sup(2)}(x)`), ln: frac(1, "x"), exp: `e${sup("x")}`, sqrt: frac(1, "2&radic;x") };
+            return { title: "Standard derivative", body: `${dd}[${f}] = ${tbl[node.name]}` };
+        }
+        const uH = astHtml(normAst(inner), 0), du = dHtml(inner);
+        const outerLabel = node.kind === "pow" ? `F(u) = u${sup(expTxt(node.right.value))}` : (node.name === "exp" ? `F(u) = e${sup("u")}` : `F(u) = ${node.name === "sqrt" ? "&radic;u" : node.name + "(u)"}`);
+        return { title: `Chain rule: ${dd}[F(u)] = F&prime;(u) &times; u&prime;`,
+            body: `Inner function u = ${uH}<br>Outer function ${outerLabel}<br>F&prime;(u) = ${outerDerivHtml(node, uH)}<br>u&prime; = ${du}<br>` +
+                `${dd}[${f}] = (${outerDerivHtml(node, uH)}) ${TIMES} (${du})<br>= ${dHtml(node)}` };
+    }
+    return { title: "Differentiate", body: `${dd}[${f}] = ${dHtml(node)}` };
+}
+
+function calculateDifferentiation(v) {
+    const method = v.diffMethod || "general", mode = v.diffMode || "without";
+    let expression = (v.diffExpression || "").trim();
+    let ast;
+    try {
+        if (method === "product" || method === "quotient") {
+            const u = (v.diffU || "").trim(), vv = (v.diffV || "").trim();
+            if (!u || !vv) return errorMessage(`Enter both u(x) and v(x) for the ${method === "product" ? "Product" : "Quotient"} Rule.`);
+            expression = method === "product" ? `(${u})*(${vv})` : `(${u})/(${vv})`;
+        } else if (method === "chain") {
+            const outer = (v.diffOuter || "").trim(), inner = (v.diffInner || "").trim();
+            if (!outer || !inner) return errorMessage("Enter the outer function F(u) and inner function u(x) for the Chain Rule.");
+            if (!outer.includes("u")) return errorMessage("For Chain Rule, write the outer function using u, for example u^3, sin(u), or ln(u).");
+            expression = outer.replace(/\bu\b/g, `(${inner})`);
+        } else if (!expression) return errorMessage("Enter an expression in x, for example 3x^2 + 2x - 5.");
+        ast = parseMathExpression(expression);
+    } catch (e) {
+        return errorMessage(`Could not read the expression. Use forms such as <strong>3x^2 + 2x - 5</strong>, <strong>(x+1)(x-2)</strong>, <strong>sin(x)</strong>, <strong>ln(x)</strong> or <strong>sqrt(x)</strong>.`);
+    }
+    let derivative;
+    try { derivative = derivOf(ast); } catch (e) { return errorMessage("This expression cannot be differentiated by the rules supported here."); }
+
+    const st = []; let n = 1;
+    const push = (t, b) => st.push(step(n++, t, b));
+    const fx = astHtml(ast, 0);
+    push("Write the function", `f(x) = ${fx}`);
+    const terms = splitTerms(ast);
+    const blocks = terms.map((t, i) => {
+        const r = termRule(t.node);
+        return `<strong>${terms.length > 1 ? `Term ${i + 1}: ` : ""}${astHtml(normAst(t.node), 0)}</strong><br>Rule used &mdash; ${r.title}<br>${r.body}`;
+    });
+    push(terms.length > 1 ? "Differentiate each term separately" : "Choose the rule and differentiate", blocks.join("<br><br>"));
+    if (terms.length > 1) {
+        const parts = terms.map(t => ({ neg: t.sign < 0, html: `(${dHtml(t.node)})` }));
+        push("Combine the derivatives of the terms", `f&prime;(x) = ${joinSigned(parts)}`);
+    }
+    const poly = toPoly(derivative, true);
+    const finalH = exprHtml(derivative);
+    push("Simplify", `f&prime;(x) = ${finalH}`);
+    let expanded = "";
+    if (!poly) { const p2 = toPoly(derivative, false); if (p2) { const eh = polyHtml(p2); if (eh !== finalH) expanded = `<br><br><strong>Expanded form:</strong> f&prime;(x) = ${eh}`; } }
+    let answer = `<strong>f&prime;(x) = ${finalH}</strong>${expanded}`;
+    if (mode === "with") {
+        if (v.diffX === "" || v.diffX === undefined) return errorMessage("Enter the x value for numerical evaluation.");
+        const x = Number(v.diffX);
+        if (!Number.isFinite(x)) return errorMessage("Enter a valid numerical x value.");
+        const val = evaluateAst(derivative, x);
+        if (!Number.isFinite(val)) return errorMessage("The derivative cannot be evaluated at that x value.");
+        const subH = poly ? polyHtml(poly, { sub: x }) : astHtml(substVar(derivative, x), 0);
+        push(`Substitute x = ${Nn(x)} into f&prime;(x)`, `f&prime;(${Nn(x)}) = ${subH}<br>f&prime;(${Nn(x)}) = <strong>${N(val)}</strong>`);
+        answer += `<br><br><strong>f&prime;(${Nn(x)}) = ${N(val)}</strong>`;
+    }
+    const methodNote = { general: "The correct rule is chosen automatically for each term.", power: "Power rule: d/dx[x^n] = n x^(n&minus;1).", product: "Product rule: (uv)&prime; = u&prime;v + uv&prime;.", quotient: "Quotient rule: (u&divide;v)&prime; = (u&prime;v &minus; uv&prime;)&divide;v&sup2;.", chain: "Chain rule: d/dx F(u) = F&prime;(u) u&prime;." }[method];
+    return resultTemplate(
+        `${dd}[x${sup("n")}] = n x${sup("n" + MINUS + "1")}; (uv)&prime; = u&prime;v + uv&prime;; (u${DIVS}v)&prime; = ${frac("u&prime;v " + MINUS + " uv&prime;", "v" + sup(2))}; ${dd}F(u) = F&prime;(u) u&prime;`,
+        joinSteps(st), answer, methodNote);
+}
+
+/* ---- integration ---- */
+function polyIntegralMap(poly) {
+    const out = new Map(), logs = [];
+    poly.forEach((c, e) => {
+        if (Math.abs(c) < 1e-12) return;
+        if (Math.abs(e + 1) < 1e-9) logs.push(c);
+        else out.set(pRound(e + 1), c / (e + 1));
+    });
+    return { map: out, logCoef: logs.reduce((a, b) => a + b, 0), hasLog: logs.length > 0 };
+}
+function integralHtml(parts) { return parts.length ? joinSigned(parts) : "0"; }
+
+function calculateIntegration(v) {
+    const type = v.integrationType || "indefinite";
+    const expression = (v.integrationExpression || "").trim();
+    if (!expression) return errorMessage("Enter an expression in x, for example 3x^2 + 2x + 1.");
+    let ast, terms;
+    try { ast = parseMathExpression(expression); terms = splitTerms(ast); } catch (e) { return errorMessage("Could not read the expression. Check the format and try again."); }
+    const st = []; let n = 1;
+    const push = (t, b) => st.push(step(n++, t, b));
+    push("Write the integrand", `f(x) = ${astHtml(ast, 0)}`);
+
+    const polyAll = new Map(); const others = []; const blocks = []; let failed = false;
+    terms.forEach((t, i) => {
+        const node = t.node, f = astHtml(normAst(node), 0);
+        const p = toPoly(node, true);
+        const sg = t.sign;
+        const head = `<strong>${terms.length > 1 ? `Term ${i + 1}: ` : ""}${sg < 0 ? MINUS : ""}${f}</strong><br>`;
+        if (p && p.size === 1) {
+            const [e, c0] = [...p.entries()][0]; const c = c0 * sg;
+            p.forEach((cc, ee) => polyAll.set(ee, (polyAll.get(ee) || 0) + cc * sg));
+            if (e === 0) blocks.push(`${head}Rule &mdash; Constant: &int; k dx = kx<br>= ${polyHtml(new Map([[1, c]]))}`);
+            else if (Math.abs(e + 1) < 1e-9) blocks.push(`${head}Rule &mdash; &int; x${sup(MINUS + "1")} dx = ln|x|<br>= ${Math.abs(c) === 1 ? (c < 0 ? MINUS : "") : ratH(c) + " "}ln|x|`);
+            else blocks.push(`${head}Rule &mdash; Power: &int; x${sup("n")} dx = ${frac("x" + sup("n+1"), "n+1")}<br>` +
+                `&int; ${polyHtml(new Map([[e, c]]))} dx = ${Math.abs(c - 1) < 1e-12 ? "" : ratH(c) + " " + TIMES + " "}${frac("x" + sup(`(${expTxt(e)} + 1)`), `${expTxt(e)} + 1`)}<br>` +
+                `= ${Math.abs(c - 1) < 1e-12 ? "" : ratH(c) + " " + TIMES + " "}${frac("x" + sup(expTxt(e + 1)), expTxt(e + 1))}<br>= ${polyHtml(new Map([[pRound(e + 1), c / (e + 1)]]))}`);
+        } else {
+            let F;
+            try { F = simplifyAst(integrateAst(simplifyAst(cloneAst(node)))); } catch (err) { failed = true; return; }
+            const signed = sg < 0 ? { kind: "neg", arg: F } : F;
+            others.push({ ast: signed });
+            blocks.push(`${head}Rule &mdash; standard integral<br>= ${sg < 0 ? MINUS + "(" : ""}${astHtml(normAst(F), 0)}${sg < 0 ? ")" : ""}`);
+        }
+    });
+    if (failed) return errorMessage("This integration engine supports common forms such as polynomial terms, 1/x, sin(x), cos(x), ln(x) and e^x. Check the expression format and try again.");
+    push(terms.length > 1 ? "Integrate each term separately" : "Choose the rule and integrate", blocks.join("<br><br>"));
+
+    const pi = polyIntegralMap(polyAll);
+    const parts = [];
+    [...pi.map.entries()].sort((a, b) => b[0] - a[0]).forEach(([e, c]) => parts.push({ neg: c < 0, html: termHtml(Math.abs(c), e) }));
+    if (pi.hasLog && Math.abs(pi.logCoef) > 1e-12) parts.push({ neg: pi.logCoef < 0, html: `${Math.abs(pi.logCoef) === 1 ? "" : ratH(Math.abs(pi.logCoef)) + " "}ln|x|` });
+    others.forEach(o => { const isNeg = o.ast.kind === "neg"; parts.push({ neg: isNeg, html: astHtml(normAst(isNeg ? o.ast.arg : o.ast), 0) }); });
+    const FH = integralHtml(parts);
+    if (terms.length > 1) push("Add the results", `F(x) = ${FH} + C`);
+
+    if (type === "indefinite") {
+        return resultTemplate("&int; x<sup>n</sup> dx = " + frac("x<sup>n+1</sup>", "n+1") + " + C (n &ne; &minus;1); &int; x<sup>&minus;1</sup> dx = ln|x| + C",
+            joinSteps(st) + "<br><br><small>Indefinite integration gives a family of antiderivatives, so the constant + C is required.</small>",
+            `<strong>&int; f(x) dx = ${FH} + C</strong>`);
+    }
+    if (v.integrationLower === "" || v.integrationUpper === "") return errorMessage("Enter both the lower and upper limits for a definite integral.");
+    const lower = Number(v.integrationLower), upper = Number(v.integrationUpper);
+    if (!Number.isFinite(lower) || !Number.isFinite(upper)) return errorMessage("Enter valid numerical limits.");
+    if (upper < lower) return errorMessage("Upper limit must be greater than or equal to the lower limit.");
+    const crosses = lower <= 0 && upper >= 0;
+    if (crosses && ([...polyAll.keys()].some(e => e < 0) || others.some(o => containsSingularity(o.ast, lower, upper)))) return errorMessage("The selected limits cross a point where the antiderivative is undefined.");
+    const polyF = x => { let s = 0; pi.map.forEach((c, e) => { s += c * Math.pow(x, e); }); if (pi.hasLog) s += pi.logCoef * Math.log(Math.abs(x)); return s; };
+    const Fv = x => polyF(x) + others.reduce((a, o) => a + evaluateAst(o.ast, x), 0);
+    const fu = Fv(upper), fl = Fv(lower);
+    const answer = fu - fl;
+    if (!Number.isFinite(answer)) return errorMessage("The definite integral could not be evaluated for these limits.");
+    const substHtml = x => {
+        const ps = [];
+        [...pi.map.entries()].sort((a, b) => b[0] - a[0]).forEach(([e, c]) => ps.push({ neg: c < 0, html: termHtml(Math.abs(c), e, { sub: x }) }));
+        if (pi.hasLog && Math.abs(pi.logCoef) > 1e-12) ps.push({ neg: pi.logCoef < 0, html: `${Math.abs(pi.logCoef) === 1 ? "" : ratH(Math.abs(pi.logCoef)) + " " + TIMES + " "}ln|${Nn(x)}|` });
+        others.forEach(o => { const isNeg = o.ast.kind === "neg"; ps.push({ neg: isNeg, html: astHtml(substVar(isNeg ? o.ast.arg : o.ast, x), 0) }); });
+        return joinSigned(ps);
+    };
+    push(`Evaluate F at the upper limit x = ${Nn(upper)}`, `F(${Nn(upper)}) = ${substHtml(upper)} = <strong>${N(fu)}</strong>`);
+    push(`Evaluate F at the lower limit x = ${Nn(lower)}`, `F(${Nn(lower)}) = ${substHtml(lower)} = <strong>${N(fl)}</strong>`);
+    push("Subtract: upper &minus; lower", `&int;<sub>${Nn(lower)}</sub><sup>${Nn(upper)}</sup> f(x) dx = F(${Nn(upper)}) ${MINUS} F(${Nn(lower)}) = ${par(fu)} ${MINUS} ${par(fl)} = <strong>${N(answer)}</strong>`);
+    return resultTemplate("&int;<sub>a</sub><sup>b</sup> f(x) dx = F(b) &minus; F(a)", joinSteps(st),
+        `<strong>&int;<sub>${Nn(lower)}</sub><sup>${Nn(upper)}</sup> f(x) dx = ${N(answer)}</strong>`, "A definite integral gives the signed net accumulation over the stated interval.");
+}
+
+/* =========================================================
+   OTHER MATHEMATICS CALCULATORS (full workings)
+========================================================= */
+
+function calcQuadratic(v) {
+    const a = getNumber(v, "a"), b = getNumber(v, "b"), c = getNumber(v, "c");
+    if (![a, b, c].every(Number.isFinite)) return errorMessage("Enter valid numbers for a, b and c.");
+    if (a === 0) return errorMessage("The coefficient a cannot be zero for a quadratic equation.");
+    const D = b * b - 4 * a * c;
+    const st = []; let n = 1; const push = (t, x) => st.push(step(n++, t, x));
+    const eq = `${a === 1 ? "" : (a === -1 ? MINUS : Nn(a))}x${sup(2)} ${b < 0 ? MINUS : "+"} ${Math.abs(b) === 1 ? "" : N(Math.abs(b))}x ${c < 0 ? MINUS : "+"} ${N(Math.abs(c))} = 0`;
+    push("Write the equation and identify a, b and c", `${eq}<br>a = ${Nn(a)}, b = ${Nn(b)}, c = ${Nn(c)}`);
+    push("Calculate the discriminant D = b&sup2; &minus; 4ac", `D = (${Nn(b)})${sup(2)} ${MINUS} 4(${Nn(a)})(${Nn(c)})<br>D = ${Nn(b * b)} ${MINUS} (${Nn(4 * a * c)}) = <strong>${Nn(D)}</strong>`);
+    if (D < 0) {
+        const re = -b / (2 * a), im = Math.sqrt(-D) / (2 * a);
+        push("Interpret the discriminant", "D is negative, so there are no real roots. The roots are complex numbers.");
+        push("Substitute into the quadratic formula", `x = ${frac(`${MINUS}(${Nn(b)}) &plusmn; &radic;(${Nn(D)})`, `2(${Nn(a)})`)} = ${frac(`${Nn(-b)} &plusmn; ${sqrtHtml(-D)}i`, Nn(2 * a))}`);
+        return resultTemplate(`x = ${frac("&minus;b &plusmn; &radic;(b&sup2; &minus; 4ac)", "2a")}`, joinSteps(st), `x = ${N(re)} &plusmn; ${N(Math.abs(im))}i`, "A negative discriminant means the square root is not real.");
+    }
+    const sq = Math.sqrt(D);
+    push("Interpret the discriminant", D === 0 ? "D = 0, so there is one repeated real root." : "D &gt; 0, so there are two different real roots.");
+    push("Substitute into the quadratic formula", `x = ${frac(`${MINUS}(${Nn(b)}) &plusmn; &radic;(${Nn(D)})`, `2(${Nn(a)})`)}`);
+    push("Simplify the square root and the denominator", `&radic;${Nn(D)} = ${Number.isInteger(sq) ? N(sq) : sqrtHtml(D) + " &asymp; " + N(sq)}<br>x = ${frac(`${Nn(-b)} &plusmn; ${N(sq)}`, Nn(2 * a))}`);
+    const x1 = (-b + sq) / (2 * a), x2 = (-b - sq) / (2 * a);
+    push("Calculate both roots", `x${sub(1)} = ${frac(`${Nn(-b)} + ${N(sq)}`, Nn(2 * a))} = ${N(x1)}<br>x${sub(2)} = ${frac(`${Nn(-b)} ${MINUS} ${N(sq)}`, Nn(2 * a))} = ${N(x2)}`);
+    push("Check by substituting a root", `a(${N(x1)})${sup(2)} + b(${N(x1)}) + c = ${N(a * x1 * x1 + b * x1 + c)}`);
+    return resultTemplate(`x = ${frac("&minus;b &plusmn; &radic;(b&sup2; &minus; 4ac)", "2a")}`, joinSteps(st),
+        D === 0 ? `x = ${N(x1)} (repeated root)` : `x${sub(1)} = ${N(x1)}, x${sub(2)} = ${N(x2)}`, "Substituting a root into the equation should give zero (apart from tiny rounding).");
+}
+function calcSimpleEquation(v) {
+    const a = getNumber(v, "a"), b = getNumber(v, "b");
+    if (![a, b].every(Number.isFinite)) return errorMessage("Enter valid values for a and b.");
+    if (a === 0) return errorMessage("Coefficient a cannot be zero. If a = 0, the equation is not a unique linear equation.");
+    const x = -b / a;
+    const st = [];
+    st.push(step(1, "Write the equation", `${Nn(a)}x ${b < 0 ? MINUS : "+"} ${N(Math.abs(b))} = 0`));
+    st.push(step(2, "Move the constant to the right-hand side", `${Nn(a)}x = ${Nn(-b)}`));
+    st.push(step(3, "Divide both sides by the coefficient of x", `x = ${frac(Nn(-b), Nn(a))}`));
+    st.push(step(4, "Simplify", `x = ${entryHtml(x)}`));
+    st.push(step(5, "Check", `${Nn(a)}(${N(x)}) ${b < 0 ? MINUS : "+"} ${N(Math.abs(b))} = ${N(a * x + b)}`));
+    return resultTemplate(`ax + b = 0, x = ${frac("&minus;b", "a")}`, joinSteps(st), `x = ${entryHtml(x)}`, "Substituting the answer gives zero on the left-hand side.");
+}
+
+function calcDistance(v) {
+    const x1 = getNumber(v, "x1"), y1 = getNumber(v, "y1"), x2 = getNumber(v, "x2"), y2 = getNumber(v, "y2");
+    if (![x1, y1, x2, y2].every(Number.isFinite)) return errorMessage("Enter valid numbers for all four coordinates.");
+    const dx = x2 - x1, dy = y2 - y1, s = dx * dx + dy * dy, d = Math.sqrt(s);
+    const st = [];
+    st.push(step(1, "Write the points", `A(${Nn(x1)}, ${Nn(y1)}) and B(${Nn(x2)}, ${Nn(y2)})`));
+    st.push(step(2, "Find the horizontal and vertical differences", `x${sub(2)} ${MINUS} x${sub(1)} = ${par(x2)} ${MINUS} ${par(x1)} = ${Nn(dx)}<br>y${sub(2)} ${MINUS} y${sub(1)} = ${par(y2)} ${MINUS} ${par(y1)} = ${Nn(dy)}`));
+    st.push(step(3, "Square each difference", `(${Nn(dx)})${sup(2)} = ${Nn(dx * dx)}<br>(${Nn(dy)})${sup(2)} = ${Nn(dy * dy)}`));
+    st.push(step(4, "Add the squares", `${Nn(dx * dx)} + ${Nn(dy * dy)} = ${Nn(s)}`));
+    const exact = Number.isInteger(s) ? sqrtHtml(s) : `&radic;${N(s)}`;
+    st.push(step(5, "Take the square root", `d = &radic;${Nn(s)} = ${exact}${Number.isInteger(d) || !Number.isInteger(s) ? "" : " &asymp; " + N(d)}`));
+    return resultTemplate(`d = &radic;((x${sub(2)} &minus; x${sub(1)})${sup(2)} + (y${sub(2)} &minus; y${sub(1)})${sup(2)})`, joinSteps(st), `d = ${Number.isInteger(s) && !Number.isInteger(d) ? exact + " &asymp; " + N(d) : N(d)}`, "The distance is always zero or positive.");
+}
+function calcMidpoint(v) {
+    const x1 = getNumber(v, "x1"), y1 = getNumber(v, "y1"), x2 = getNumber(v, "x2"), y2 = getNumber(v, "y2");
+    if (![x1, y1, x2, y2].every(Number.isFinite)) return errorMessage("Enter valid numbers for all four coordinates.");
+    const mx_ = (x1 + x2) / 2, my_ = (y1 + y2) / 2;
+    const st = [];
+    st.push(step(1, "Write the points", `A(${Nn(x1)}, ${Nn(y1)}) and B(${Nn(x2)}, ${Nn(y2)})`));
+    st.push(step(2, "Add the x-coordinates and halve", `x = ${frac(`${par(x1)} + ${par(x2)}`, 2)} = ${frac(Nn(x1 + x2), 2)}${(x1 + x2) % 2 === 0 ? " = " + entryHtml(mx_) : ""}`));
+    st.push(step(3, "Add the y-coordinates and halve", `y = ${frac(`${par(y1)} + ${par(y2)}`, 2)} = ${frac(Nn(y1 + y2), 2)}${(y1 + y2) % 2 === 0 ? " = " + entryHtml(my_) : ""}`));
+    st.push(step(4, "Write the midpoint", `M = (${entryHtml(mx_)}, ${entryHtml(my_)})`));
+    return resultTemplate(`M = (${frac(`x${sub(1)} + x${sub(2)}`, 2)}, ${frac(`y${sub(1)} + y${sub(2)}`, 2)})`, joinSteps(st), `M = (${entryHtml(mx_)}, ${entryHtml(my_)})`, "The midpoint is exactly halfway between the two points.");
+}
+function calcGradient(v) {
+    const x1 = getNumber(v, "x1"), y1 = getNumber(v, "y1"), x2 = getNumber(v, "x2"), y2 = getNumber(v, "y2");
+    if (![x1, y1, x2, y2].every(Number.isFinite)) return errorMessage("Enter valid numbers for all four coordinates.");
+    if (x2 === x1) return errorMessage("The gradient is undefined because x&#8322; &minus; x&#8321; = 0 (a vertical line).");
+    const rise = y2 - y1, run = x2 - x1, m = rise / run;
+    const st = [];
+    st.push(step(1, "Write the points", `A(${Nn(x1)}, ${Nn(y1)}) and B(${Nn(x2)}, ${Nn(y2)})`));
+    st.push(step(2, "Find the rise (change in y)", `y${sub(2)} ${MINUS} y${sub(1)} = ${par(y2)} ${MINUS} ${par(y1)} = ${Nn(rise)}`));
+    st.push(step(3, "Find the run (change in x)", `x${sub(2)} ${MINUS} x${sub(1)} = ${par(x2)} ${MINUS} ${par(x1)} = ${Nn(run)}`));
+    { const rr = fr(rise, run); st.push(step(4, "Divide rise by run", `m = ${frac(Nn(rise), Nn(run))}${(rr.n === rise && rr.d === run) ? "" : " = " + entryHtml(m)}`)); }
+    const angle = Math.atan(m) * 180 / Math.PI;
+    return resultTemplate(`m = ${frac(`y${sub(2)} &minus; y${sub(1)}`, `x${sub(2)} &minus; x${sub(1)}`)}`, joinSteps(st), `m = ${entryHtml(m)}`, m === 0 ? "A gradient of 0 means a horizontal line." : `The line ${m > 0 ? "rises" : "falls"} as x increases, at an angle of about ${N(Math.abs(angle))}&deg; to the x-axis.`);
+}
+function calcCircle(v) {
+    const r = getNumber(v, "radius");
+    if (!Number.isFinite(r) || r < 0) return errorMessage("Enter a valid non-negative radius.");
+    const st = [];
+    st.push(step(1, "Write the radius", `r = ${Nn(r)}`));
+    st.push(step(2, "Square the radius", `r${sup(2)} = (${Nn(r)})${sup(2)} = ${Nn(r * r)}`));
+    st.push(step(3, "Multiply by &pi; (exact form first)", `A = &pi; ${TIMES} ${Nn(r * r)} = ${r * r === 1 ? "" : Nn(r * r)}&pi;`));
+    st.push(step(4, "Use &pi; &asymp; 3.14159265 for the decimal value", `A = ${Nn(r * r)} ${TIMES} 3.14159265 = ${N(Math.PI * r * r)}`));
+    return resultTemplate("A = &pi;r<sup>2</sup>", joinSteps(st), `A = ${r * r === 1 ? "" : Nn(r * r)}&pi; &asymp; ${N(Math.PI * r * r)}`, "Area is measured in square units.");
+}
+
+const trigExact = {
+    sin: { 0: "0", 30: frac(1, 2), 45: frac("&radic;2", 2), 60: frac("&radic;3", 2), 90: "1" },
+    cos: { 0: "1", 30: frac("&radic;3", 2), 45: frac("&radic;2", 2), 60: frac(1, 2), 90: "0" },
+    tan: { 0: "0", 30: frac(1, "&radic;3"), 45: "1", 60: "&radic;3", 90: "undefined" }
+};
+function calcTrig(v) {
+    const angle = getNumber(v, "angle"), fn = v.ratio || "sin";
+    if (!Number.isFinite(angle)) return errorMessage("Enter a valid angle in degrees.");
+    const rad = angle * Math.PI / 180;
+    const val = Math[fn](rad);
+    const st = []; let n = 1; const push = (t, b) => st.push(step(n++, t, b));
+    push("Write the ratio", `${fn}(${Nn(angle)}&deg;)`);
+    push("Convert the angle to radians", `${Nn(angle)}&deg; ${TIMES} ${frac("&pi;", 180)} = ${N(rad)} rad`);
+    const red = ((angle % 360) + 360) % 360;
+    const isSpecial = Number.isInteger(red) && red % 30 === 0 || red % 45 === 0 && Number.isInteger(red);
+    let answer;
+    if (isSpecial) {
+        let ref, quad;
+        if (red <= 90) { ref = red; quad = 1; } else if (red <= 180) { ref = 180 - red; quad = 2; } else if (red <= 270) { ref = red - 180; quad = 3; } else { ref = 360 - red; quad = 4; }
+        const sign = fn === "sin" ? (quad <= 2 ? 1 : -1) : fn === "cos" ? (quad === 1 || quad === 4 ? 1 : -1) : (quad === 1 || quad === 3 ? 1 : -1);
+        if (angle !== red) push("Reduce the angle to between 0&deg; and 360&deg;", `${Nn(angle)}&deg; &equiv; ${red}&deg;`);
+        push("Find the quadrant and the reference angle", `${red}&deg; is in quadrant ${quad}; reference angle = ${ref}&deg;`);
+        push("Decide the sign (ASTC rule)", `In quadrant ${quad}, ${fn} is ${sign > 0 ? "positive" : "negative"}.`);
+        const ex = trigExact[fn][ref];
+        push("Use the exact value of the reference angle", `${fn}(${ref}&deg;) = ${ex}`);
+        if (ex === "undefined") answer = `${fn}(${Nn(angle)}&deg;) is undefined`;
+        else answer = `${fn}(${Nn(angle)}&deg;) = ${sign < 0 ? MINUS : ""}${ex} = ${N(val)}`;
+        push("Combine the sign and the value", answer);
+    } else {
+        push("Evaluate with the calculator", `${fn}(${N(rad)}) = ${N(val)}`);
+        answer = `${fn}(${Nn(angle)}&deg;) = ${N(val)}`;
+    }
+    if (fn === "tan" && Math.abs(Math.cos(rad)) < 1e-12) return resultTemplate(`${fn} &theta;`, joinSteps(st), `tan(${Nn(angle)}&deg;) is undefined`, "tan &theta; = sin &theta; &divide; cos &theta;, and cos &theta; = 0 here.");
+    return resultTemplate(`${fn} &theta;; &theta; (rad) = &theta;&deg; &times; ${frac("&pi;", 180)}`, joinSteps(st), answer, "Exact values come from the special angles 30&deg;, 45&deg; and 60&deg;.");
+}
+
+function bigFactorialRange(n, r) { let p = 1n; for (let i = 0; i < r; i++) p *= BigInt(n - i); return p; }
+function bigFact(r) { let p = 1n; for (let i = 2; i <= r; i++) p *= BigInt(i); return p; }
+const bigStr = b => b.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+function calcPerm(v) {
+    const n = getNumber(v, "n"), r = getNumber(v, "r");
+    if (!Number.isInteger(n) || !Number.isInteger(r) || n < 0 || r < 0 || r > n) return errorMessage("n and r must be whole numbers with n &ge; r.");
+    if (n > 500) return errorMessage("Please use n of 500 or less.");
+    const val = bigFactorialRange(n, r);
+    const st = [];
+    st.push(step(1, "Write the values", `n = ${n}, r = ${r}`));
+    st.push(step(2, "Substitute into the formula", `<sup>${n}</sup>P<sub>${r}</sub> = ${frac(`${n}!`, `(${n} ${MINUS} ${r})!`)} = ${frac(`${n}!`, `${n - r}!`)}`));
+    const terms = Array.from({ length: Math.min(r, 12) }, (_, i) => n - i);
+    st.push(step(3, "Cancel the common factorial: only the first r factors remain", `${frac(`${n}!`, `${n - r}!`)} = ${r === 0 ? "1" : terms.join(` ${TIMES} `) + (r > 12 ? ` ${TIMES} &hellip; ${TIMES} ${n - r + 1}` : "")}`));
+    st.push(step(4, "Multiply", `= <strong>${bigStr(val)}</strong>`));
+    return resultTemplate(`<sup>n</sup>P<sub>r</sub> = ${frac("n!", "(n &minus; r)!")}`, joinSteps(st), `<sup>${n}</sup>P<sub>${r}</sub> = ${bigStr(val)}`, "Permutations count ordered arrangements.");
+}
+function calcComb(v) {
+    const n = getNumber(v, "n"), r = getNumber(v, "r");
+    if (!Number.isInteger(n) || !Number.isInteger(r) || n < 0 || r < 0 || r > n) return errorMessage("n and r must be whole numbers with n &ge; r.");
+    if (n > 500) return errorMessage("Please use n of 500 or less.");
+    const k = Math.min(r, n - r);
+    const num = bigFactorialRange(n, k), den = bigFact(k), val = num / den;
+    const st = [];
+    st.push(step(1, "Write the values", `n = ${n}, r = ${r}`));
+    st.push(step(2, "Substitute into the formula", `<sup>${n}</sup>C<sub>${r}</sub> = ${frac(`${n}!`, `${r}!(${n} ${MINUS} ${r})!`)} = ${frac(`${n}!`, `${r}!${n - r}!`)}`));
+    if (k !== r) st.push(step(3, "Use symmetry to shorten the work", `<sup>${n}</sup>C<sub>${r}</sub> = <sup>${n}</sup>C<sub>${n - r}</sub>, so use r = ${k}`));
+    const top = Array.from({ length: Math.min(k, 12) }, (_, i) => n - i).join(` ${TIMES} `) + (k > 12 ? ` ${TIMES} &hellip;` : "");
+    const bottom = Array.from({ length: Math.min(k, 12) }, (_, i) => k - i).join(` ${TIMES} `) + (k > 12 ? ` ${TIMES} &hellip;` : "");
+    st.push(step(st.length + 1, "Cancel the common factorial and expand", k === 0 ? "= 1" : `= ${frac(top, bottom)}`));
+    st.push(step(st.length + 1, "Work out the top and the bottom separately", `Top = ${bigStr(num)}<br>Bottom = ${k}! = ${bigStr(den)}`));
+    st.push(step(st.length + 1, "Divide", `${bigStr(num)} ${DIVS} ${bigStr(den)} = <strong>${bigStr(val)}</strong>`));
+    return resultTemplate(`<sup>n</sup>C<sub>r</sub> = ${frac("n!", "r!(n &minus; r)!")}`, joinSteps(st), `<sup>${n}</sup>C<sub>${r}</sub> = ${bigStr(val)}`, "Combinations count selections where order does not matter.");
+}
+
+function calcApGp(v) {
+    const type = v.sequenceType, calc = v.calculation;
+    const a = getNumber(v, "a"), n = getNumber(v, "n");
+    if (!Number.isFinite(a) || !Number.isFinite(n)) return errorMessage("Please enter valid numbers.");
+    if (n <= 0 || !Number.isInteger(n)) return errorMessage("Number of terms (n) must be a positive whole number.");
+    const st = []; let k = 1; const push = (t, b) => st.push(step(k++, t, b));
+    const first = (fn, count = 6) => Array.from({ length: Math.min(n, count) }, (_, i) => N(fn(i + 1))).join(", ") + (n > count ? ", &hellip;" : "");
+    if (type === "ap") {
+        const d = getNumber(v, "d");
+        if (!Number.isFinite(d)) return errorMessage("Please enter a valid common difference.");
+        push("Identify the arithmetic progression", `a = ${Nn(a)}, d = ${Nn(d)}, n = ${n}<br>Sequence: ${first(i => a + (i - 1) * d)}`);
+        if (calc === "nth-term") {
+            push("Write the formula", `T${sub("n")} = a + (n ${MINUS} 1)d`);
+            push("Work out (n &minus; 1)d first", `(${n} ${MINUS} 1) ${TIMES} ${par(d)} = ${Nn((n - 1) * d)}`);
+            const t = a + (n - 1) * d;
+            push("Add a", `T${sub(n)} = ${par(a)} + ${par((n - 1) * d)} = <strong>${Nn(t)}</strong>`);
+            return resultTemplate(`T<sub>n</sub> = a + (n &minus; 1)d`, joinSteps(st), `T${sub(n)} = ${Nn(t)}`, "Each term is the previous term plus the common difference.");
+        }
+        push("Write the formula", `S${sub("n")} = ${frac("n", 2)}[2a + (n ${MINUS} 1)d]`);
+        push("Work out the bracket in parts", `2a = 2 ${TIMES} ${par(a)} = ${Nn(2 * a)}<br>(n ${MINUS} 1)d = ${Nn((n - 1) * d)}<br>2a + (n ${MINUS} 1)d = ${Nn(2 * a)} + ${par((n - 1) * d)} = ${Nn(2 * a + (n - 1) * d)}`);
+        const s = (n / 2) * (2 * a + (n - 1) * d);
+        push("Multiply by n&divide;2", `S${sub(n)} = ${frac(n, 2)} ${TIMES} ${par(2 * a + (n - 1) * d)} = <strong>${Nn(s)}</strong>`);
+        return resultTemplate(`S<sub>n</sub> = ${frac("n", 2)}[2a + (n &minus; 1)d]`, joinSteps(st), `Sum of the first ${n} terms = ${Nn(s)}`, `Equivalent form: S = ${frac("n", 2)}(first term + last term).`);
+    }
+    if (type === "gp") {
+        const r = getNumber(v, "r");
+        if (!Number.isFinite(r)) return errorMessage("Please enter a valid common ratio.");
+        push("Identify the geometric progression", `a = ${Nn(a)}, r = ${Nn(r)}, n = ${n}<br>Sequence: ${first(i => a * Math.pow(r, i - 1))}`);
+        if (calc === "nth-term") {
+            push("Write the formula", `T${sub("n")} = a r${sup("n" + MINUS + "1")}`);
+            push("Work out the power first", `r${sup(`(${n} ${MINUS} 1)`)} = (${Nn(r)})${sup(n - 1)} = ${Nn(Math.pow(r, n - 1))}`);
+            const t = a * Math.pow(r, n - 1);
+            push("Multiply by a", `T${sub(n)} = ${par(a)} ${TIMES} ${par(Math.pow(r, n - 1))} = <strong>${Nn(t)}</strong>`);
+            return resultTemplate(`T<sub>n</sub> = ar<sup>n&minus;1</sup>`, joinSteps(st), `T${sub(n)} = ${Nn(t)}`, "Each term is the previous term multiplied by the common ratio.");
+        }
+        if (r === 1) {
+            push("The ratio is 1, so every term equals a", `S${sub(n)} = na = ${n} ${TIMES} ${par(a)} = <strong>${Nn(n * a)}</strong>`);
+            return resultTemplate("S<sub>n</sub> = na (r = 1)", joinSteps(st), `Sum of the first ${n} terms = ${Nn(n * a)}`, "");
+        }
+        push("Write the formula", `S${sub("n")} = ${frac(`a(r${sup("n")} ${MINUS} 1)`, `r ${MINUS} 1`)}`);
+        push("Work out the parts", `r${sup(n)} = (${Nn(r)})${sup(n)} = ${Nn(Math.pow(r, n))}<br>r${sup(n)} ${MINUS} 1 = ${Nn(Math.pow(r, n) - 1)}<br>r ${MINUS} 1 = ${Nn(r - 1)}`);
+        const s = a * (Math.pow(r, n) - 1) / (r - 1);
+        push("Put the parts together", `S${sub(n)} = ${frac(`${par(a)} ${TIMES} ${par(Math.pow(r, n) - 1)}`, par(r - 1))} = <strong>${Nn(s)}</strong>`);
+        return resultTemplate(`S<sub>n</sub> = ${frac("a(r<sup>n</sup> &minus; 1)", "r &minus; 1")}`, joinSteps(st), `Sum of the first ${n} terms = ${Nn(s)}`, "");
+    }
+    return errorMessage("Please check your selections.");
+}
+
+/* =========================================================
+   REGISTER THE MATHEMATICS CATEGORY
+========================================================= */
+
+const base = calculators.finance || {};
+const names = (typeof calculatorNames !== "undefined" && calculatorNames.mathematics) ? Object.keys(calculatorNames.mathematics) : [];
+const mathCalcs = {};
+names.forEach(key => { if (base[key]) mathCalcs[key] = base[key]; });
+const override = (key, fn) => { if (mathCalcs[key]) mathCalcs[key] = Object.assign({}, mathCalcs[key], { calculate: fn }); };
+override("quadratic-equation", calcQuadratic);
+override("simple-equation", calcSimpleEquation);
+override("indices", v => calculateIndices(v.indexExpression));
+override("logarithm", v => calcLogarithm(v.logExpression));
+override("permutation", calcPerm);
+override("combination", calcComb);
+override("distance", calcDistance);
+override("midpoint", calcMidpoint);
+override("gradient", calcGradient);
+override("circle-area", calcCircle);
+override("trigonometry", calcTrig);
+override("sets", calculateSets);
+override("matrices", calculateMatrices);
+override("differentiation", calculateDifferentiation);
+override("integration", calculateIntegration);
+override("ap-gp", calcApGp);
+calculators.mathematics = mathCalcs;
+
+if (typeof categorySelect !== "undefined" && categorySelect && typeof populateCalculators === "function") populateCalculators();
+})();
