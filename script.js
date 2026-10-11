@@ -8681,3 +8681,811 @@ calculators.mathematics = mathCalcs;
 
 if (typeof categorySelect !== "undefined" && categorySelect && typeof populateCalculators === "function") populateCalculators();
 })();
+
+/* =========================================================
+   KHID STATISTICS ENGINE  (append this block at the END of your script file,
+   AFTER the Mathematics patch)
+
+   - Every Statistics calculator now shows formula, numbered workings with
+     tables, the parts first, then the final answer.
+   - Ungrouped data, ungrouped frequency tables and grouped (class interval)
+     data are all supported where the statistic accepts a table.
+   - Nothing above this block is changed. It overrides the old statistics entries.
+========================================================= */
+
+(function () {
+"use strict";
+
+const MINUS = "&minus;", TIMES = "&times;", DIVS = "&divide;";
+const sub = s => `<sub>${s}</sub>`;
+const sup = s => `<sup>${s}</sup>`;
+const frac = (n, d) => `<span style="display:inline-block;vertical-align:middle;text-align:center;margin:0 3px;"><span style="display:block;padding:0 4px;border-bottom:1px solid currentColor;">${n}</span><span style="display:block;padding:0 4px;">${d}</span></span>`;
+const xbar = '<span style="text-decoration:overline;">x</span>';
+const ybar = '<span style="text-decoration:overline;">y</span>';
+const step = (n, t, b) => `<strong>Step ${n} &mdash; ${t}</strong><br>${b}`;
+const joinSteps = a => a.join("<br><br>");
+const F2 = (v, d) => {
+    if (!Number.isFinite(v)) return "undefined";
+    const r = Number(v.toFixed(d));
+    return String(Object.is(r, -0) ? 0 : r).replace(/^-/, MINUS);
+};
+const F = v => F2(v, 4);   /* single argument on purpose, so it is safe inside .map(F) */
+const P = v => v < 0 ? `(${F(v)})` : F(v);
+const sumArr = a => a.reduce((s, x) => s + x, 0);
+const listSum = (arr, max = 10) => arr.length <= max ? arr.map(P).join(" + ") : arr.slice(0, 6).map(P).join(" + ") + " + &hellip; + " + P(arr[arr.length - 1]);
+const ord = n => { const k = Math.abs(Math.round(n)), t = k % 100, u = k % 10; return n + (t >= 11 && t <= 13 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"); };
+const mk = () => { const st = []; let n = 1; return { st, push: (t, b) => st.push(step(n++, t, b)) }; };
+
+function tbl(head, rows, foot) {
+    const cell = (c, h) => `<${h ? "th" : "td"} style="border:1px solid rgba(128,128,128,.55);padding:4px 8px;text-align:${h ? "center" : "right"};white-space:nowrap;">${c}</${h ? "th" : "td"}>`;
+    return `<div style="overflow-x:auto;margin:6px 0;"><table style="border-collapse:collapse;font-size:.92em;"><thead><tr>${head.map(h => cell(h, true)).join("")}</tr></thead><tbody>` +
+        rows.map(r => `<tr>${r.map(c => cell(c)).join("")}</tr>`).join("") +
+        (foot ? `<tr style="font-weight:bold;">${foot.map(c => cell(c)).join("")}</tr>` : "") + `</tbody></table></div>`;
+}
+
+/* ---------- reading the inputs ---------- */
+const clean = s => String(s == null ? "" : s).replace(/[−–—]/g, "-").trim();
+function parseNums(s, what) {
+    const t = clean(s);
+    if (!t) return [];
+    const nums = t.split(/[,;\s]+/).filter(Boolean).map(Number);
+    if (nums.some(n => !Number.isFinite(n))) throw new Error(`${what || "The values"} must be numbers separated by commas.`);
+    return nums;
+}
+function parseClasses(s) {
+    const t = clean(s);
+    if (!t) throw new Error("Enter the class intervals, for example 0-10, 10-20, 20-30.");
+    const parts = t.split(/[,;]+/).map(x => x.trim()).filter(Boolean);
+    const rows = parts.map(p => {
+        const m = p.match(/^(-?\d+(?:\.\d+)?)\s*(?:-|to)\s*(-?\d+(?:\.\d+)?)$/i);
+        if (!m) throw new Error(`The class "${p}" is not valid. Write classes like 10-20 or 10 - 19.`);
+        const lo = Number(m[1]), up = Number(m[2]);
+        if (!(up > lo)) throw new Error(`In the class "${p}" the upper value must be bigger than the lower value.`);
+        return { lo, up };
+    });
+    for (let i = 1; i < rows.length; i++) if (rows[i].lo < rows[i - 1].up) throw new Error("The classes must be in ascending order and must not overlap.");
+    const gaps = rows.slice(1).map((r, i) => Number((r.lo - rows[i].up).toFixed(9)));
+    let gap = 0;
+    if (gaps.length) {
+        if (gaps.every(g => g === 0)) gap = 0;
+        else if (gaps.every(g => g === gaps[0])) gap = gaps[0];
+        else throw new Error("The gaps between the classes must all be the same (either no gap, like 10-20, 20-30, or a constant gap, like 10-19, 20-29).");
+    }
+    rows.forEach(r => { r.LB = r.lo - gap / 2; r.UB = r.up + gap / 2; r.c = r.UB - r.LB; r.x = (r.lo + r.up) / 2; });
+    return { rows, gap };
+}
+function getDS(v) {
+    const type = v.dataType || "ungrouped";
+    if (type === "ungrouped") {
+        const data = parseNums(v.data, "The data values");
+        if (!data.length) throw new Error("Enter your data values separated by commas, for example 12, 15, 18, 20.");
+        return { type, data };
+    }
+    const f = parseNums(v.freq, "The frequencies");
+    if (type === "discrete") {
+        const xs = parseNums(v.data, "The values");
+        if (!xs.length) throw new Error("Enter the values in the data box and their frequencies in the frequency box.");
+        if (xs.length !== f.length) throw new Error("The number of values and the number of frequencies must be the same.");
+        if (f.some(x => x < 0)) throw new Error("Frequencies cannot be negative.");
+        const rows = xs.map((x, i) => ({ x, f: f[i] })).sort((a, b) => a.x - b.x);
+        let cf = 0; rows.forEach(r => { cf += r.f; r.cf = cf; });
+        if (cf <= 0) throw new Error("The total frequency must be greater than zero.");
+        return { type, rows, N: cf };
+    }
+    const cl = parseClasses(v.classes);
+    if (cl.rows.length !== f.length) throw new Error(`You entered ${cl.rows.length} classes but ${f.length} frequencies. They must match.`);
+    if (f.some(x => x < 0)) throw new Error("Frequencies cannot be negative.");
+    let cf = 0;
+    cl.rows.forEach((r, i) => { r.f = f[i]; cf += f[i]; r.cf = cf; });
+    if (cf <= 0) throw new Error("The total frequency must be greater than zero.");
+    return { type: "grouped", rows: cl.rows, N: cf, gap: cl.gap };
+}
+const dsN = ds => ds.type === "ungrouped" ? ds.data.length : ds.N;
+const isFreq = ds => ds.type !== "ungrouped";
+
+/* ---------- tables ---------- */
+function gtable(ds, cols, ctx = {}) {
+    const rows = ds.rows, g = ds.type === "grouped", m = ctx.mean;
+    const tot = fn => () => F(sumArr(rows.map(fn)));
+    const D = {
+        cls: g ? ["Class", r => `${F(r.lo)} &ndash; ${F(r.up)}`] : null,
+        bnd: g ? ["Class boundaries", r => `${F(r.LB)} &ndash; ${F(r.UB)}`] : null,
+        x: [g ? "Class mark x" : "Value x", r => F(r.x)],
+        f: ["Frequency f", r => F(r.f), () => F(ds.N)],
+        fx: ["fx", r => F(r.f * r.x), tot(r => r.f * r.x)],
+        fx2: ["fx&sup2;", r => F(r.f * r.x * r.x), tot(r => r.f * r.x * r.x)],
+        cf: ["Cumulative f", r => F(r.cf)],
+        dev: ["x &minus; " + xbar, r => F(r.x - m)],
+        fdev2: ["f(x &minus; " + xbar + ")&sup2;", r => F(r.f * Math.pow(r.x - m, 2)), tot(r => r.f * Math.pow(r.x - m, 2))],
+        fdev4: ["f(x &minus; " + xbar + ")" + sup(4), r => F(r.f * Math.pow(r.x - m, 4)), tot(r => r.f * Math.pow(r.x - m, 4))],
+        fabs: ["f|x &minus; " + xbar + "|", r => F(r.f * Math.abs(r.x - m)), tot(r => r.f * Math.abs(r.x - m))]
+    };
+    const used = cols.filter(c => D[c]);
+    return tbl(used.map(c => D[c][0]), rows.map(r => used.map(c => D[c][1](r))), used.map((c, i) => i === 0 ? "Total" : (D[c][2] ? D[c][2]() : "")));
+}
+function utable(data, cols, ctx = {}) {
+    const m = ctx.mean;
+    const D = {
+        no: ["No.", (x, i) => String(i + 1)],
+        x: ["x", x => F(x), () => F(sumArr(data))],
+        x2: ["x&sup2;", x => F(x * x), () => F(sumArr(data.map(x => x * x)))],
+        dev: ["x &minus; " + xbar, x => F(x - m), () => F(sumArr(data.map(x => x - m)))],
+        dev2: ["(x &minus; " + xbar + ")&sup2;", x => F(Math.pow(x - m, 2)), () => F(sumArr(data.map(x => Math.pow(x - m, 2))))],
+        dev4: ["(x &minus; " + xbar + ")" + sup(4), x => F(Math.pow(x - m, 4)), () => F(sumArr(data.map(x => Math.pow(x - m, 4))))],
+        abs: ["|x &minus; " + xbar + "|", x => F(Math.abs(x - m)), () => F(sumArr(data.map(x => Math.abs(x - m))))]
+    };
+    return tbl(cols.map(c => D[c][0]), data.map((x, i) => cols.map(c => D[c][1](x, i))), cols.map((c, i) => i === 0 ? "Total" : (D[c][2] ? D[c][2]() : "")));
+}
+
+/* ---------- introduction steps for a data set ---------- */
+function intro(ds, push) {
+    if (ds.type === "ungrouped") {
+        push("Write down the data", `${ds.data.map(F).join(", ")}<br>Number of values: n = ${ds.data.length}`);
+    } else if (ds.type === "discrete") {
+        push("Write down the frequency table", gtable(ds, ["x", "f"]) + `Total frequency: N = &Sigma;f = ${F(ds.N)}`);
+    } else {
+        push("Write down the class intervals and frequencies", gtable(ds, ["cls", "f"]) + `Total frequency: N = &Sigma;f = ${F(ds.N)}`);
+        if (ds.gap > 0) {
+            const h = ds.gap / 2;
+            push("Convert the class limits to class boundaries", `The classes have a gap of ${F(ds.gap)} between them, so subtract ${F(h)} from every lower limit and add ${F(h)} to every upper limit.<br>` +
+                tbl(["Class limits", "Class boundaries"], ds.rows.map(r => [`${F(r.lo)} &ndash; ${F(r.up)}`, `${F(r.LB)} &ndash; ${F(r.UB)}`]), null));
+        }
+    }
+}
+
+/* =========================================================
+   REUSABLE STATISTICAL PARTS (each pushes its own working steps)
+========================================================= */
+
+function meanPart(ds, push) {
+    if (ds.type === "ungrouped") {
+        const n = ds.data.length, s = sumArr(ds.data), m = s / n;
+        push("Add up all the values", `&Sigma;x = ${listSum(ds.data)} = <strong>${F(s)}</strong><br>n = ${n}`);
+        push("Divide the total by the number of values", `${xbar} = ${frac("&Sigma;x", "n")} = ${frac(F(s), n)} = <strong>${F(m)}</strong>`);
+        return m;
+    }
+    const rows = ds.rows, N = ds.N, sfx = sumArr(rows.map(r => r.f * r.x)), m = sfx / N;
+    if (ds.type === "grouped") {
+        push("Find the class mark (midpoint) of each class", `x = ${frac("lower limit + upper limit", 2)}<br>` + rows.map(r => `${F(r.lo)} &ndash; ${F(r.up)}: x = ${frac(`${F(r.lo)} + ${F(r.up)}`, 2)} = ${F(r.x)}`).join("<br>"));
+    }
+    push("Multiply each value by its frequency, then add up", gtable(ds, ["cls", "x", "f", "fx"]) + `&Sigma;f = ${F(N)} and &Sigma;fx = ${F(sfx)}`);
+    push("Divide &Sigma;fx by &Sigma;f", `${xbar} = ${frac("&Sigma;fx", "&Sigma;f")} = ${frac(F(sfx), F(N))} = <strong>${F(m)}</strong>`);
+    return m;
+}
+
+function valueAtPos(ds, pos) {
+    if (ds.type === "ungrouped") { const d = [...ds.data].sort((a, b) => a - b); return d[Math.min(Math.max(pos, 1), d.length) - 1]; }
+    const r = ds.rows.find(rr => rr.cf >= pos) || ds.rows[ds.rows.length - 1];
+    return r.x;
+}
+
+/* position-based value with interpolation (ungrouped / frequency tables) */
+function interpPos(ds, pos) {
+    const N = dsN(ds), lo = Math.floor(pos), fr = pos - lo;
+    const a = valueAtPos(ds, lo), b = valueAtPos(ds, lo + 1);
+    return { lo, fr, a, b, value: fr === 0 ? a : a + fr * (b - a) };
+}
+
+function quantilePart(ds, k, m, label, push) {
+    const N = dsN(ds);
+    if (ds.type === "grouped") {
+        const target = k * N / m;
+        push(`Find the position of ${label}`, `Position = ${frac(`${k === 1 ? "" : k + " &times; "}N`, m)} = ${frac(`${k === 1 ? "" : k + " &times; "}${F(N)}`, m)} = <strong>${F(target)}</strong><br>` + "Build the cumulative frequency column:" + gtable(ds, ["bnd", "f", "cf"]));
+        const idx = ds.rows.findIndex(r => r.cf >= target && r.f > 0);
+        const r = ds.rows[idx], cfb = r.cf - r.f;
+        push(`Find the ${label} class`, `The first class whose cumulative frequency reaches ${F(target)} is ${F(r.LB)} &ndash; ${F(r.UB)}.<br>L = ${F(r.LB)}, cf (before the class) = ${F(cfb)}, f = ${F(r.f)}, c = ${F(r.c)}`);
+        const p1 = target - cfb, p2 = p1 / r.f, p3 = p2 * r.c, val = r.LB + p3;
+        push(`Apply the formula for ${label}`, `${label} = L + ${frac(`(${k === 1 ? "" : k}N${DIVS}${m}) &minus; cf`, "f")} &times; c<br>` +
+            `Top part: ${F(target)} &minus; ${F(cfb)} = ${F(p1)}<br>Divide by f: ${F(p1)} &divide; ${F(r.f)} = ${F(p2)}<br>Multiply by c: ${F(p2)} &times; ${F(r.c)} = ${F(p3)}<br>` +
+            `${label} = ${F(r.LB)} + ${F(p3)} = <strong>${F(val)}</strong>`);
+        return val;
+    }
+    const pos = k * (N + 1) / m;
+    if (ds.type === "ungrouped") push("Arrange the data in ascending order", [...ds.data].sort((a, b) => a - b).map(F).join(", "));
+    else push("Build the cumulative frequency column", gtable(ds, ["x", "f", "cf"]));
+    push(`Find the position of ${label}`, `Position = ${frac(`${k}(N + 1)`, m)} = ${frac(`${k}(${F(N)} + 1)`, m)} = <strong>${F(pos)}</strong>`);
+    const ip = interpPos(ds, pos);
+    if (ip.fr === 0 || pos < 1 || pos > N) {
+        push(`Read the ${label}`, `The value at position ${F(Math.min(Math.max(pos, 1), N))} is <strong>${F(ip.value)}</strong>`);
+    } else {
+        push(`Interpolate between the two neighbouring values`, `The ${ord(ip.lo)} value = ${F(ip.a)} and the ${ord(ip.lo + 1)} value = ${F(ip.b)}<br>Fractional part = ${F(ip.fr)}<br>` +
+            `${label} = ${F(ip.a)} + ${F(ip.fr)} &times; (${F(ip.b)} &minus; ${F(ip.a)}) = ${F(ip.a)} + ${F(ip.fr * (ip.b - ip.a))} = <strong>${F(ip.value)}</strong>`);
+    }
+    return ip.value;
+}
+
+function medianPart(ds, push) {
+    const N = dsN(ds);
+    if (ds.type === "grouped") return quantilePart(ds, 1, 2, "Median", push);
+    if (ds.type === "ungrouped") {
+        const d = [...ds.data].sort((a, b) => a - b), n = d.length;
+        push("Arrange the data in ascending order", d.map(F).join(", "));
+        if (n % 2) {
+            const p = (n + 1) / 2;
+            push("Find the middle position", `n = ${n} (odd), so Position = ${frac("n + 1", 2)} = ${frac(`${n} + 1`, 2)} = ${p}`);
+            push("Read the middle value", `The ${ord(p)} value is <strong>${F(d[p - 1])}</strong>`);
+            return d[p - 1];
+        }
+        const p1 = n / 2, p2 = p1 + 1, m = (d[p1 - 1] + d[p2 - 1]) / 2;
+        push("Find the two middle positions", `n = ${n} (even), so the middle values are the ${ord(p1)} and the ${ord(p2)}`);
+        push("Average the two middle values", `Median = ${frac(`${F(d[p1 - 1])} + ${F(d[p2 - 1])}`, 2)} = ${frac(F(d[p1 - 1] + d[p2 - 1]), 2)} = <strong>${F(m)}</strong>`);
+        return m;
+    }
+    push("Build the cumulative frequency column", gtable(ds, ["x", "f", "cf"]));
+    if (N % 2) {
+        const p = (N + 1) / 2, v = valueAtPos(ds, p);
+        push("Find the middle position", `N = ${F(N)} (odd), so Position = ${frac("N + 1", 2)} = ${F(p)}`);
+        push("Read the value from the cumulative frequency column", `The ${ord(p)} value is <strong>${F(v)}</strong>`);
+        return v;
+    }
+    const p1 = N / 2, a = valueAtPos(ds, p1), b = valueAtPos(ds, p1 + 1), m = (a + b) / 2;
+    push("Find the two middle positions", `N = ${F(N)} (even), so the middle values are the ${ord(p1)} and the ${ord(p1 + 1)}`);
+    push("Average the two middle values", `Median = ${frac(`${F(a)} + ${F(b)}`, 2)} = <strong>${F(m)}</strong>`);
+    return m;
+}
+
+/* returns { value (NaN if none/multiple), text } */
+function modePart(ds, push) {
+    if (ds.type === "grouped") {
+        const rows = ds.rows, maxf = Math.max(...rows.map(r => r.f)), idx = rows.findIndex(r => r.f === maxf), r = rows[idx];
+        const f0 = idx > 0 ? rows[idx - 1].f : 0, f2 = idx < rows.length - 1 ? rows[idx + 1].f : 0;
+        const d1 = r.f - f0, d2 = r.f - f2;
+        push("Find the modal class (the class with the highest frequency)", gtable(ds, ["bnd", "f"]) + `The highest frequency is ${F(maxf)}, so the modal class is <strong>${F(r.LB)} &ndash; ${F(r.UB)}</strong>.`);
+        push("Pick out the values for the formula", `L = ${F(r.LB)} (lower boundary of the modal class)<br>f${sub(1)} = ${F(r.f)} (frequency of the modal class)<br>f${sub(0)} = ${F(f0)} (frequency of the class before${idx === 0 ? ", none, so 0" : ""})<br>f${sub(2)} = ${F(f2)} (frequency of the class after${idx === rows.length - 1 ? ", none, so 0" : ""})<br>c = ${F(r.c)} (class width)`);
+        push("Find the differences", `&#916;${sub(1)} = f${sub(1)} &minus; f${sub(0)} = ${F(r.f)} &minus; ${F(f0)} = ${F(d1)}<br>&#916;${sub(2)} = f${sub(1)} &minus; f${sub(2)} = ${F(r.f)} &minus; ${F(f2)} = ${F(d2)}`);
+        if (d1 + d2 === 0) { push("Check the formula", "&#916;1 + &#916;2 = 0, so the modal-class formula cannot be used for this table."); return { value: NaN, text: "no unique mode" }; }
+        const fr = d1 / (d1 + d2), part = fr * r.c, val = r.LB + part;
+        push("Apply the formula Mode = L + [&#916;1 &divide; (&#916;1 + &#916;2)] &times; c", `Fraction: ${frac(F(d1), `${F(d1)} + ${F(d2)}`)} = ${frac(F(d1), F(d1 + d2))} = ${F(fr)}<br>Multiply by c: ${F(fr)} &times; ${F(r.c)} = ${F(part)}<br>Mode = ${F(r.LB)} + ${F(part)} = <strong>${F(val)}</strong>`);
+        return { value: val, text: F(val) };
+    }
+    let table;
+    if (ds.type === "ungrouped") {
+        const map = new Map(); ds.data.forEach(x => map.set(x, (map.get(x) || 0) + 1));
+        table = [...map.entries()].sort((a, b) => a[0] - b[0]).map(([x, f]) => ({ x, f }));
+        push("Count how many times each value appears", tbl(["Value x", "Frequency f"], table.map(r => [F(r.x), F(r.f)]), null));
+    } else {
+        table = ds.rows;
+        push("Look at the frequency of each value", gtable(ds, ["x", "f"]));
+    }
+    const maxf = Math.max(...table.map(r => r.f)), modes = table.filter(r => r.f === maxf).map(r => r.x);
+    if (maxf === 1 && ds.type === "ungrouped") {
+        push("Pick the most frequent value", "Every value appears only once, so there is <strong>no mode</strong>.");
+        return { value: NaN, text: "no mode (every value appears once)" };
+    }
+    if (modes.length === table.length && table.length > 1) {
+        push("Pick the most frequent value", "All values have the same frequency, so there is <strong>no mode</strong>.");
+        return { value: NaN, text: "no mode (all frequencies are equal)" };
+    }
+    push("Pick the most frequent value", `The highest frequency is ${F(maxf)}. It belongs to ${modes.map(F).join(" and ")}.`);
+    const lab = modes.length === 1 ? "unimodal" : (modes.length === 2 ? "bimodal" : "multimodal");
+    return { value: modes.length === 1 ? modes[0] : NaN, text: modes.map(F).join(" and ") + (modes.length > 1 ? ` (${lab})` : ""), list: modes };
+}
+
+function rangePart(ds, push) {
+    if (ds.type === "ungrouped") {
+        const mx = Math.max(...ds.data), mn = Math.min(...ds.data);
+        push("Find the largest and the smallest value", `Largest value = ${F(mx)}<br>Smallest value = ${F(mn)}`);
+        push("Subtract", `Range = Largest &minus; Smallest = ${F(mx)} &minus; ${P(mn)} = <strong>${F(mx - mn)}</strong>`);
+        return { range: mx - mn, hi: mx, lo: mn };
+    }
+    const rows = ds.rows;
+    if (ds.type === "discrete") {
+        const mx = rows[rows.length - 1].x, mn = rows[0].x;
+        push("Find the largest and the smallest value in the table", `Largest value = ${F(mx)}<br>Smallest value = ${F(mn)}`);
+        push("Subtract", `Range = ${F(mx)} &minus; ${P(mn)} = <strong>${F(mx - mn)}</strong>`);
+        return { range: mx - mn, hi: mx, lo: mn };
+    }
+    const hi = rows[rows.length - 1].UB, lo = rows[0].LB;
+    push("Find the highest upper boundary and the lowest lower boundary", `Highest upper class boundary = ${F(hi)}<br>Lowest lower class boundary = ${F(lo)}`);
+    push("Subtract", `Range = Highest upper boundary &minus; Lowest lower boundary = ${F(hi)} &minus; ${P(lo)} = <strong>${F(hi - lo)}</strong>`);
+    return { range: hi - lo, hi, lo };
+}
+
+/* variance / SD: returns { mean, N, ss, variance, sd, divisor } */
+function spreadPart(ds, push, sample) {
+    const N = dsN(ds);
+    if (sample && N < 2) throw new Error("A sample variance needs at least 2 values.");
+    const mean = meanPart(ds, push);
+    const div = sample ? N - 1 : N;
+    let ss, sx2;
+    if (ds.type === "ungrouped") {
+        ss = sumArr(ds.data.map(x => Math.pow(x - mean, 2)));
+        sx2 = sumArr(ds.data.map(x => x * x));
+        push(`Find each deviation from the mean and square it`, `Mean ${xbar} = ${F(mean)}<br>` + utable(ds.data, ["no", "x", "dev", "dev2"], { mean }) + `&Sigma;(x &minus; ${xbar})&sup2; = <strong>${F(ss)}</strong>`);
+    } else {
+        ss = sumArr(ds.rows.map(r => r.f * Math.pow(r.x - mean, 2)));
+        sx2 = sumArr(ds.rows.map(r => r.f * r.x * r.x));
+        push("Find each deviation from the mean, square it and multiply by f", `Mean ${xbar} = ${F(mean)}<br>` + gtable(ds, ["cls", "x", "f", "dev", "fdev2"], { mean }) + `&Sigma;f(x &minus; ${xbar})&sup2; = <strong>${F(ss)}</strong>`);
+    }
+    const variance = ss / div, sd = Math.sqrt(variance);
+    const sym = sample ? "s" : "&sigma;";
+    const topSym = ds.type === "ungrouped" ? `&Sigma;(x &minus; ${xbar})&sup2;` : `&Sigma;f(x &minus; ${xbar})&sup2;`;
+    const botSym = ds.type === "ungrouped" ? (sample ? "n &minus; 1" : "n") : (sample ? "&Sigma;f &minus; 1" : "&Sigma;f");
+    push(`Divide by ${sample ? "(" + (ds.type === "ungrouped" ? "n" : "&Sigma;f") + " &minus; 1)" : (ds.type === "ungrouped" ? "n" : "&Sigma;f")} to get the variance`,
+        `${sym}&sup2; = ${frac(topSym, botSym)} = ${frac(F(ss), F(div))} = <strong>${F(variance)}</strong>`);
+    let check = null;
+    if (!sample) {
+        check = sx2 / N - mean * mean;
+        push("Check with the shortcut formula", `${sym}&sup2; = ${frac(ds.type === "ungrouped" ? "&Sigma;x&sup2;" : "&Sigma;fx&sup2;", ds.type === "ungrouped" ? "n" : "&Sigma;f")} &minus; ${xbar}&sup2; = ${frac(F(sx2), F(N))} &minus; (${F(mean)})&sup2; = ${F(sx2 / N)} &minus; ${F(mean * mean)} = ${F(check)}`);
+    }
+    return { mean, N, ss, variance, sd, div, sym };
+}
+
+/* =========================================================
+   THE CALCULATORS
+========================================================= */
+
+const wrap = fn => v => { try { return fn(v || {}); } catch (e) { return errorMessage(e && e.message ? e.message : "Check your inputs and try again."); } };
+const numField = (v, k) => { const s = clean(v[k]); return s === "" ? NaN : Number(s); };
+
+const TYPE_OPTS = [["ungrouped", "Ungrouped data (raw values)"], ["discrete", "Ungrouped frequency table (values and frequencies)"], ["grouped", "Grouped data (class intervals and frequencies)"]];
+const TYPE_OPTS_MANUAL = [["manual", "Enter the values directly"], ...TYPE_OPTS];
+const BASIS_OPTS = [["population", "Population (divide by n)"], ["sample", "Sample (divide by n − 1)"]];
+const DATA_FIELDS = [
+    ["dataType", "Type of Data", "select"],
+    ["data", "Ungrouped data or table values (comma separated, e.g. 12, 15, 18)", "text"],
+    ["classes", "Grouped data only: class intervals (e.g. 0-10, 10-20, 20-30)", "text"],
+    ["freq", "Tables only: frequencies (e.g. 5, 8, 12)", "text"]
+];
+const formulaBox = (a, b, c) => `<strong>Ungrouped:</strong> ${a}<br><strong>Frequency table or grouped data:</strong> ${b}` + (c ? `<br>${c}` : "");
+
+/* ---------- Mean ---------- */
+function calcMean(v) {
+    const ds = getDS(v), { st, push } = mk();
+    intro(ds, push);
+    const m = meanPart(ds, push);
+    return resultTemplate(formulaBox(`${xbar} = ${frac("&Sigma;x", "n")}`, `${xbar} = ${frac("&Sigma;fx", "&Sigma;f")} where x = class mark = (lower + upper) &divide; 2`),
+        joinSteps(st), `<strong>Mean ${xbar} = ${F(m)}</strong>`, "The mean is the balancing point of the data.");
+}
+
+/* ---------- Weighted mean ---------- */
+function calcWeighted(v) {
+    const x = parseNums(v.values, "The values"), w = parseNums(v.weights, "The weights");
+    if (!x.length || x.length !== w.length) throw new Error("Values and weights must have the same non-zero number of entries.");
+    if (w.some(a => a < 0)) throw new Error("Weights cannot be negative.");
+    const sw = sumArr(w);
+    if (sw === 0) throw new Error("The sum of the weights cannot be zero.");
+    const { st, push } = mk();
+    push("Write the values and their weights", tbl(["Value x", "Weight w"], x.map((a, i) => [F(a), F(w[i])]), null));
+    const wx = x.map((a, i) => a * w[i]), swx = sumArr(wx);
+    push("Multiply each value by its weight", tbl(["x", "w", "wx"], x.map((a, i) => [F(a), F(w[i]), F(wx[i])]), ["Total", F(sw), F(swx)]) + `&Sigma;w = ${F(sw)}, &Sigma;wx = ${F(swx)}`);
+    const m = swx / sw;
+    push("Divide &Sigma;wx by &Sigma;w", `${xbar}${sub("w")} = ${frac("&Sigma;wx", "&Sigma;w")} = ${frac(F(swx), F(sw))} = <strong>${F(m)}</strong>`);
+    return resultTemplate(`${xbar}${sub("w")} = ${frac("&Sigma;wx", "&Sigma;w")}`, joinSteps(st), `<strong>Weighted mean = ${F(m)}</strong>`, "Values with larger weights pull the mean towards them.");
+}
+
+/* ---------- Median ---------- */
+function calcMedian(v) {
+    const ds = getDS(v), { st, push } = mk();
+    intro(ds, push);
+    const m = medianPart(ds, push);
+    return resultTemplate(formulaBox("Median = middle value; for even n, the average of the two middle values", "Median = L + [(N&divide;2 &minus; cf) &divide; f] &times; c (grouped data)<br>L = lower boundary of median class, cf = cumulative frequency before it, f = its frequency, c = class width"),
+        joinSteps(st), `<strong>Median = ${F(m)}</strong>`, "Half of the data lies below the median and half above it.");
+}
+
+/* ---------- Mode ---------- */
+function calcMode(v) {
+    const ds = getDS(v), { st, push } = mk();
+    intro(ds, push);
+    const r = modePart(ds, push);
+    return resultTemplate(formulaBox("Mode = the value that occurs most often", "Mode = L + [&#916;1 &divide; (&#916;1 + &#916;2)] &times; c (grouped data)<br>&#916;1 = f1 &minus; f0 and &#916;2 = f1 &minus; f2"),
+        joinSteps(st), `<strong>Mode = ${r.text}</strong>`, "The mode is the most common value, or the most crowded class in grouped data.");
+}
+
+/* ---------- Range ---------- */
+function calcRange(v) {
+    const ds = getDS(v), { st, push } = mk();
+    intro(ds, push);
+    const r = rangePart(ds, push);
+    const coef = (r.hi - r.lo) / (r.hi + r.lo);
+    if (r.hi + r.lo !== 0) push("Find the coefficient of range", `Coefficient of range = ${frac("Largest &minus; Smallest", "Largest + Smallest")} = ${frac(`${F(r.hi)} &minus; ${P(r.lo)}`, `${F(r.hi)} + ${P(r.lo)}`)} = <strong>${F(coef)}</strong>`);
+    return resultTemplate(formulaBox("Range = Largest value &minus; Smallest value", "Range = Highest upper class boundary &minus; Lowest lower class boundary"),
+        joinSteps(st), `<strong>Range = ${F(r.range)}</strong>` + (r.hi + r.lo !== 0 ? `<br>Coefficient of range = ${F(coef)}` : ""), "The range measures the total spread, but it uses only the two extreme values.");
+}
+
+/* ---------- Variance and standard deviation ---------- */
+const varFormulaU = s => `${s ? "s" : "&sigma;"}&sup2; = ${frac(`&Sigma;(x &minus; ${xbar})&sup2;`, s ? "n &minus; 1" : "n")}`;
+const varFormulaG = s => `${s ? "s" : "&sigma;"}&sup2; = ${frac(`&Sigma;f(x &minus; ${xbar})&sup2;`, s ? "&Sigma;f &minus; 1" : "&Sigma;f")}`;
+function calcVariance(v) {
+    const ds = getDS(v), sample = v.basis === "sample", { st, push } = mk();
+    intro(ds, push);
+    const r = spreadPart(ds, push, sample);
+    return resultTemplate(formulaBox(varFormulaU(sample), varFormulaG(sample)), joinSteps(st), `<strong>${sample ? "Sample" : "Population"} variance ${r.sym}&sup2; = ${F(r.variance)}</strong>`, "Variance is the average squared distance of the data from the mean.");
+}
+function calcSD(v) {
+    const ds = getDS(v), sample = v.basis === "sample", { st, push } = mk();
+    intro(ds, push);
+    const r = spreadPart(ds, push, sample);
+    push("Take the square root of the variance", `${r.sym} = &radic;(${r.sym}&sup2;) = &radic;(${F(r.variance)}) = <strong>${F(r.sd)}</strong>`);
+    return resultTemplate(formulaBox(`${sample ? "s" : "&sigma;"} = &radic;[${frac(`&Sigma;(x &minus; ${xbar})&sup2;`, sample ? "n &minus; 1" : "n")}]`, `${sample ? "s" : "&sigma;"} = &radic;[${frac(`&Sigma;f(x &minus; ${xbar})&sup2;`, sample ? "&Sigma;f &minus; 1" : "&Sigma;f")}]`),
+        joinSteps(st), `<strong>${sample ? "Sample" : "Population"} standard deviation ${r.sym} = ${F(r.sd)}</strong><br>Variance = ${F(r.variance)}`, "Standard deviation is in the same units as the data.");
+}
+
+/* ---------- Coefficient of variation ---------- */
+function calcCV(v) {
+    const { st, push } = mk();
+    let mean, sd;
+    if ((v.dataType || "manual") === "manual") {
+        mean = numField(v, "mean"); sd = numField(v, "sd");
+        if (!Number.isFinite(mean) || !Number.isFinite(sd)) throw new Error("Enter the mean and the standard deviation, or choose a data type and enter the data.");
+        if (mean === 0) throw new Error("The mean cannot be zero.");
+        push("Write the given values", `Mean ${xbar} = ${F(mean)}<br>Standard deviation &sigma; = ${F(sd)}`);
+    } else {
+        const ds = getDS(v), sample = v.basis === "sample";
+        intro(ds, push);
+        const r = spreadPart(ds, push, sample);
+        push("Take the square root of the variance", `${r.sym} = &radic;(${F(r.variance)}) = ${F(r.sd)}`);
+        mean = r.mean; sd = r.sd;
+        if (mean === 0) throw new Error("The mean is zero, so the coefficient of variation is undefined.");
+    }
+    const cv = sd / mean * 100;
+    push("Divide the standard deviation by the mean", `${frac("&sigma;", xbar)} = ${frac(F(sd), F(mean))} = ${F(sd / mean)}`);
+    push("Multiply by 100 to get a percentage", `CV = ${F(sd / mean)} &times; 100 = <strong>${F(cv)}%</strong>`);
+    return resultTemplate(`CV = ${frac("&sigma;", xbar)} &times; 100%`, joinSteps(st), `<strong>Coefficient of variation = ${F(cv)}%</strong>`, "A smaller CV means the data is more consistent relative to its mean.");
+}
+
+/* ---------- Skewness ---------- */
+function calcSkew(v) {
+    const { st, push } = mk();
+    let mean, mode, sd, median = NaN, modeText = "";
+    if ((v.dataType || "manual") === "manual") {
+        mean = numField(v, "mean"); mode = numField(v, "mode"); sd = numField(v, "sd");
+        if (![mean, mode, sd].every(Number.isFinite)) throw new Error("Enter the mean, the mode and the standard deviation, or choose a data type and enter the data.");
+        if (sd === 0) throw new Error("The standard deviation cannot be zero.");
+        push("Write the given values", `Mean ${xbar} = ${F(mean)}<br>Mode = ${F(mode)}<br>Standard deviation &sigma; = ${F(sd)}`);
+    } else {
+        const ds = getDS(v), sample = v.basis === "sample";
+        intro(ds, push);
+        push("PART A: the mean and the standard deviation", "First find the mean and the standard deviation.");
+        const r = spreadPart(ds, push, sample); mean = r.mean; sd = Math.sqrt(r.variance);
+        push("Take the square root of the variance", `${r.sym} = &radic;(${F(r.variance)}) = ${F(sd)}`);
+        push("PART B: the mode", "Now find the mode.");
+        const md = modePart(ds, push); mode = md.value; modeText = md.text;
+        push("PART C: the median", "Now find the median.");
+        median = medianPart(ds, push);
+        if (sd === 0) throw new Error("The standard deviation is zero, so skewness is undefined.");
+    }
+    let main, label;
+    if (Number.isFinite(mode)) {
+        const top = mean - mode; main = top / sd; label = "Pearson's first coefficient";
+        push("Pearson's first coefficient of skewness", `Sk${sub(1)} = ${frac(`${xbar} &minus; Mode`, "&sigma;")} = ${frac(`${F(mean)} &minus; ${P(mode)}`, F(sd))} = ${frac(F(top), F(sd))} = <strong>${F(main)}</strong>`);
+    }
+    if (Number.isFinite(median)) {
+        const top = 3 * (mean - median), sk2 = top / sd;
+        push("Pearson's second coefficient of skewness", `Sk${sub(2)} = ${frac(`3(${xbar} &minus; Median)`, "&sigma;")} = ${frac(`3(${F(mean)} &minus; ${P(median)})`, F(sd))} = ${frac(F(top), F(sd))} = <strong>${F(sk2)}</strong>`);
+        if (!Number.isFinite(main)) { main = sk2; label = "Pearson's second coefficient (no unique mode)"; }
+    }
+    const kind = Math.abs(main) < 1e-9 ? "symmetric" : (main > 0 ? "positively skewed (the long tail is on the right)" : "negatively skewed (the long tail is on the left)");
+    return resultTemplate(`Sk${sub(1)} = ${frac(`${xbar} &minus; Mode`, "&sigma;")}<br>Sk${sub(2)} = ${frac(`3(${xbar} &minus; Median)`, "&sigma;")}`, joinSteps(st),
+        `<strong>${label}: Sk = ${F(main)}</strong>` + (modeText ? `<br>Mode used: ${modeText}` : ""), `The distribution is ${kind}.`);
+}
+
+/* ---------- Kurtosis ---------- */
+function calcKurt(v) {
+    const { st, push } = mk();
+    let m4, m2;
+    if ((v.dataType || "manual") === "manual") {
+        m4 = numField(v, "m4"); m2 = numField(v, "variance");
+        if (!Number.isFinite(m4) || !Number.isFinite(m2)) throw new Error("Enter the fourth central moment and the variance, or choose a data type and enter the data.");
+        if (m2 <= 0) throw new Error("The variance must be greater than zero.");
+        push("Write the given values", `Fourth central moment &mu;${sub(4)} = ${F(m4)}<br>Variance &sigma;&sup2; = ${F(m2)}`);
+    } else {
+        const ds = getDS(v);
+        intro(ds, push);
+        const mean = meanPart(ds, push), N = dsN(ds);
+        if (ds.type === "ungrouped") {
+            const s2 = sumArr(ds.data.map(x => Math.pow(x - mean, 2))), s4 = sumArr(ds.data.map(x => Math.pow(x - mean, 4)));
+            push("Find the deviations, then the squares and fourth powers", utable(ds.data, ["no", "x", "dev", "dev2", "dev4"], { mean }));
+            m2 = s2 / N; m4 = s4 / N;
+            push("Find the second and fourth central moments", `&mu;${sub(2)} = ${frac(`&Sigma;(x &minus; ${xbar})&sup2;`, "n")} = ${frac(F(s2), F(N))} = ${F(m2)}<br>&mu;${sub(4)} = ${frac(`&Sigma;(x &minus; ${xbar})${sup(4)}`, "n")} = ${frac(F(s4), F(N))} = ${F(m4)}`);
+        } else {
+            const s2 = sumArr(ds.rows.map(r => r.f * Math.pow(r.x - mean, 2))), s4 = sumArr(ds.rows.map(r => r.f * Math.pow(r.x - mean, 4)));
+            push("Find the deviations, then f times the squares and fourth powers", gtable(ds, ["cls", "x", "f", "dev", "fdev2", "fdev4"], { mean }));
+            m2 = s2 / N; m4 = s4 / N;
+            push("Find the second and fourth central moments", `&mu;${sub(2)} = ${frac(`&Sigma;f(x &minus; ${xbar})&sup2;`, "&Sigma;f")} = ${frac(F(s2), F(N))} = ${F(m2)}<br>&mu;${sub(4)} = ${frac(`&Sigma;f(x &minus; ${xbar})${sup(4)}`, "&Sigma;f")} = ${frac(F(s4), F(N))} = ${F(m4)}`);
+        }
+        if (m2 <= 0) throw new Error("The variance is zero, so kurtosis is undefined.");
+    }
+    push("Square the variance", `&sigma;${sup(4)} = (&sigma;&sup2;)&sup2; = (${F(m2)})&sup2; = ${F(m2 * m2)}`);
+    const b2 = m4 / (m2 * m2);
+    push("Divide the fourth moment by &sigma;" + sup(4), `&beta;${sub(2)} = ${frac("&mu;" + sub(4), "&sigma;" + sup(4))} = ${frac(F(m4), F(m2 * m2))} = <strong>${F(b2)}</strong>`);
+    push("Find the excess kurtosis", `&gamma;${sub(2)} = &beta;${sub(2)} &minus; 3 = ${F(b2)} &minus; 3 = <strong>${F(b2 - 3)}</strong>`);
+    const kind = Math.abs(b2 - 3) < 1e-9 ? "mesokurtic (normal peakedness)" : (b2 > 3 ? "leptokurtic (more peaked than normal)" : "platykurtic (flatter than normal)");
+    return resultTemplate(`&beta;${sub(2)} = ${frac("&mu;" + sub(4), "&sigma;" + sup(4))}, excess kurtosis = &beta;${sub(2)} &minus; 3`, joinSteps(st),
+        `<strong>&beta;${sub(2)} = ${F(b2)}</strong><br>Excess kurtosis = ${F(b2 - 3)}`, `The distribution is ${kind}.`);
+}
+
+/* ---------- Quartiles, deciles, percentiles (new) ---------- */
+function calcQuantiles(v) {
+    const ds = getDS(v), { st, push } = mk(), meas = v.measure || "q1";
+    intro(ds, push);
+    const kk = numField(v, "k");
+    let out = "", note = "";
+    if (meas === "q1" || meas === "q2" || meas === "q3") {
+        const k = Number(meas[1]), val = quantilePart(ds, k, 4, `Q${k}`, push);
+        out = `<strong>Q${sub(k)} = ${F(val)}</strong>`;
+    } else if (meas === "iqr") {
+        push("PART A: the lower quartile Q1", "Find Q1 first.");
+        const q1 = quantilePart(ds, 1, 4, "Q1", push);
+        push("PART B: the upper quartile Q3", "Now find Q3.");
+        const q3 = quantilePart(ds, 3, 4, "Q3", push);
+        const iqr = q3 - q1;
+        push("Interquartile range", `IQR = Q${sub(3)} &minus; Q${sub(1)} = ${F(q3)} &minus; ${P(q1)} = <strong>${F(iqr)}</strong>`);
+        push("Quartile deviation (semi-interquartile range)", `QD = ${frac(`Q${sub(3)} &minus; Q${sub(1)}`, 2)} = ${frac(F(iqr), 2)} = <strong>${F(iqr / 2)}</strong>`);
+        if (q3 + q1 !== 0) push("Coefficient of quartile deviation", `${frac(`Q${sub(3)} &minus; Q${sub(1)}`, `Q${sub(3)} + Q${sub(1)}`)} = ${frac(F(iqr), F(q3 + q1))} = <strong>${F(iqr / (q3 + q1))}</strong>`);
+        out = `<strong>Q1 = ${F(q1)}, Q3 = ${F(q3)}</strong><br>IQR = ${F(iqr)}, Quartile deviation = ${F(iqr / 2)}`;
+    } else if (meas === "decile") {
+        if (!Number.isInteger(kk) || kk < 1 || kk > 9) throw new Error("For a decile, enter a whole number from 1 to 9 in the k box.");
+        const val = quantilePart(ds, kk, 10, `D${kk}`, push); out = `<strong>D${sub(kk)} = ${F(val)}</strong>`;
+    } else {
+        if (!Number.isInteger(kk) || kk < 1 || kk > 99) throw new Error("For a percentile, enter a whole number from 1 to 99 in the k box.");
+        const val = quantilePart(ds, kk, 100, `P${kk}`, push); out = `<strong>P${sub(kk)} = ${F(val)}</strong>`;
+    }
+    note = ds.type === "grouped" ? "For grouped data the position is kN/m and the value is found by interpolation inside the class." : "For raw data the position is k(N + 1)/m, with interpolation between neighbouring values when the position is not a whole number.";
+    return resultTemplate(formulaBox(`Position = ${frac("k(n + 1)", "m")} (m = 4 for quartiles, 10 for deciles, 100 for percentiles)`, `Value = L + [(kN&divide;m &minus; cf) &divide; f] &times; c`), joinSteps(st), out, note);
+}
+
+/* ---------- Mean deviation (new) ---------- */
+function calcMeanDev(v) {
+    const ds = getDS(v), { st, push } = mk();
+    intro(ds, push);
+    const mean = meanPart(ds, push), N = dsN(ds);
+    let tot;
+    if (ds.type === "ungrouped") {
+        tot = sumArr(ds.data.map(x => Math.abs(x - mean)));
+        push("Find the distance of each value from the mean (ignore the signs)", utable(ds.data, ["no", "x", "abs"], { mean }));
+        push("Divide by n", `MD = ${frac(`&Sigma;|x &minus; ${xbar}|`, "n")} = ${frac(F(tot), F(N))} = <strong>${F(tot / N)}</strong>`);
+    } else {
+        tot = sumArr(ds.rows.map(r => r.f * Math.abs(r.x - mean)));
+        push("Find f times the distance from the mean (ignore the signs)", gtable(ds, ["cls", "x", "f", "fabs"], { mean }));
+        push("Divide by &Sigma;f", `MD = ${frac(`&Sigma;f|x &minus; ${xbar}|`, "&Sigma;f")} = ${frac(F(tot), F(N))} = <strong>${F(tot / N)}</strong>`);
+    }
+    const md = tot / N;
+    if (mean !== 0) push("Find the coefficient of mean deviation", `${frac("MD", xbar)} = ${frac(F(md), P(mean))} = <strong>${F(md / mean)}</strong>`);
+    return resultTemplate(formulaBox(`MD = ${frac(`&Sigma;|x &minus; ${xbar}|`, "n")}`, `MD = ${frac(`&Sigma;f|x &minus; ${xbar}|`, "&Sigma;f")}`), joinSteps(st),
+        `<strong>Mean deviation = ${F(md)}</strong>` + (mean !== 0 ? `<br>Coefficient of mean deviation = ${F(md / mean)}` : ""), "Mean deviation is the average distance of the data from the mean.");
+}
+
+/* =========================================================
+   RELATIONSHIPS AND TIME SERIES
+========================================================= */
+
+function getPairs(v, kx, ky, minN = 2) {
+    const x = parseNums(v[kx], "The X values"), y = parseNums(v[ky], "The Y values");
+    if (x.length < minN || x.length !== y.length) throw new Error(`X and Y must have the same number of values (at least ${minN}).`);
+    return [x, y];
+}
+const strength = r => { const a = Math.abs(r); return a >= 0.9 ? "very strong" : a >= 0.7 ? "strong" : a >= 0.5 ? "moderate" : a >= 0.3 ? "weak" : "very weak or no"; };
+
+function calcCorrelation(v) {
+    const [x, y] = getPairs(v, "x", "y"), n = x.length, { st, push } = mk();
+    const sx = sumArr(x), sy = sumArr(y), sxy = sumArr(x.map((a, i) => a * y[i])), sx2 = sumArr(x.map(a => a * a)), sy2 = sumArr(y.map(a => a * a));
+    push("Write the pairs of values", `n = ${n}`);
+    push("Build the table of x, y, xy, x&sup2; and y&sup2;", tbl(["x", "y", "xy", "x&sup2;", "y&sup2;"], x.map((a, i) => [F(a), F(y[i]), F(a * y[i]), F(a * a), F(y[i] * y[i])]), ["Total", F(sy), F(sxy), F(sx2), F(sy2)]) + `&Sigma;x = ${F(sx)}, &Sigma;y = ${F(sy)}, &Sigma;xy = ${F(sxy)}, &Sigma;x&sup2; = ${F(sx2)}, &Sigma;y&sup2; = ${F(sy2)}`);
+    const num = n * sxy - sx * sy, A = n * sx2 - sx * sx, B = n * sy2 - sy * sy;
+    push("Work out the top part (numerator)", `n&Sigma;xy &minus; &Sigma;x&Sigma;y = ${n}(${F(sxy)}) &minus; (${F(sx)})(${F(sy)}) = ${F(n * sxy)} &minus; ${F(sx * sy)} = <strong>${F(num)}</strong>`);
+    push("Work out the two parts under the square root", `n&Sigma;x&sup2; &minus; (&Sigma;x)&sup2; = ${n}(${F(sx2)}) &minus; (${F(sx)})&sup2; = ${F(n * sx2)} &minus; ${F(sx * sx)} = <strong>${F(A)}</strong><br>n&Sigma;y&sup2; &minus; (&Sigma;y)&sup2; = ${n}(${F(sy2)}) &minus; (${F(sy)})&sup2; = ${F(n * sy2)} &minus; ${F(sy * sy)} = <strong>${F(B)}</strong>`);
+    if (A <= 0 || B <= 0) throw new Error("X or Y has no variation (all its values are the same), so the correlation is undefined.");
+    const den = Math.sqrt(A * B), r = num / den;
+    push("Combine the parts", `Denominator = &radic;(${F(A)} &times; ${F(B)}) = &radic;(${F(A * B)}) = ${F(den)}<br>r = ${frac(F(num), F(den))} = <strong>${F(r)}</strong>`);
+    push("Find the coefficient of determination", `r&sup2; = (${F(r)})&sup2; = ${F(r * r)}, so ${F2(r * r * 100, 2)}% of the variation in Y is explained by X.`);
+    return resultTemplate(`r = ${frac("n&Sigma;xy &minus; &Sigma;x&Sigma;y", "&radic;{[n&Sigma;x&sup2; &minus; (&Sigma;x)&sup2;][n&Sigma;y&sup2; &minus; (&Sigma;y)&sup2;]}")}`, joinSteps(st),
+        `<strong>Pearson correlation r = ${F(r)}</strong>`, `There is a ${strength(r)} ${r > 0 ? "positive" : r < 0 ? "negative" : ""} linear relationship.`);
+}
+
+function ranksOf(a) {
+    const idx = a.map((_, i) => i).sort((i, j) => a[j] - a[i]), r = Array(a.length);
+    let i = 0, ties = false;
+    while (i < idx.length) {
+        let j = i;
+        while (j + 1 < idx.length && a[idx[j + 1]] === a[idx[i]]) j++;
+        if (j > i) ties = true;
+        const avg = (i + j) / 2 + 1;
+        for (let k = i; k <= j; k++) r[idx[k]] = avg;
+        i = j + 1;
+    }
+    return { r, ties };
+}
+function calcSpearman(v) {
+    const { st, push } = mk();
+    let d2, n, ties = false, exact = null;
+    if ((v.inputMode || "manual") === "manual") {
+        d2 = numField(v, "d2"); n = numField(v, "n");
+        if (!Number.isFinite(d2) || !Number.isFinite(n)) throw new Error("Enter Σd² and n, or choose 'Rank the X and Y data' and enter the data.");
+        if (!Number.isInteger(n) || n < 2) throw new Error("n must be a whole number of at least 2.");
+        if (d2 < 0) throw new Error("Σd² cannot be negative.");
+        push("Write the given values", `&Sigma;d&sup2; = ${F(d2)}, n = ${F(n)}`);
+    } else {
+        const [x, y] = getPairs(v, "x", "y"); n = x.length;
+        const rx = ranksOf(x), ry = ranksOf(y); ties = rx.ties || ry.ties;
+        push("Rank the X values (the highest value gets rank 1)", `Where values are tied, each takes the average of the ranks they share.` + tbl(["x", "Rank of x"], x.map((a, i) => [F(a), F(rx.r[i])]), null));
+        push("Rank the Y values in the same way", tbl(["y", "Rank of y"], y.map((a, i) => [F(a), F(ry.r[i])]), null));
+        const d = rx.r.map((a, i) => a - ry.r[i]);
+        d2 = sumArr(d.map(a => a * a));
+        push("Find the difference between the ranks and square it", tbl(["x", "y", "R" + "x", "R" + "y", "d = Rx &minus; Ry", "d&sup2;"], x.map((a, i) => [F(a), F(y[i]), F(rx.r[i]), F(ry.r[i]), F(d[i]), F(d[i] * d[i])]), ["Total", "", "", "", F(sumArr(d)), F(d2)]) + `&Sigma;d&sup2; = <strong>${F(d2)}</strong>, n = ${n}`);
+        const mx = sumArr(rx.r) / n, my = sumArr(ry.r) / n;
+        const sxy = sumArr(rx.r.map((a, i) => (a - mx) * (ry.r[i] - my))), sxx = sumArr(rx.r.map(a => (a - mx) * (a - mx))), syy = sumArr(ry.r.map(a => (a - my) * (a - my)));
+        if (sxx > 0 && syy > 0) exact = sxy / Math.sqrt(sxx * syy);
+    }
+    const bot = n * (n * n - 1), top = 6 * d2, rho = 1 - top / bot;
+    push("Work out the parts of the formula", `n(n&sup2; &minus; 1) = ${F(n)}(${F(n)}&sup2; &minus; 1) = ${F(n)}(${F(n * n)} &minus; 1) = ${F(n)} &times; ${F(n * n - 1)} = ${F(bot)}<br>6&Sigma;d&sup2; = 6 &times; ${F(d2)} = ${F(top)}`);
+    push("Divide, then subtract from 1", `${frac("6&Sigma;d&sup2;", "n(n&sup2; &minus; 1)")} = ${frac(F(top), F(bot))} = ${F(top / bot)}<br>&rho; = 1 &minus; ${F(top / bot)} = <strong>${F(rho)}</strong>`);
+    if (ties && exact !== null) push("Note on tied ranks", `Because some values are tied, the formula is only approximate. The exact rank correlation (Pearson's r applied to the ranks) is <strong>${F(exact)}</strong>.`);
+    return resultTemplate(`&rho; = 1 &minus; ${frac("6&Sigma;d&sup2;", "n(n&sup2; &minus; 1)")}`, joinSteps(st), `<strong>Spearman's rank correlation &rho; = ${F(rho)}</strong>`, `There is a ${strength(rho)} ${rho > 0 ? "positive" : rho < 0 ? "negative" : ""} rank relationship.`);
+}
+
+function calcCovariance(v) {
+    const [x, y] = getPairs(v, "x", "y"), n = x.length, sample = v.basis === "sample", { st, push } = mk();
+    if (sample && n < 2) throw new Error("Sample covariance needs at least 2 pairs.");
+    const mx = sumArr(x) / n, my = sumArr(y) / n;
+    push("Find the two means", `${xbar} = ${frac(F(sumArr(x)), n)} = ${F(mx)}<br>${ybar} = ${frac(F(sumArr(y)), n)} = ${F(my)}`);
+    const prod = x.map((a, i) => (a - mx) * (y[i] - my)), s = sumArr(prod);
+    push("Find the deviations and multiply them", tbl(["x", "y", "x &minus; " + xbar, "y &minus; " + ybar, "(x &minus; " + xbar + ")(y &minus; " + ybar + ")"], x.map((a, i) => [F(a), F(y[i]), F(a - mx), F(y[i] - my), F(prod[i])]), ["Total", "", "", "", F(s)]) + `&Sigma;(x &minus; ${xbar})(y &minus; ${ybar}) = <strong>${F(s)}</strong>`);
+    const div = sample ? n - 1 : n, cov = s / div;
+    push(`Divide by ${sample ? "n &minus; 1" : "n"}`, `Cov(X, Y) = ${frac(`&Sigma;(x &minus; ${xbar})(y &minus; ${ybar})`, sample ? "n &minus; 1" : "n")} = ${frac(F(s), F(div))} = <strong>${F(cov)}</strong>`);
+    return resultTemplate(`Cov(X, Y) = ${frac(`&Sigma;(x &minus; ${xbar})(y &minus; ${ybar})`, sample ? "n &minus; 1" : "n")}`, joinSteps(st), `<strong>Cov(X, Y) = ${F(cov)}</strong>`, cov > 0 ? "Positive covariance: X and Y tend to move in the same direction." : cov < 0 ? "Negative covariance: X and Y tend to move in opposite directions." : "Zero covariance: no linear co-movement.");
+}
+
+/* ---------- Moving average ---------- */
+function calcMovingAverage(v) {
+    const y = parseNums(v.data, "The data values"), k = numField(v, "period"), n = y.length, { st, push } = mk();
+    if (!n) throw new Error("Enter the data values separated by commas.");
+    if (!Number.isInteger(k) || k < 2 || k > n) throw new Error("The period must be a whole number from 2 up to the number of values.");
+    push("Write the data in time order", tbl(["t", ...y.map((_, i) => String(i + 1))], [["Y", ...y.map(F)]], null) + `n = ${n}, period k = ${k} (${k % 2 ? "odd" : "even"})`);
+    const wins = []; for (let j = 0; j <= n - k; j++) { const seg = y.slice(j, j + k), tot = sumArr(seg); wins.push({ j, seg, tot, avg: tot / k }); }
+    push(`Find the ${k}-period moving totals and averages`, `Add ${k} consecutive values, then divide by ${k}. Slide forward one period each time.<br>` +
+        tbl(["Window", "Values added", "Moving total", "Moving average"], wins.map(w => [`t = ${w.j + 1} to ${w.j + k}`, w.seg.map(F).join(" + "), F(w.tot), F(w.avg)]), null) +
+        `Example: ${wins[0].seg.map(F).join(" + ")} = ${F(wins[0].tot)}, then ${F(wins[0].tot)} &divide; ${k} = ${F(wins[0].avg)}`);
+    let finals;
+    if (k % 2) {
+        const half = (k - 1) / 2;
+        finals = wins.map(w => ({ t: w.j + 1 + half, v: w.avg }));
+        push("Place each average at the middle period of its window", `For an odd period, each average sits exactly at the middle period.<br>` + tbl(["Middle period t", "Moving average"], finals.map(f => [String(f.t), F(f.v)]), null));
+    } else {
+        const cen = []; for (let j = 0; j + 1 < wins.length; j++) cen.push({ t: j + 1 + k / 2, a: wins[j].avg, b: wins[j + 1].avg, v: (wins[j].avg + wins[j + 1].avg) / 2 });
+        finals = cen.map(c => ({ t: c.t, v: c.v }));
+        if (!cen.length) throw new Error("There are not enough values to centre an even-period moving average. Use more data.");
+        push("Centre the averages", `For an even period, each average falls halfway between two periods, so average two consecutive moving averages to centre them on a period.<br>` +
+            tbl(["Centred at t", "Two averages", "Centred moving average"], cen.map(c => [String(c.t), `(${F(c.a)} + ${F(c.b)}) &divide; 2`, F(c.v)]), null));
+    }
+    push("Compare the series with its trend", tbl(["t", "Actual Y", "Trend (moving average)"], y.map((a, i) => { const f = finals.find(q => q.t === i + 1); return [String(i + 1), F(a), f ? F(f.v) : "&mdash;"]; }), null));
+    return resultTemplate(`Moving average = ${frac("Sum of k consecutive values", "k")}<br>Even k: average two consecutive moving averages to centre them`, joinSteps(st),
+        `<strong>Trend values: </strong>${finals.map(f => `t=${f.t}: ${F(f.v)}`).join(", ")}`, "A moving average smooths out short-term ups and downs to show the trend.");
+}
+
+/* ---------- Weighted moving average ---------- */
+function calcWMA(v) {
+    const x = parseNums(v.values, "The values"), w = parseNums(v.weights, "The weights"), { st, push } = mk();
+    if (!x.length || !w.length || w.length > x.length) throw new Error("Enter the values and the weights. There cannot be more weights than values.");
+    if (w.some(a => a < 0)) throw new Error("Weights cannot be negative.");
+    const sw = sumArr(w);
+    if (sw === 0) throw new Error("The sum of the weights cannot be zero.");
+    const k = w.length, out = [];
+    push("Write the values and the weights", `Values: ${x.map(F).join(", ")}<br>Weights: ${w.map(F).join(", ")} (&Sigma;w = ${F(sw)})` + (k < x.length ? `<br>There are fewer weights than values, so the ${k} weights are applied to each ${k} consecutive values (oldest value gets the first weight).` : ""));
+    for (let j = 0; j + k <= x.length; j++) { const seg = x.slice(j, j + k), prods = seg.map((a, i) => a * w[i]), tot = sumArr(prods); out.push({ seg, prods, tot, avg: tot / sw }); }
+    out.forEach((o, i) => {
+        push(k < x.length ? `Weighted moving average ${i + 1}` : "Multiply each value by its weight and add up",
+            tbl(["x", "w", "wx"], o.seg.map((a, q) => [F(a), F(w[q]), F(o.prods[q])]), ["Total", F(sw), F(o.tot)]) + `WMA = ${frac("&Sigma;wx", "&Sigma;w")} = ${frac(F(o.tot), F(sw))} = <strong>${F(o.avg)}</strong>`);
+    });
+    return resultTemplate(`WMA = ${frac("&Sigma;(w &times; x)", "&Sigma;w")}`, joinSteps(st), out.length === 1 ? `<strong>Weighted moving average = ${F(out[0].avg)}</strong>` : `<strong>Weighted moving averages: ${out.map(o => F(o.avg)).join(", ")}</strong>`, "Recent values can be given larger weights so they influence the result more.");
+}
+
+/* ---------- Least squares trend ---------- */
+function calcTrend(v) {
+    const y = parseNums(v.y, "The Y values"), n = y.length, { st, push } = mk();
+    if (n < 2) throw new Error("Enter at least 2 Y values.");
+    let X = parseNums(v.x, "The X values");
+    let intro_ = "";
+    if (!X.length) { X = y.map((_, i) => i + 1); intro_ = "The X box was empty, so the time periods 1, 2, 3, &hellip; are used.<br>"; }
+    if (X.length !== n) throw new Error("X and Y must have the same number of values.");
+    const coded = v.xMode === "coded", xm = sumArr(X) / n;
+    const x = coded ? X.map(a => a - xm) : X;
+    push("Write the data", intro_ + tbl(coded ? ["Original X", "Coded x = X &minus; " + F(xm), "Y"] : ["X", "Y"], X.map((a, i) => coded ? [F(a), F(x[i]), F(y[i])] : [F(a), F(y[i])]), null) + (coded ? "Coding with x = X &minus; mean makes &Sigma;x = 0, which simplifies the working." : ""));
+    const sx = sumArr(x), sy = sumArr(y), sxy = sumArr(x.map((a, i) => a * y[i])), sx2 = sumArr(x.map(a => a * a));
+    push("Build the table of x, y, xy and x&sup2;", tbl(["x", "y", "xy", "x&sup2;"], x.map((a, i) => [F(a), F(y[i]), F(a * y[i]), F(a * a)]), ["Total", F(sy), F(sxy), F(sx2)]) + `&Sigma;x = ${F(sx)}, &Sigma;y = ${F(sy)}, &Sigma;xy = ${F(sxy)}, &Sigma;x&sup2; = ${F(sx2)}`);
+    push("Write the normal equations for Y = a + bx", `&Sigma;y = na + b&Sigma;x &nbsp;&rarr;&nbsp; ${F(sy)} = ${n}a + ${P(sx)}b<br>&Sigma;xy = a&Sigma;x + b&Sigma;x&sup2; &nbsp;&rarr;&nbsp; ${F(sxy)} = ${P(sx)}a + ${F(sx2)}b`);
+    const bn = n * sxy - sx * sy, bd = n * sx2 - sx * sx;
+    if (Math.abs(bd) < 1e-12) throw new Error("All the X values are the same, so a trend line cannot be fitted.");
+    const b = bn / bd;
+    push("Solve for b (the slope)", `b = ${frac("n&Sigma;xy &minus; &Sigma;x&Sigma;y", "n&Sigma;x&sup2; &minus; (&Sigma;x)&sup2;")}<br>Top: ${n}(${F(sxy)}) &minus; (${F(sx)})(${F(sy)}) = ${F(n * sxy)} &minus; ${F(sx * sy)} = ${F(bn)}<br>Bottom: ${n}(${F(sx2)}) &minus; (${F(sx)})&sup2; = ${F(n * sx2)} &minus; ${F(sx * sx)} = ${F(bd)}<br>b = ${frac(F(bn), F(bd))} = <strong>${F(b)}</strong>`);
+    const a = (sy - b * sx) / n;
+    push("Solve for a (the intercept)", `a = ${frac("&Sigma;y &minus; b&Sigma;x", "n")} = ${frac(`${F(sy)} &minus; ${P(b)}(${F(sx)})`, n)} = ${frac(F(sy - b * sx), n)} = <strong>${F(a)}</strong>`);
+    const sign = b < 0 ? MINUS : "+";
+    let eq = `Y = ${F(a)} ${sign} ${F(Math.abs(b))}${coded ? "x" : "X"}`;
+    push("Write the trend equation", eq);
+    let finalEq = eq;
+    if (coded) {
+        const a2 = a - b * xm;
+        push("Convert back to the original X", `x = X &minus; ${F(xm)}, so Y = ${F(a)} + ${P(b)}(X &minus; ${F(xm)}) = (${F(a)} &minus; ${P(b)} &times; ${F(xm)}) + ${P(b)}X<br>Y = ${F(a2)} ${sign} ${F(Math.abs(b))}X`);
+        finalEq = `Y = ${F(a2)} ${sign} ${F(Math.abs(b))}X (and in coded form: ${eq})`;
+    }
+    push("Calculate the trend values", tbl(["X", "Actual Y", "Trend Y = a + b" + (coded ? "x" : "X"), "Difference"], X.map((a0, i) => { const t = a + b * x[i]; return [F(a0), F(y[i]), F(t), F(y[i] - t)]; }), null));
+    return resultTemplate(`Y = a + bX<br>b = ${frac("n&Sigma;XY &minus; &Sigma;X&Sigma;Y", "n&Sigma;X&sup2; &minus; (&Sigma;X)&sup2;")}, a = ${frac("&Sigma;Y &minus; b&Sigma;X", "n")}`, joinSteps(st),
+        `<strong>${finalEq}</strong><br>a = ${F(a)}, b = ${F(b)}`, `On average, Y ${b >= 0 ? "increases" : "decreases"} by ${F(Math.abs(b))} for each one-unit increase in ${coded ? "x" : "X"}.`);
+}
+
+/* ---------- Trend forecast ---------- */
+function calcForecast(v) {
+    const a = numField(v, "a"), b = numField(v, "b"), xs = parseNums(v.x, "The future X values"), { st, push } = mk();
+    if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error("Enter valid values for the intercept a and the trend coefficient b.");
+    if (!xs.length) throw new Error("Enter at least one future X value (several can be separated by commas).");
+    push("Write the trend equation", `Y = a + bX = ${F(a)} ${b < 0 ? MINUS : "+"} ${F(Math.abs(b))}X`);
+    const res = xs.map(X => ({ X, bx: b * X, Y: a + b * X }));
+    res.forEach((r, i) => push(`Forecast for X = ${F(r.X)}`, `bX = ${P(b)} &times; ${P(r.X)} = ${F(r.bx)}<br>Y = a + bX = ${F(a)} + ${P(r.bx)} = <strong>${F(r.Y)}</strong>`));
+    return resultTemplate("Y = a + bX", joinSteps(st), res.length === 1 ? `<strong>Forecast Y = ${F(res[0].Y)}</strong>` : `<strong>Forecasts: ${res.map(r => `X=${F(r.X)}: ${F(r.Y)}`).join(", ")}</strong>`, "A forecast assumes the trend continues as before.");
+}
+
+/* ---------- Seasonal index ---------- */
+function calcSeasonal(v) {
+    const { st, push } = mk();
+    if ((v.method || "simple") === "simple") {
+        const act = numField(v, "actual"), avg = numField(v, "average");
+        if (!Number.isFinite(act) || !Number.isFinite(avg)) throw new Error("Enter the actual value and the average or trend value, or choose 'Table of seasonal data'.");
+        if (avg === 0) throw new Error("The average or trend value cannot be zero.");
+        push("Write the values", `Actual value = ${F(act)}<br>Average / trend value = ${F(avg)}`);
+        push("Divide the actual by the average", `${frac("Actual", "Average")} = ${frac(F(act), F(avg))} = ${F(act / avg)}`);
+        push("Multiply by 100", `Seasonal index = ${F(act / avg)} &times; 100 = <strong>${F(act / avg * 100)}</strong>`);
+        return resultTemplate(`Seasonal index = ${frac("Actual", "Average / Trend")} &times; 100`, joinSteps(st), `<strong>Seasonal index = ${F(act / avg * 100)}</strong>`, act / avg * 100 > 100 ? "The season is above average." : act / avg * 100 < 100 ? "The season is below average." : "The season is exactly average.");
+    }
+    const rows = clean(v.table).split(/[;\n]+/).map(r => r.trim()).filter(Boolean).map(r => parseNums(r, "The table values"));
+    if (rows.length < 2) throw new Error("Enter at least 2 years (rows) separated by semicolons, for example: 10,12,15,11; 12,14,18,13; 13,15,19,14");
+    const k = rows[0].length;
+    if (k < 2 || rows.some(r => r.length !== k)) throw new Error("Every row must have the same number of seasons (at least 2).");
+    const add = v.model === "additive", names = Array.from({ length: k }, (_, i) => k === 4 ? "Q" + (i + 1) : k === 12 ? "M" + (i + 1) : "S" + (i + 1));
+    push("Write the data (each row is one year, each column is one season)", tbl(["Year", ...names], rows.map((r, i) => ["Year " + (i + 1), ...r.map(F)]), null));
+    const colTot = names.map((_, j) => sumArr(rows.map(r => r[j]))), colAvg = colTot.map(t => t / rows.length);
+    push("Find the total and the average of each season", tbl(["", ...names], [["Total", ...colTot.map(F)], ["Average (total &divide; " + rows.length + ")", ...colAvg.map(F)]], null));
+    const grand = sumArr(colAvg) / k;
+    push("Find the overall average of the seasonal averages", `Overall average = ${frac(colAvg.map(F).join(" + "), k)} = ${frac(F(sumArr(colAvg)), k)} = <strong>${F(grand)}</strong>`);
+    if (grand === 0) throw new Error("The overall average is zero, so seasonal indices cannot be found.");
+    let res;
+    if (add) {
+        res = colAvg.map(a => a - grand);
+        push("Seasonal variation = season average &minus; overall average", tbl(["Season", "Calculation", "Variation"], names.map((n_, j) => [n_, `${F(colAvg[j])} &minus; ${P(grand)}`, F(res[j])]), ["Sum", "", F(sumArr(res))]) + "The variations should add up to about zero.");
+    } else {
+        res = colAvg.map(a => a / grand * 100);
+        push("Seasonal index = (season average &divide; overall average) &times; 100", tbl(["Season", "Calculation", "Index"], names.map((n_, j) => [n_, `(${F(colAvg[j])} &divide; ${F(grand)}) &times; 100`, F(res[j])]), ["Sum", "", F(sumArr(res))]) + `The indices should add up to ${100 * k}.`);
+    }
+    return resultTemplate(add ? "Seasonal variation = Season average &minus; Overall average" : `Seasonal index = ${frac("Season average", "Overall average")} &times; 100`, joinSteps(st),
+        `<strong>${add ? "Seasonal variations" : "Seasonal indices"}: ${names.map((n_, j) => `${n_} = ${F(res[j])}`).join(", ")}</strong>`, add ? "Positive values are above the overall average, negative values are below it." : "An index above 100 means the season is above average; below 100 means it is below average.");
+}
+
+/* =========================================================
+   REGISTER (override the old statistics entries)
+========================================================= */
+if (typeof calculators === "undefined" || !calculators.statistics) return;
+const S = calculators.statistics;
+const upd = (key, title, o) => { S[key] = Object.assign({}, S[key] || {}, { title: (S[key] && S[key].title) || title }, o); };
+const basisOpt = { basis: BASIS_OPTS };
+const basisField = ["basis", "Variance basis", "select"];
+
+upd("mean", "Arithmetic Mean", { fields: DATA_FIELDS, options: { dataType: TYPE_OPTS }, formula: "x̄ = Σx / n  or  x̄ = Σfx / Σf", calculate: wrap(calcMean) });
+upd("weighted-mean", "Weighted Mean", { calculate: wrap(calcWeighted) });
+upd("median", "Median", { fields: DATA_FIELDS, options: { dataType: TYPE_OPTS }, formula: "Median = middle value  or  L + [(N/2 − cf)/f] × c", calculate: wrap(calcMedian) });
+upd("mode", "Mode", { fields: DATA_FIELDS, options: { dataType: TYPE_OPTS }, formula: "Mode = most frequent value  or  L + [Δ1/(Δ1 + Δ2)] × c", calculate: wrap(calcMode) });
+upd("range", "Range", { fields: DATA_FIELDS, options: { dataType: TYPE_OPTS }, formula: "Range = Largest − Smallest", calculate: wrap(calcRange) });
+upd("variance", "Variance", { fields: [...DATA_FIELDS, basisField], options: { dataType: TYPE_OPTS, ...basisOpt }, formula: "σ² = Σ(x − x̄)² / n  or  Σf(x − x̄)² / Σf", calculate: wrap(calcVariance) });
+upd("standard-deviation", "Standard Deviation", { fields: [...DATA_FIELDS, basisField], options: { dataType: TYPE_OPTS, ...basisOpt }, formula: "σ = √[Σ(x − x̄)² / n]", calculate: wrap(calcSD) });
+upd("coefficient-variation", "Coefficient of Variation", { fields: [["dataType", "Input Method", "select"], ["mean", "Mean (when entering values directly)", "number"], ["sd", "Standard Deviation (when entering values directly)", "number"], ...DATA_FIELDS.slice(1), basisField], options: { dataType: TYPE_OPTS_MANUAL, ...basisOpt }, formula: "CV = (σ / x̄) × 100%", calculate: wrap(calcCV) });
+upd("skewness", "Skewness", { fields: [["dataType", "Input Method", "select"], ["mean", "Mean (when entering values directly)", "number"], ["mode", "Mode (when entering values directly)", "number"], ["sd", "Standard Deviation (when entering values directly)", "number"], ...DATA_FIELDS.slice(1), basisField], options: { dataType: TYPE_OPTS_MANUAL, ...basisOpt }, formula: "Sk = (Mean − Mode) / σ  and  3(Mean − Median) / σ", calculate: wrap(calcSkew) });
+upd("kurtosis", "Kurtosis", { fields: [["dataType", "Input Method", "select"], ["m4", "Fourth Central Moment (when entering values directly)", "number"], ["variance", "Variance (when entering values directly)", "number"], ...DATA_FIELDS.slice(1)], options: { dataType: TYPE_OPTS_MANUAL }, formula: "β2 = μ4 / σ⁴", calculate: wrap(calcKurt) });
+upd("correlation", "Pearson Correlation", { calculate: wrap(calcCorrelation) });
+upd("spearman", "Spearman Rank Correlation", { fields: [["inputMode", "Input Method", "select"], ["d2", "Σd² (when entering values directly)", "number"], ["n", "Number of Observations n (when entering values directly)", "number"], ["x", "X Values (when ranking data, comma separated)", "text"], ["y", "Y Values (when ranking data, comma separated)", "text"]], options: { inputMode: [["manual", "Enter Σd² and n directly"], ["data", "Rank the X and Y data"]] }, formula: "ρ = 1 − [6Σd² / n(n² − 1)]", calculate: wrap(calcSpearman) });
+upd("covariance", "Covariance", { fields: [["x", "X Values (comma separated)", "text"], ["y", "Y Values (comma separated)", "text"], basisField], options: basisOpt, calculate: wrap(calcCovariance) });
+upd("moving-average", "Moving Average", { calculate: wrap(calcMovingAverage) });
+upd("weighted-moving-average", "Weighted Moving Average", { fields: [["values", "Values (comma separated)", "text"], ["weights", "Weights (comma separated, oldest first)", "text"]], calculate: wrap(calcWMA) });
+upd("least-squares-trend", "Least Squares Trend", { fields: [["x", "X Values / Time Periods (comma separated, leave blank for 1, 2, 3 ...)", "text"], ["y", "Y Values (comma separated)", "text"], ["xMode", "Method", "select"]], options: { xMode: [["actual", "Use X as entered"], ["coded", "Code X so that Σx = 0 (time-series method)"]] }, calculate: wrap(calcTrend) });
+upd("trend-forecast", "Trend Forecast", { fields: [["a", "Intercept (a)", "number"], ["b", "Trend Coefficient (b)", "number"], ["x", "Future X Value (several values can be separated by commas)", "text"]], calculate: wrap(calcForecast) });
+upd("seasonal-index", "Seasonal Index", { fields: [["method", "Method", "select"], ["actual", "Actual Value (single season method)", "number"], ["average", "Average / Trend Value (single season method)", "number"], ["table", "Table of seasonal data: one row per year, rows separated by ; (e.g. 10,12,15,11; 12,14,18,13)", "text"], ["model", "Model (table method)", "select"]], options: { method: [["simple", "Single season: Actual ÷ Average × 100"], ["table", "Table of seasonal data (several years)"]], model: [["multiplicative", "Multiplicative (seasonal index)"], ["additive", "Additive (seasonal variation)"]] }, calculate: wrap(calcSeasonal) });
+
+/* two new statistics that accept tables */
+const QOPTS = [["q1", "Lower quartile Q1"], ["q2", "Median Q2"], ["q3", "Upper quartile Q3"], ["iqr", "Interquartile range and quartile deviation"], ["decile", "Decile (D1 to D9)"], ["percentile", "Percentile (P1 to P99)"]];
+upd("quartiles", "Quartiles, Deciles and Percentiles", { fields: [["measure", "What do you want to find?", "select"], ...DATA_FIELDS, ["k", "k (for a decile 1 to 9, or a percentile 1 to 99)", "number"]], options: { measure: QOPTS, dataType: TYPE_OPTS }, formula: "Position = k(n + 1)/m  or  L + [(kN/m − cf)/f] × c", calculate: wrap(calcQuantiles) });
+upd("mean-deviation", "Mean Deviation", { fields: DATA_FIELDS, options: { dataType: TYPE_OPTS }, formula: "MD = Σ|x − x̄| / n  or  Σf|x − x̄| / Σf", calculate: wrap(calcMeanDev) });
+if (typeof calculatorNames !== "undefined" && calculatorNames.statistics) {
+    calculatorNames.statistics["quartiles"] = "Quartiles, Deciles and Percentiles";
+    calculatorNames.statistics["mean-deviation"] = "Mean Deviation";
+}
+if (typeof categorySelect !== "undefined" && categorySelect && typeof populateCalculators === "function") populateCalculators();
+})();
+
