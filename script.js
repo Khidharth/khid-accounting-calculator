@@ -237,39 +237,44 @@ function formatLearningSteps(working) {
    This avoids raw commands such as \\frac or broken escape sequences appearing in results. */
 function formatMathNotation(value) {
     let out = String(value ?? "");
-    // Preserve actual TeX expressions so MathJax can render fractions, roots,
-    // superscripts, subscripts and symbols as mathematics rather than plain text.
-    const mathTokens = [];
-    out = out.replace(/\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g, (match) => {
-        const token = `KHIDMATHPLACEHOLDER${mathTokens.length}END`;
-        mathTokens.push(match);
-        return token;
-    });
-
-    // Remove control characters only from ordinary text/HTML, not from TeX.
+    // Repair common mojibake/control characters if they entered a stored formula string.
     out = out.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+    out = out.replace(/\\\(/g, "").replace(/\\\)/g, "")
+             .replace(/\\\[/g, "").replace(/\\\]/g, "");
+    out = out.replace(/\\left/g, "").replace(/\\right/g, "")
+             .replace(/\\quad/g, " ").replace(/\\qquad/g, " ")
+             .replace(/\\,/g, " ").replace(/\\!/g, "");
     out = out.replace(/\\text\{([^{}]*)\}/g, "$1")
-             .replace(/\\mathrm\{([^{}]*)\}/g, "$1")
-             .replace(/\\times/g, "Ã—").replace(/\\cdot/g, "Â·")
-             .replace(/\\pm/g, "Â±").replace(/\\Delta/g, "Î”")
-             .replace(/\\Sigma/g, "Î£").replace(/\\sum/g, "Î£")
-             .replace(/\\pi/g, "Ï€").replace(/\\theta/g, "Î¸")
-             .replace(/\\leq/g, "â‰¤").replace(/\\geq/g, "â‰¥")
-             .replace(/\\neq/g, "â‰ ").replace(/\\infty/g, "âˆž")
-             .replace(/\\cdots/g, "â€¦")
-             .replace(/\bsqrt\(/g, "âˆš(");
-
-    out = out.replace(/\bDelta(?=(?:TR|TP|Q|L)\b)/g, "Î”")
-             .replace(/\bDelta(TR|TP|Q|L)\b/g, "Î”$1")
-             .replace(/\bDelta\b/g, "Î”");
-    out = out.replace(/\s\*\s/g, " Ã— ").replace(/\s\/\s/g, " Ã· ")
-             .replace(/\bDeltaTR\b/g, "Î”TR").replace(/\bDeltaQ\b/g, "Î”Q")
-             .replace(/\bDeltaTP\b/g, "Î”TP").replace(/\bDeltaL\b/g, "Î”L");
-
-    // Restore TeX verbatim. It must retain its \(...\) or \[...\] delimiters.
-    mathTokens.forEach((math, index) => {
-        out = out.replace(`KHIDMATHPLACEHOLDER${index}END`, math);
-    });
+             .replace(/\\mathrm\{([^{}]*)\}/g, "$1");
+    // Resolve nested square roots and fractions from the inside out. Fractions are displayed plainly.
+    for (let i = 0; i < 10; i++) {
+        const next = out.replace(/\\sqrt\{([^{}]*)\}/g, "\u221A($1)")
+                        .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, "($1) / ($2)");
+        if (next === out) break;
+        out = next;
+    }
+    out = out.replace(/\\sqrt\{([^{}]*)\}/g, "\u221A($1)")
+             .replace(/\\bar\{([^{}]*)\}/g, "$1\u0304")
+             .replace(/\\times/g, "\u00D7").replace(/\\cdot/g, "\u00B7")
+             .replace(/\\pm/g, "\u00B1").replace(/\\Delta/g, "\u0394")
+             .replace(/\\Sigma/g, "\u03A3").replace(/\\sum/g, "\u03A3")
+             .replace(/\\pi/g, "\u03C0").replace(/\\theta/g, "\u03B8")
+             .replace(/\\leq/g, "\u2264").replace(/\\geq/g, "\u2265")
+             .replace(/\\neq/g, "\u2260").replace(/\\infty/g, "\u221E")
+             .replace(/\\cdots/g, "\u2026")
+             .replace(/\bsqrt\(/g, "\u221A(");
+    // Use actual mathematical symbols instead of English spellings in formula labels.
+    out = out.replace(/\bDelta(?=(?:TR|TP|Q|L)\b)/g, "\u0394")
+             .replace(/\bDelta(TR|TP|Q|L)\b/g, "\u0394$1")
+             .replace(/\bDelta\b/g, "\u0394");
+    // Remove LaTeX grouping braces around powers/subscripts before formatting them.
+    out = out.replace(/\^\{([^{}]*)\}/g, "^$1").replace(/_\{([^{}]*)\}/g, "_$1");
+    // Convert common variable subscripts and powers to proper mathematical typography.
+    out = out.replace(/<[^>]*>|([A-Za-z\u0391-\u03A9\u03B1-\u03C9]+)_([A-Za-z0-9]+)/g, (match, name, index) => match.startsWith("<") ? match : `${name}<sub>${index}</sub>`)
+             .replace(/<[^>]*>|([A-Za-z\u0391-\u03A9\u03B1-\u03C90-9)])\^(\([^)]*\)|[+-]?[A-Za-z0-9]+)/g, (match, base, power) => match.startsWith("<") ? match : `${base}<sup>${power}</sup>`);
+    out = out.replace(/\s\*\s/g, " \u00D7 ").replace(/\s\/\s/g, " \u00F7 ")
+             .replace(/\bDeltaTR\b/g, "\u0394TR").replace(/\bDeltaQ\b/g, "\u0394Q")
+             .replace(/\bDeltaTP\b/g, "\u0394TP").replace(/\bDeltaL\b/g, "\u0394L");
     return out;
 }
 
@@ -7219,107 +7224,4 @@ function khidParseLinearFunction(raw, expectedVariable) {
   if (categorySelect && calculatorSelect) {
     populateCalculators();
   }
-
-  /* =========================================================
-     MATHEMATICAL FORMULA RENDERING
-     Load MathJax from JavaScript so the existing HTML/CSS need not be changed.
-     TeX expressions remain intact in formatMathNotation() and are typeset after
-     calculator results are inserted into the page.
-  ========================================================= */
-  (function khidEnableMathRendering() {
-    let mathJaxLoadPromise = null;
-
-    function loadMathJax() {
-      if (window.MathJax && typeof window.MathJax.typesetPromise === "function") {
-        return Promise.resolve(window.MathJax);
-      }
-      if (mathJaxLoadPromise) return mathJaxLoadPromise;
-
-      // Configure before the MathJax script starts loading.
-      window.MathJax = window.MathJax || {
-        tex: {
-          inlineMath: [["\\(", "\\)"], ["$", "$"]],
-          displayMath: [["\\[", "\\]"]],
-          processEscapes: true
-        },
-        options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] },
-        startup: { typeset: false }
-      };
-
-      mathJaxLoadPromise = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
-        script.async = true;
-        script.onload = () => {
-          if (window.MathJax && typeof window.MathJax.typesetPromise === "function") {
-            resolve(window.MathJax);
-          } else {
-            reject(new Error("MathJax loaded but its typesetting API is unavailable."));
-          }
-        };
-        script.onerror = () => reject(new Error("MathJax could not load. Check the internet connection or CDN access."));
-        document.head.appendChild(script);
-      });
-      return mathJaxLoadPromise;
-    }
-
-    let renderQueued = false;
-    const pendingRoots = new Set();
-    function queueMathTypeset(root) {
-      if (!root || root.nodeType !== 1) return;
-      pendingRoots.add(root);
-      if (renderQueued) return;
-      renderQueued = true;
-      Promise.resolve().then(async () => {
-        renderQueued = false;
-        const roots = Array.from(pendingRoots);
-        pendingRoots.clear();
-        try {
-          const mj = await loadMathJax();
-          if (typeof mj.typesetClear === "function") mj.typesetClear(roots);
-          await mj.typesetPromise(roots);
-        } catch (error) {
-          // Keep the readable TeX source visible if the CDN is unavailable.
-          console.warn("KHID calculator math rendering unavailable:", error);
-        }
-      });
-    }
-
-    function containsCalculatorMath(node) {
-      if (!node || node.nodeType !== 1) return false;
-      return node.matches?.(".formula-box, .working-box, .interpretation-box") ||
-        Boolean(node.querySelector?.(".formula-box, .working-box, .interpretation-box"));
-    }
-
-    function observeResults() {
-      if (!document.body || !window.MutationObserver) return;
-      const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          for (const node of mutation.addedNodes) {
-            if (containsCalculatorMath(node)) queueMathTypeset(node);
-          }
-          // Some renderers update an existing result container rather than
-          // inserting a new wrapper, so inspect the nearest result area too.
-          if (mutation.target?.nodeType === 1) {
-            const target = mutation.target;
-            const resultRoot = target.closest?.("#result, #calculator-result, .result-container, .calculator-result") || target;
-            if (containsCalculatorMath(resultRoot)) queueMathTypeset(resultRoot);
-          }
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-
-      document.querySelectorAll(".formula-box, .working-box, .interpretation-box").forEach((node) => {
-        const root = node.closest("#result, #calculator-result, .result-container, .calculator-result") || node;
-        queueMathTypeset(root);
-      });
-    }
-
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", observeResults, { once: true });
-    } else {
-      observeResults();
-    }
-  })();
-
 })();
